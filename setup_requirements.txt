@@ -1,0 +1,4 @@
+# Minimum Cython version is based on what pysam and pysamstats use currently:
+# https://github.com/pysam-developers/pysam/blob/master/requirements.txt
+cython >= 0.29.12
+numpy
