@@ -36,10 +36,10 @@ Options:
 Commands:
   align         Aligns reads to contigs.
   call-naive    Performs naive mutation identification using NaiveFreq.
-  div-idx       Computes the diversity index of MAGs.
   est-fdr       Estimates the FDR of identified mutations.
-  link-graph    Constructs the link graph structure for a MAG.
-  mut-matrix    Computes mutation matrices of a MAG.
-  smooth-jumbo  Generates smoothed haplotypes using jumboDBG.
+  div-idx       Computes the diversity index of MAGs.
   spots         Identifies hot- and/or cold-spots in MAGs.
+  mut-matrix    Computes mutation matrices of a MAG.
+  link-graph    Constructs the link graph structure for a MAG.
+  smooth-jumbo  Generates smoothed haplotypes using jumboDBG.
 ```

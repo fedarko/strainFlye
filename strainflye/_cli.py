@@ -15,7 +15,16 @@ cmd_params = {
 }
 
 
-@click.group(**cmd_params)
+# By default, Click lists strainFlye's commands in alphabetical order; this
+# isn't ideal for pipelines like ours. We can get around this by adjusting how
+# the strainFlye Click.Group works; see
+# https://github.com/pallets/click/issues/513#issuecomment-504158316.
+class ClickGroupWithOrderedCommands(click.Group):
+    def list_commands(self, ctx):
+        return self.commands.keys()
+
+
+@click.group(cls=ClickGroupWithOrderedCommands, **cmd_params)
 def strainflye():
     """Pipeline for the analysis of rare mutations in metagenomes."""
     pass
