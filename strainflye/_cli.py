@@ -22,6 +22,10 @@ def strainflye():
 
 
 @strainflye.command(**cmd_params)
+# Ideally we'd let the user specify multiple reads files without having to
+# repeatedly say "-r", but this doesn't seem possible with options in Click;
+# see https://stackoverflow.com/q/48391777. Oh well! This state of affairs is
+# at least consistent with LJA + jumboDBG as of writing.
 @click.option(
     "-r",
     "--reads",
