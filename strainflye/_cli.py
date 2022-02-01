@@ -15,8 +15,11 @@ cmd_params = {
 }
 
 
-# By default, Click lists strainFlye's commands in alphabetical order; this
-# isn't ideal for pipelines like ours. We can get around this by adjusting how
+# By default, Click's help info (shown when running e.g. "strainFlye -h")
+# lists strainFlye's commands in alphabetical order; this isn't ideal for
+# pipelines like ours, where there is a reasonably natural ordering of the
+# commands. We can get around this, and sort commands in the help info in
+# the order in which we define them within this file, by adjusting how
 # the strainFlye Click.Group works; see
 # https://github.com/pallets/click/issues/513#issuecomment-504158316.
 class ClickGroupWithOrderedCommands(click.Group):
