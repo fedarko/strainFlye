@@ -1,5 +1,7 @@
 # strainFlye
 
+[![strainFlye CI](https://github.com/fedarko/strainFlye/actions/workflows/main.yml/badge.svg)](https://github.com/fedarko/strainFlye/actions/workflows/main.yml)
+
 strainFlye is a pipeline for calling, analyzing, and phasing rare mutations
 in metagenome-assembled genomes produced from HiFi sequencing data.
 
