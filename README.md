@@ -34,7 +34,7 @@ Options:
   -h, --help  Show this message and exit.
 
 Commands:
-  align         Aligns reads to contigs, and process this alignment.
+  align         Aligns reads to contigs, and processes this alignment.
   call-naive    Performs naive mutation identification using NaiveFreq.
   est-fdr       Estimates the FDR of identified mutations.
   div-idx       Computes the diversity index of MAGs.
