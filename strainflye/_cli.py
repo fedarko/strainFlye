@@ -69,7 +69,7 @@ def strainflye():
 # apparently needed to get the formatting to look the way I want (otherwise all
 # of the four steps are smooshed into a paragraph)
 def align(reads, contigs, output_bam_file):
-    """Aligns reads to contigs.
+    """Aligns reads to contigs, and process this alignment.
 
     This performs multiple steps, including:
 
