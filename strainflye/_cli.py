@@ -131,7 +131,17 @@ def align(reads, contigs, output_bam):
         'decoy contig (e.g. "edge_6104").'
     ),
 )
-def call_naive(contigs, bam, fdr, decoy_contig):
+@click.option(
+    "-o",
+    "--output-vcf",
+    required=True,
+    type=click.Path(dir_okay=False),
+    help=(
+        "Filepath to which an output VCF file (describing the called "
+        "mutations) will be written."
+    ),
+)
+def call_naive(contigs, bam, fdr, decoy_contig, output_vcf):
     """Performs naive mutation calling with controlled FDR.
 
     The FDR (false discovery rate) is estimated based on the target-decoy
@@ -167,7 +177,21 @@ def fdr_curves():
 
 
 @strainflye.command(**cmd_params)
-def div_idx():
+@click.option(
+    "-c",
+    "--contigs",
+    required=True,
+    type=click.Path(exists=True),
+    help="FASTA file of contigs for which diversity indices will be computed.",
+)
+@click.option(
+    "-v",
+    "--vcf",
+    required=True,
+    type=click.Path(exists=True),
+    help="VCF file describing called mutations in the contigs.",
+)
+def diversity(contigs, vcf):
     """Computes the diversity index of MAGs."""
     print("DI")
 
@@ -179,7 +203,7 @@ def spots():
 
 
 @strainflye.command(**cmd_params)
-def mut_matrix():
+def matrix():
     """Computes mutation matrices of a MAG."""
     print("MM")
 
