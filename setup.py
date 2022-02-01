@@ -62,7 +62,10 @@ setup(
     },
     classifiers=classifiers,
     entry_points={
-        "console_scripts": ["strainFlye=strainflye._cli:run"],
+        "console_scripts": [
+            "strainFlye=strainflye._cli:strainflye",
+            "strainflye=strainflye._cli:strainflye",
+        ],
     },
     python_requires=">=3.6",
 )
