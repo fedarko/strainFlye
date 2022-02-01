@@ -69,7 +69,7 @@ def strainflye():
 # apparently needed to get the formatting to look the way I want (otherwise all
 # of the four steps are smooshed into a paragraph)
 def align(reads, contigs, output_bam_file):
-    """Aligns reads to contigs, and processes this alignment.
+    """Aligns reads to contigs, and filters this alignment.
 
     This performs multiple steps, including:
 
@@ -93,13 +93,13 @@ def align(reads, contigs, output_bam_file):
 
 @strainflye.command(**cmd_params)
 def call_naive():
-    """Performs naive mutation identification using NaiveFreq."""
+    """Performs naive mutation calling with controlled FDR."""
     print("Calling")
 
 
 @strainflye.command(**cmd_params)
-def est_fdr():
-    """Estimates the FDR of identified mutations.
+def fdr_curves():
+    """Visualizes FDR curves of identified mutations.
 
     This is done using the target-decoy approach."""
     print("Estimating")

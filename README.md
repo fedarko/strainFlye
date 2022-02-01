@@ -34,9 +34,9 @@ Options:
   -h, --help  Show this message and exit.
 
 Commands:
-  align         Aligns reads to contigs, and processes this alignment.
-  call-naive    Performs naive mutation identification using NaiveFreq.
-  est-fdr       Estimates the FDR of identified mutations.
+  align         Aligns reads to contigs, and filters this alignment.
+  call-naive    Performs naive mutation calling with controlled FDR.
+  fdr-curves    Visualizes FDR curves of identified mutations.
   div-idx       Computes the diversity index of MAGs.
   spots         Identifies hot- and/or cold-spots in MAGs.
   mut-matrix    Computes mutation matrices of a MAG.
