@@ -23,4 +23,4 @@ jobs:
         run: make test
 
       - name: Upload code coverage information to CodeCov
-        uses: actions/codecov@v2
+        uses: codecov/codecov-action@v2
