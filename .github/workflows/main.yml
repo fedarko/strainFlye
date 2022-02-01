@@ -21,3 +21,6 @@ jobs:
 
       - name: Run tests
         run: make test
+
+      - name: Upload code coverage information to CodeCov
+        uses: actions/codecov@v2
