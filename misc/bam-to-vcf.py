@@ -14,7 +14,6 @@ import time
 import skbio
 import pysam
 import pysamstats
-from collections import defaultdict
 
 # Script configuration settings:
 ###############################################################################
@@ -94,7 +93,7 @@ vcf = (
     f'{MIN_ALT_POS}, min read number = {MIN_READ_NUMBER})"\n'
     "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
 )
-sep = ("-" * 79)
+sep = "-" * 79
 print(
     f"{sep}\nFor reference, the VCF header of the resulting file will be:\n"
     f"{vcf}{sep}"
@@ -115,10 +114,19 @@ for seq in SEQS:
     # We use pad=True so that even uncovered positions are included -- for
     # example, edge 1671 has some regions in the middle that are uncovered
     # after read filtering, at least as of writing.
-    for pos, rec in enumerate(pysamstats.stat_variation(
-        bf, chrom=seq, fafile=fastapath, start=0, end=seqlen,
-        truncate=True, max_depth=MAX_DEPTH_PYSAM, pad=True
-    ), 1):
+    for pos, rec in enumerate(
+        pysamstats.stat_variation(
+            bf,
+            chrom=seq,
+            fafile=fastapath,
+            start=0,
+            end=seqlen,
+            truncate=True,
+            max_depth=MAX_DEPTH_PYSAM,
+            pad=True,
+        ),
+        1,
+    ):
         if rec["N"] > 0:
             # we can definitely handle this case, but it'll take a bit of
             # thinking; there are multiple ways we could do this, and for now
@@ -166,13 +174,13 @@ for seq in SEQS:
             if alt_nt_freq >= MIN_ALT_POS:
                 # We call a p-mutation if alt(pos) / reads(pos) >= p / 100.
                 # Equivalently: we call a p-mutation if
-                #                         100*alt(pos) >= p*reads(pos). 
+                #                         100*alt(pos) >= p*reads(pos).
                 # More descriptions given in pileup.py; long story short,
                 # this avoids reliance on division, and should help prevent
                 # subtle floating-point errors.
                 lhs = 100 * alt_nt_freq
                 rhs = P_THRESHOLD * cov
-                is_variant = (lhs >= rhs)
+                is_variant = lhs >= rhs
 
         if is_variant:
             vcf += f"{seq}\t{pos}\t.\t{ref_nt}\t{alt_nt}\t.\t.\t.\n"

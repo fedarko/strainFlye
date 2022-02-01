@@ -1,0 +1,23 @@
+# Based roughly on the main.yml and standalone.yml workflows in
+# https://github.com/biocore/empress/blob/master/.github/workflows/,
+# and on https://docs.github.com/en/actions/quickstart
+name: strainFlye CI
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install pre-install requirements
+        run: pip install -r setup_requirements.txt
+
+      - name: Install strainFlye
+        run: pip install -e .[dev]
+
+      - name: Lint and stylecheck
+        run: make stylecheck
+
+      - name: Run tests
+        run: make test
