@@ -56,11 +56,11 @@ def strainflye():
     "--contigs",
     required=True,
     type=click.Path(exists=True),
-    help="FASTA file of contigs.",
+    help="FASTA file of contigs to which reads will be aligned.",
 )
 @click.option(
     "-o",
-    "--output-bam-file",
+    "--output-bam",
     required=True,
     type=click.Path(dir_okay=False),
     help="Filepath to which an output BAM file will be written.",
@@ -68,7 +68,7 @@ def strainflye():
 # Regarding the \b marker, see https://stackoverflow.com/a/53302580 -- this is
 # apparently needed to get the formatting to look the way I want (otherwise all
 # of the four steps are smooshed into a paragraph)
-def align(reads, contigs, output_bam_file):
+def align(reads, contigs, output_bam):
     """Aligns reads to contigs, and filters this alignment.
 
     This performs multiple steps, including:
@@ -92,8 +92,67 @@ def align(reads, contigs, output_bam_file):
 
 
 @strainflye.command(**cmd_params)
-def call_naive():
-    """Performs naive mutation calling with controlled FDR."""
+@click.option(
+    "-c",
+    "--contigs",
+    required=True,
+    type=click.Path(exists=True),
+    help="FASTA file of contigs in which to call mutations.",
+)
+@click.option(
+    "-b",
+    "--bam",
+    required=True,
+    type=click.Path(exists=True),
+    help="BAM file representing an alignment of reads to contigs.",
+)
+@click.option(
+    "-f",
+    "--fdr",
+    required=False,
+    type=click.FloatRange(min=0),
+    default=5,
+    help=(
+        "False Discovery Rate (FDR) to fix mutation calls at. This "
+        "corresponds to a percentage, so this should usually be a value "
+        "within the range [0, 100]. In theory the target-decoy approach "
+        "can estimate FDRs greater than 100%, which is why we have left "
+        "the upper bound here open."
+    ),
+)
+@click.option(
+    "-dc",
+    "--decoy-contig",
+    required=False,
+    type=click.STRING,
+    help=(
+        "Indicates a contig name in the specified FASTA file of contigs. "
+        "You can use this option to force strainFlye to use a specific "
+        'decoy contig (e.g. "edge_6104").'
+    ),
+)
+def call_naive(contigs, bam, fdr, decoy_contig):
+    """Performs naive mutation calling with controlled FDR.
+
+    The FDR (false discovery rate) is estimated based on the target-decoy
+    approach.
+    """
+    # This should contain stuff from bam-to-pileup.py. Need to:
+    #
+    # save mutation info about MAGs to a space-efficient format (ideally
+    # better than the "pileup" format I set up for the jupyter notebooks),
+    #
+    # then quickly
+    # (greedily?) find a decoy genome [high coverage, lowest #muts at a given
+    # threshold],
+    #
+    # then, given the specified FDR -- use binary search or
+    # something to control mutations with this FDR.
+    #
+    # TODO?: Either just select best decoy filter combination (e.g. CP2) or
+    # set it manually in advance. likely do that and expose as parameter here
+    # (with transversions, CP2, nonsyn, nonsense), maybe with
+    # multiple=True so that these can be added together
     print("Calling")
 
 
@@ -102,6 +161,8 @@ def fdr_curves():
     """Visualizes FDR curves of identified mutations.
 
     This is done using the target-decoy approach."""
+    # TODO: Should have similar parameters as call-naive? Maybe merge these
+    # together and make this an optional output.
     print("Estimating")
 
 
