@@ -47,7 +47,10 @@ setup(
         "pysam < 0.16",
         "pysamstats",
         "scikit-bio",
-        "click",
+        # Needed by recent versions of black, apparently:
+        # https://pythonissues.com/issues/2903160 (click 7.0 results in the
+        # call to black on GitHub Actions failing with this error)
+        "click >= 8.0",
     ],
     setup_requires=setup_reqs,
     # Based on how Altair splits up its requirements:
