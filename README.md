@@ -36,8 +36,7 @@ Options:
 Commands:
   align         Aligns reads to contigs, and filters this alignment.
   call-naive    Performs naive mutation calling with controlled FDR.
-  fdr-curves    Visualizes FDR curves of identified mutations.
-  diversity     Computes the diversity index of MAGs.
+  diversity     Computes the diversity index for MAGs.
   spots         Identifies hot- and/or cold-spots in MAGs.
   matrix        Computes mutation matrices of a MAG.
   link-graph    Constructs the link graph structure for a MAG.

@@ -59,6 +59,17 @@ def strainflye():
     help="FASTA file of contigs to which reads will be aligned.",
 )
 @click.option(
+    "-g",
+    "--graph",
+    required=True,
+    type=click.Path(exists=True),
+    help=(
+        "GFA-formatted file describing an assembly graph of the contigs. "
+        'This is used in the "filter partially-mapped reads" step to make the '
+        "filter less strict for reads mapped to adjacent contigs in the graph."
+    ),
+)
+@click.option(
     "-o",
     "--output-bam",
     required=True,
@@ -71,13 +82,13 @@ def strainflye():
 def align(reads, contigs, output_bam):
     """Aligns reads to contigs, and filters this alignment.
 
-    This performs multiple steps, including:
+    This involves multiple steps, including:
 
     \b
-      1) Aligning reads to contigs (using minimap2) to generate a SAM file
-      2) Converting this SAM file to a sorted and indexed BAM file
-      3) Filtering overlapping supplementary alignments within this BAM file
-      4) Filtering partially-mapped reads within this BAM file
+      1) Align reads to contigs (using minimap2) to generate a SAM file
+      2) Convert this SAM file to a sorted and indexed BAM file
+      3) Filter overlapping supplementary alignments within this BAM file
+      4) Filter partially-mapped reads within this BAM file
     """
     print("Aligning")
     # ... TODO actually do this!
@@ -126,13 +137,13 @@ def align(reads, contigs, output_bam):
     required=False,
     type=click.STRING,
     help=(
-        "Indicates a contig name in the specified FASTA file of contigs. "
+        "A contig name in the --contigs FASTA file. "
         "You can use this option to force strainFlye to use a specific "
         'decoy contig (e.g. "edge_6104").'
     ),
 )
 @click.option(
-    "-o",
+    "-ov",
     "--output-vcf",
     required=True,
     type=click.Path(dir_okay=False),
@@ -141,7 +152,33 @@ def align(reads, contigs, output_bam):
         "mutations) will be written."
     ),
 )
-def call_naive(contigs, bam, fdr, decoy_contig, output_vcf):
+@click.option(
+    "-ofc",
+    "--output-fdr-curve",
+    required=False,
+    type=click.Path(dir_okay=False),
+    help="Filepath to which an output FDR curve PNG image will be written.",
+)
+@click.option(
+    "-ofd",
+    "--output-fdr-data",
+    required=False,
+    type=click.Path(dir_okay=False),
+    help=(
+        "Filepath to which a TSV file describing the FDR curve data will be "
+        "written. This can be useful if you'd prefer to handle FDR curve "
+        "plotting yourself."
+    ),
+)
+def call_naive(
+    contigs,
+    bam,
+    fdr,
+    decoy_contig,
+    output_vcf,
+    output_fdr_curve,
+    output_fdr_data,
+):
     """Performs naive mutation calling with controlled FDR.
 
     The FDR (false discovery rate) is estimated based on the target-decoy
@@ -167,16 +204,6 @@ def call_naive(contigs, bam, fdr, decoy_contig, output_vcf):
 
 
 @strainflye.command(**cmd_params)
-def fdr_curves():
-    """Visualizes FDR curves of identified mutations.
-
-    This is done using the target-decoy approach."""
-    # TODO: Should have similar parameters as call-naive? Maybe merge these
-    # together and make this an optional output.
-    print("Estimating")
-
-
-@strainflye.command(**cmd_params)
 @click.option(
     "-c",
     "--contigs",
@@ -191,8 +218,26 @@ def fdr_curves():
     type=click.Path(exists=True),
     help="VCF file describing called mutations in the contigs.",
 )
+@click.option(
+    "-mc",
+    "--min-cov",
+    required=False,
+    default=10,
+    type=click.INT,
+    help=(
+        "Minimum coverage: positions with coverage less than this will not be "
+        "included in the diversity index calculation. If you don't want to "
+        "impose a minimum coverage, you can set this to 0."
+    ),
+)
 def diversity(contigs, vcf):
-    """Computes the diversity index of MAGs."""
+    """Computes the diversity index for MAGs.
+
+    For an arbitrary MAG, let's define C as the number of (well-covered)
+    positions at which a mutation is called, and let's define T as the total
+    number of (well-covered) positions in this MAG. The diversity index is then
+    defined as the percentage C / T.
+    """
     print("DI")
 
 
