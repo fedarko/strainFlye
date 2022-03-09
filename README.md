@@ -34,11 +34,11 @@ Options:
   -h, --help  Show this message and exit.
 
 Commands:
-  align         Aligns reads to contigs, and filters this alignment.
-  call-naive    Performs naive mutation calling with controlled FDR.
-  diversity     Computes the diversity index for MAGs.
-  spots         Identifies hot- and/or cold-spots in MAGs.
-  matrix        Computes mutation matrices of a MAG.
-  link-graph    Constructs the link graph structure for a MAG.
-  smooth-jumbo  Generates smoothed haplotypes using jumboDBG.
+  align       Aligns reads to contigs, and filters this alignment.
+  call-naive  Performs naive mutation calling with controlled FDR.
+  diversity   Computes the diversity index for MAGs.
+  spots       Identifies hot- and/or cold-spots in MAGs.
+  matrix      Computes mutation matrices of a MAG.
+  link-graph  Constructs the link graph structure for a MAG.
+  smooth      Generates smoothed haplotypes.
 ```

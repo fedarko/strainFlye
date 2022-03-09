@@ -260,6 +260,8 @@ def link_graph():
 
 
 @strainflye.command(**cmd_params)
-def smooth_jumbo():
-    """Generates smoothed haplotypes using jumboDBG."""
-    print("SJ")
+def smooth():
+    """Generates smoothed haplotypes."""
+    # input: contigs, reads, vcf of mutations
+    # output: contigs / graph / etc. assembled by LJA
+    print("SMOOTH")
