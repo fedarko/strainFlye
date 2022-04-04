@@ -110,8 +110,10 @@ def align(reads, contigs, output_dir, verbose):
 
     # There isn't really a need to store the SAM file from minimap2, or the
     # unsorted BAM file from "samtools view". So we use piping.
-    # Based on https://davetang.org/wiki/tiki-index.php?page=SAMTools#Converting_SAM_directly_to_a_sorted_BAM_file
-    # and https://stackoverflow.com/a/4846923.
+    # SAMtools stuff based on:
+    # https://davetang.org/wiki/tiki-index.php?page=SAMTools#Converting_SAM_directly_to_a_sorted_BAM_file # noqa
+    # Python stuff based on https://stackoverflow.com/a/4846923 and
+    # https://stackoverflow.com/a/9655939
 
     # NOTE: the -ax asm20 preset is what we use in the paper, but later
     # versions of minimap2 have added in "-ax map-hifi" which is probs a better
@@ -127,19 +129,24 @@ def align(reads, contigs, output_dir, verbose):
         stdin=minimap2_run.stdout,
         stdout=subprocess.PIPE,
     )
+    minimap2_run.stdout.close()
     bam_to_sorted_bam_run = subprocess.Popen(
         ["samtools", "sort", "-", "-o", output_bam],
         stdin=sam_to_bam_run.stdout,
     )
-    minimap2_run.wait()
+    sam_to_bam_run.stdout.close()
+    bam_to_sorted_bam_run.communicate()
+
     if verbose:
         print("Ran minimap2 --> convert to BAM --> sort BAM.")
         print("Indexing this BAM...")
+
     subprocess.run(["samtools", "index", output_bam])
+
     if verbose:
         print("Indexed the BAM.")
 
-    # TODO!
+    # TODO! Invoke the filters, re-indexing after each
     print("Filtering overlapping supplementary alignments.")
     print("Filtering partially-mapped reads.")
 
