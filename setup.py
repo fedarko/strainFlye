@@ -43,9 +43,6 @@ setup(
     url="https://github.com/fedarko/strainFlye",
     packages=find_packages(),
     install_requires=[
-        # pysamstats requires pysam < 0.16 as of writing
-        "pysam < 0.16",
-        "pysamstats",
         "scikit-bio",
         "networkx",
         # Needed by recent versions of black, apparently:
