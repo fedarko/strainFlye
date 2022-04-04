@@ -24,10 +24,16 @@ please let me know if you encounter any problems.
 ```bash
 wget https://raw.githubusercontent.com/fedarko/strainFlye/main/environment.yml
 conda env create -f environment.yml
+conda activate strainflye
 pip install git+https://github.com/fedarko/strainFlye.git
 ```
 
 ## Command-line usage
+
+If you installed strainFlye using the steps shown above (creating a conda
+environment and installing strainFlye and its dependencies into this
+environment), then you will need to activate this environment in order to use
+strainFlye (e.g. `conda activate strainflye`).
 
 <!-- STARTDOCS -->
 ```
