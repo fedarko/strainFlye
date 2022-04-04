@@ -10,8 +10,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Install pre-install requirements
-        run: pip install -r setup_requirements.txt
+      - name: Install conda dependencies
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-environment: strainflye
+          environment-file: environment.yml
+          python-version: 3.8
 
       - name: Install strainFlye
         run: pip install -e .[dev]
