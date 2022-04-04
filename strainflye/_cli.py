@@ -2,6 +2,7 @@
 # This lets the user do things like "strainFlye align", "strainFlye call",
 # etc. See https://click.palletsprojects.com/en/8.0.x/commands/ for details.
 import os
+import time
 import subprocess
 import click
 
@@ -36,22 +37,10 @@ def strainflye():
 
 
 @strainflye.command(**cmd_params)
-# Ideally we'd let the user specify multiple reads files without having to
-# repeatedly say "-r", but this doesn't seem possible with options in Click;
-# see https://stackoverflow.com/q/48391777. Oh well! This state of affairs is
-# at least consistent with LJA + jumboDBG as of writing.
-@click.option(
-    "-r",
-    "--reads",
-    required=True,
-    type=click.Path(exists=True),
-    multiple=True,
-    help=(
-        "FASTA or FASTQ file(s). GZIP'd files are allowed. "
-        "You can use this option multiple times if you'd like to specify "
-        "multiple files of reads at once."
-    ),
-)
+# We use arguments to allow for multiple read files -- this works well with
+# globbing in unix, i.e. "strainflye align read*.fasta [other stuff here...]"
+# see https://stackoverflow.com/a/34763795
+@click.argument("reads", required=True, type=click.Path(exists=True), nargs=-1)
 # I think a GZIP'd file is ok for minimap2 here, also, but I'm not 100% sure
 @click.option(
     "-c",
@@ -76,7 +65,7 @@ def strainflye():
     "--output-dir",
     required=True,
     type=click.Path(dir_okay=True, file_okay=False),
-    help="Filepath to which an output BAM file and index will be written.",
+    help="Directory to which an output BAM file and index will be written.",
 )
 @click.option(
     "--verbose",
@@ -87,10 +76,13 @@ def strainflye():
 # Regarding the \b marker, see https://stackoverflow.com/a/53302580 -- this is
 # apparently needed to get the formatting to look the way I want (otherwise all
 # of the four steps are smooshed into a paragraph)
-def align(reads, contigs, output_dir, verbose):
+def align(reads, contigs, graph, output_dir, verbose):
     """Aligns reads to contigs, then filters this alignment.
 
-    This involves multiple steps, including:
+    Files of reads should be in the FASTA or FASTQ formats; GZIP'd files
+    are allowed.
+
+    This command involves multiple steps, including:
 
     \b
       1) Align reads to contigs (using minimap2) to generate a SAM file
@@ -98,11 +90,21 @@ def align(reads, contigs, output_dir, verbose):
       3) Filter overlapping supplementary alignments within this BAM file
       4) Filter partially-mapped reads within this BAM file
     """
-    print("Beginning alignment and sorting/indexing.")
+    t0 = time.time()
+
+    def fancylog(msg):
+        t1 = time.time()
+        print(f"----\n{t1 - t0:.2f} sec: {msg}")
+
+    fancylog("Beginning alignment and sorting/indexing.")
     if verbose:
-        print(f"Input file(s) of reads: {reads}")
-        print(f"Input contig file: {contigs}")
-        print(f"Output directory: {output_dir}")
+        # Print list of reads files
+        reads_info = ""
+        for i, rf in enumerate(reads, 1):
+            reads_info += f"\n{i}. {rf}"
+        fancylog(f"Input file(s) of reads:{reads_info}")
+        fancylog(f"Input contig file: {contigs}")
+        fancylog(f"Output directory: {output_dir}")
 
     # Make the output dir if it doesn't already exist
     os.makedirs(output_dir, exist_ok=True)
@@ -115,13 +117,41 @@ def align(reads, contigs, output_dir, verbose):
     # Python stuff based on https://stackoverflow.com/a/4846923 and
     # https://stackoverflow.com/a/9655939
 
+    # reads will be a tuple
+    if type(reads) == tuple:
+        reads_str = " ".join(reads)
+    else:
+        # if we just have a single string (e.g. click changes something in the
+        # future about how variadic arguments work) then we can fix this, but
+        # for now let's be defensive. (If you encounter this error, go yell at
+        # marcus)
+        raise ValueError("The reads should be a tuple, right?")
+
+    if verbose:
+        fancylog(
+            f"FYI, we're telling minimap2 that the reads are:\n{reads_str}"
+        )
+
+    # There's probably a way to print stuff after each individual command in
+    # the chain finishes, but I don't think that sorta granularity is super
+    # necessary right now tbh
+    fancylog("Running minimap2 --> samtools view --> samtools sort.")
+
     # NOTE: the -ax asm20 preset is what we use in the paper, but later
     # versions of minimap2 have added in "-ax map-hifi" which is probs a better
     # option in most cases. Shouldn't make too much of a difference; for
     # simplicity's sake we just stick with asm20 here, but we could definitely
     # change this (or add the option to configure it) if desired
     minimap2_run = subprocess.Popen(
-        ["minimap", "-ax", "asm20", "--secondary=no", "--MD", contigs, reads],
+        [
+            "minimap2",
+            "-ax",
+            "asm20",
+            "--secondary=no",
+            "--MD",
+            contigs,
+            reads_str,
+        ],
         stdout=subprocess.PIPE,
     )
     sam_to_bam_run = subprocess.Popen(
@@ -138,17 +168,17 @@ def align(reads, contigs, output_dir, verbose):
     bam_to_sorted_bam_run.communicate()
 
     if verbose:
-        print("Ran minimap2 --> convert to BAM --> sort BAM.")
-        print("Indexing this BAM...")
+        fancylog("Ran minimap2 --> convert to BAM --> sort BAM.")
+        fancylog("Indexing this BAM...")
 
     subprocess.run(["samtools", "index", output_bam])
 
     if verbose:
-        print("Indexed the BAM.")
+        fancylog("Indexed the BAM.")
 
     # TODO! Invoke the filters, re-indexing after each
-    print("Filtering overlapping supplementary alignments.")
-    print("Filtering partially-mapped reads.")
+    fancylog("Filtering overlapping supplementary alignments.")
+    fancylog("Filtering partially-mapped reads.")
 
 
 @strainflye.command(**cmd_params)
