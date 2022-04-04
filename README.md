@@ -16,9 +16,14 @@ please feel free to open an issue.
 
 ## Installation
 
+Long story short, this is a normal Python package. However, it dependends on a
+few external non-Python tools (e.g. minimap2, Prodigal, SAMtools) which should
+be installed via Conda. The steps below should work for most systems, but
+please let me know if you encounter any problems.
+
 ```bash
-wget https://raw.githubusercontent.com/fedarko/strainFlye/main/setup_requirements.txt
-pip install -r setup_requirements.txt
+wget https://raw.githubusercontent.com/fedarko/strainFlye/main/environment.yml
+conda env create -f environment.yml
 pip install git+https://github.com/fedarko/strainFlye.git
 ```
 
@@ -34,7 +39,7 @@ Options:
   -h, --help  Show this message and exit.
 
 Commands:
-  align       Aligns reads to contigs, and filters this alignment.
+  align       Aligns reads to contigs, then filters this alignment.
   call-naive  Performs naive mutation calling with controlled FDR.
   diversity   Computes the diversity index for MAGs.
   spots       Identifies hot- and/or cold-spots in MAGs.

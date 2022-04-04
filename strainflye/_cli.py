@@ -1,6 +1,8 @@
 # We define multiple commands in the strainFlye "group" using Click.
 # This lets the user do things like "strainFlye align", "strainFlye call",
 # etc. See https://click.palletsprojects.com/en/8.0.x/commands/ for details.
+import os
+import subprocess
 import click
 
 
@@ -71,16 +73,22 @@ def strainflye():
 )
 @click.option(
     "-o",
-    "--output-bam",
+    "--output-dir",
     required=True,
-    type=click.Path(dir_okay=False),
-    help="Filepath to which an output BAM file will be written.",
+    type=click.Path(dir_okay=True, file_okay=False),
+    help="Filepath to which an output BAM file and index will be written.",
+)
+@click.option(
+    "--verbose",
+    is_flag=True,
+    default=False,
+    help="Show extra details while running.",
 )
 # Regarding the \b marker, see https://stackoverflow.com/a/53302580 -- this is
 # apparently needed to get the formatting to look the way I want (otherwise all
 # of the four steps are smooshed into a paragraph)
-def align(reads, contigs, output_bam):
-    """Aligns reads to contigs, and filters this alignment.
+def align(reads, contigs, output_dir, verbose):
+    """Aligns reads to contigs, then filters this alignment.
 
     This involves multiple steps, including:
 
@@ -90,16 +98,50 @@ def align(reads, contigs, output_bam):
       3) Filter overlapping supplementary alignments within this BAM file
       4) Filter partially-mapped reads within this BAM file
     """
-    print("Aligning")
-    # ... TODO actually do this!
-    # I think we can merge the SAM -> BAM step together with the
-    # sorting-and-indexing step, and begin this step immediately from
-    # minimap2's output using piping; not sure if we'll need to re-(sort and
-    # index) after performing filtering
-    #
-    # See https://github.com/lh3/minimap2/issues/350,
-    # http://www.htslib.org/doc/samtools-sort.html
-    print(f"reads are: {reads}")
+    print("Beginning alignment and sorting/indexing.")
+    if verbose:
+        print(f"Input file(s) of reads: {reads}")
+        print(f"Input contig file: {contigs}")
+        print(f"Output directory: {output_dir}")
+
+    # Make the output dir if it doesn't already exist
+    os.makedirs(output_dir, exist_ok=True)
+    output_bam = os.path.join(output_dir, "sorted-unfiltered.bam")
+
+    # There isn't really a need to store the SAM file from minimap2, or the
+    # unsorted BAM file from "samtools view". So we use piping.
+    # Based on https://davetang.org/wiki/tiki-index.php?page=SAMTools#Converting_SAM_directly_to_a_sorted_BAM_file
+    # and https://stackoverflow.com/a/4846923.
+
+    # NOTE: the -ax asm20 preset is what we use in the paper, but later
+    # versions of minimap2 have added in "-ax map-hifi" which is probs a better
+    # option in most cases. Shouldn't make too much of a difference; for
+    # simplicity's sake we just stick with asm20 here, but we could definitely
+    # change this (or add the option to configure it) if desired
+    minimap2_run = subprocess.Popen(
+        ["minimap", "-ax", "asm20", "--secondary=no", "--MD", contigs, reads],
+        stdout=subprocess.PIPE,
+    )
+    sam_to_bam_run = subprocess.Popen(
+        ["samtools", "view", "-b", "-"],
+        stdin=minimap2_run.stdout,
+        stdout=subprocess.PIPE,
+    )
+    bam_to_sorted_bam_run = subprocess.Popen(
+        ["samtools", "sort", "-", "-o", output_bam],
+        stdin=sam_to_bam_run.stdout,
+    )
+    minimap2_run.wait()
+    if verbose:
+        print("Ran minimap2 --> convert to BAM --> sort BAM.")
+        print("Indexing this BAM...")
+    subprocess.run(["samtools", "index", output_bam])
+    if verbose:
+        print("Indexed the BAM.")
+
+    # TODO!
+    print("Filtering overlapping supplementary alignments.")
+    print("Filtering partially-mapped reads.")
 
 
 @strainflye.command(**cmd_params)

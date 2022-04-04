@@ -24,7 +24,7 @@ with open("README.md", "r") as f:
     long_description = f.read()
 
 setup_reqs = []
-with open("setup_requirements.txt", "r") as f:
+with open("pip_requirements.txt", "r") as f:
     for line in f:
         if not line.startswith("#"):
             setup_reqs.append(line.strip())
@@ -47,6 +47,7 @@ setup(
         "pysam < 0.16",
         "pysamstats",
         "scikit-bio",
+        "networkx",
         # Needed by recent versions of black, apparently:
         # https://pythonissues.com/issues/2903160 (click 7.0 results in the
         # call to black on GitHub Actions failing with this error)
