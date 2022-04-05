@@ -94,9 +94,9 @@ def align(reads, contigs, graph, output_dir, verbose):
 
     def fancylog(msg):
         t1 = time.time()
-        print(f"----\n{t1 - t0:.2f} sec: {msg}")
+        print(f"--------\n{t1 - t0:.2f} sec: {msg}")
 
-    fancylog("Beginning alignment and sorting/indexing.")
+    fancylog("Starting strainFlye align...")
     if verbose:
         # Print list of reads files
         reads_info = ""
@@ -135,7 +135,9 @@ def align(reads, contigs, graph, output_dir, verbose):
     # There's probably a way to print stuff after each individual command in
     # the chain finishes, but I don't think that sorta granularity is super
     # necessary right now tbh
-    fancylog("Running minimap2 --> samtools view --> samtools sort.")
+
+    threesteps = "minimap2 --> samtools view --> samtools sort"
+    fancylog(f"Running {threesteps}...")
 
     # NOTE: the -ax asm20 preset is what we use in the paper, but later
     # versions of minimap2 have added in "-ax map-hifi" which is probs a better
@@ -168,7 +170,7 @@ def align(reads, contigs, graph, output_dir, verbose):
     bam_to_sorted_bam_run.communicate()
 
     if verbose:
-        fancylog("Ran minimap2 --> convert to BAM --> sort BAM.")
+        fancylog("Done running {threesteps}.")
         fancylog("Indexing this BAM...")
 
     subprocess.run(["samtools", "index", output_bam])
@@ -177,8 +179,10 @@ def align(reads, contigs, graph, output_dir, verbose):
         fancylog("Indexed the BAM.")
 
     # TODO! Invoke the filters, re-indexing after each
-    fancylog("Filtering overlapping supplementary alignments.")
-    fancylog("Filtering partially-mapped reads.")
+    fancylog("Filtering overlapping supplementary alignments...")
+    fancylog("Filtering partially-mapped reads...")
+
+    fancylog("Done running strainFlye align.")
 
 
 @strainflye.command(**cmd_params)
