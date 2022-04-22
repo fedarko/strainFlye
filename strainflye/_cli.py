@@ -170,7 +170,7 @@ def align(reads, contigs, graph, output_dir, verbose):
     bam_to_sorted_bam_run.communicate()
 
     if verbose:
-        fancylog("Done running {threesteps}.")
+        fancylog(f"Done running {threesteps}.")
         fancylog("Indexing this BAM...")
 
     subprocess.run(["samtools", "index", output_bam])
