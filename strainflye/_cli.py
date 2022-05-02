@@ -331,6 +331,14 @@ def spots():
 
 
 @strainflye.command(**cmd_params)
+def covskew():
+    """Visualizes MAG coverage and GC skew."""
+    # input: FASTA of contigs, BAM file mapping reads to contigs
+    # output: cov / skew plots; PTR estimates, if requested?
+    print("SMOOTH")
+
+
+@strainflye.command(**cmd_params)
 def matrix():
     """Computes mutation matrices of a MAG."""
     print("MM")
