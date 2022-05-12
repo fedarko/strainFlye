@@ -31,8 +31,8 @@ def index_bam(in_bam, bam_descriptor, fancylog):
     fancylog(f"Done indexing the {bam_descriptor}.")
 
 
-def get_quartet(alnseg):
-    """Returns a tuple of information distinguishing a linear alignment.
+def get_coords(alnseg):
+    """Returns a linear alignment's coordinates.
 
     Parameters
     ----------
@@ -40,18 +40,11 @@ def get_quartet(alnseg):
 
     Returns
     -------
-    (s, e, mq, st): (int, int, int, str)
-        Segment start, end, mapping quality, and to_string() output.
+    (s, e): (int, int, str)
+        Segment start and end.
 
         The start and end are both inclusive, to simplify comparison of
         alignment ranges for detecting overlaps.
-
-        The reason we include the fourth element (to_string()) is to make
-        it easier to distinguish linear alignments from the same read. It
-        is very unlikely (but still possible I guess) that multiple
-        alignments from a read will have identical QUAL values AND
-        identical tags, both of which are included in to_string() as of
-        writing.
 
     Raises
     ------
@@ -71,9 +64,7 @@ def get_quartet(alnseg):
         raise ValueError(
             f"Malformed linear alignment coordinates: start {s}, end {e}"
         )
-    mq = alnseg.mapping_quality
-    st = alnseg.to_string()
-    return (s, e, mq, st)
+    return (s, e)
 
 
 def filter_osa_reads(in_bam, out_bam, fancylog):
@@ -125,24 +116,16 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
         )
 
         # Identify all linear alignments of each read to this sequence
-        readname2CoordsAndMQ = defaultdict(list)
-        num_linear_alns = 0
+        readname2Coords = defaultdict(list)
         for linearaln in bf.fetch(seq):
             rn = linearaln.query_name
-            alndetails = get_quartet(linearaln)
-            if alndetails in readname2CoordsAndMQ[rn]:
-                raise ValueError(
-                    f"Indistinguishable linear alignments to seq {seq} with "
-                    f"read name {rn}: multiple reads share (start, end, mapq, "
-                    f"to_string()) of {alndetails}"
-                )
-            readname2CoordsAndMQ[rn].append(alndetails)
-            num_linear_alns += 1
+            alncoords = get_coords(linearaln)
+            readname2Coords[rn].append(alncoords)
 
         # Identify overlapping alignments from the same read
         n_reads_w_osa_in_seq = 0
-        for rn in readname2CoordsAndMQ:
-            alns = readname2CoordsAndMQ[rn]
+        for rn in readname2Coords:
+            alns = readname2Coords[rn]
             if len(alns) > 1:
                 # Okay, so this particular read has multiple supplementary
                 # alignments to this sequence. Check if they overlap.
