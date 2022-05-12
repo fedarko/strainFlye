@@ -4,7 +4,9 @@ channels:
     - bioconda
     - defaults
 dependencies:
-    - python
+    # HACK to accommodate pysam / pysamstats -- see
+    # https://github.com/fedarko/strainFlye/issues/8
+    - python >= 3.6, <= 3.7
     - pip
     - numpy
     - samtools >= 1.7
@@ -16,6 +18,6 @@ dependencies:
     # also, we install pysam(stats) via conda, rather than pip, to simplify
     # installation (making it easier for pysam to "see" samtools) --
     # https://stackoverflow.com/a/60197930
-    - pysam = 0.15
+    - pysam < 0.16
     - pysamstats
     - prodigal
