@@ -7,13 +7,15 @@ dependencies:
     - python
     - pip
     - numpy
-    - cython
     - samtools >= 1.7
-    - minimap2 >= 2.17
-    - prodigal
+    # Probably a later version will be installed; this is just the minimap2
+    # version that added the asm20 preset. (If we want to use the more recently
+    # added hifi preset, then we'd need to use >= 2.19 here.)
+    - minimap2 >= 2.10
     # pysamstats requires pysam < 0.16, as of writing.
     # also, we install pysam(stats) via conda, rather than pip, to simplify
     # installation (making it easier for pysam to "see" samtools) --
     # https://stackoverflow.com/a/60197930
     - pysam < 0.16
     - pysamstats
+    - prodigal
