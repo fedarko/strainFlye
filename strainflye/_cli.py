@@ -4,8 +4,8 @@
 import os
 import subprocess
 import click
-import .cli_utils
-import .align_utils
+import cli_utils
+import align_utils
 
 
 cmd_params = {
@@ -106,7 +106,7 @@ def align(reads, contigs, graph, output_dir, verbose):
         "strainFlye align",
         (("file(s) of reads", reads_info), ("contig file", contigs)),
         (("directory", output_dir)),
-        verbose
+        verbose,
     )
 
     # Make the output dir if it doesn't already exist

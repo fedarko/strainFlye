@@ -8,7 +8,7 @@ from collections import defaultdict
 
 def index_bam(in_bam, bam_descriptor, fancylog):
     """Indexes a BAM file using samtools.
-    
+
     This creates a .bam.bai file in the same location as the BAM file.
 
     Parameters
@@ -37,14 +37,14 @@ def get_quartet(alnseg):
     Parameters
     ----------
     alnseg: pysam.AlignedSegment
-    
+
     Returns
     -------
     (s, e, mq, st): (int, int, int, str)
         Segment start, end, mapping quality, and to_string() output.
 
         The start and end are both inclusive, to simplify comparison of
-        alignment ranges for detecting overlaps. 
+        alignment ranges for detecting overlaps.
 
         The reason we include the fourth element (to_string()) is to make
         it easier to distinguish linear alignments from the same read. It
@@ -116,14 +116,14 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
     # sets is probably a better idea (or at the very least a simpler one):
     # https://stackoverflow.com/a/212971
     reads_with_osa = set()
-    
+
     for si, seq in enumerate(bf.references, 1):
         pct = 100 * (si / bf.nreferences)
         fancylog(
             f"OSA filter pass 1/2: on seq {seq} ({si:,} / {bf.nreferences:,}) "
             f"({pct:.2f}%)."
         )
-    
+
         # Identify all linear alignments of each read to this sequence
         readname2CoordsAndMQ = defaultdict(list)
         num_linear_alns = 0
@@ -138,12 +138,12 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
                 )
             readname2CoordsAndMQ[rn].append(alndetails)
             num_linear_alns += 1
-    
+
         # The number of unique reads is just the number of keys in this dict
         num_reads = len(readname2CoordsAndMQ)
-    
+
         # print(f"\t{num_reads:,} unique read(s), {num_linear_alns:,} linear aln(s)...")
-    
+
         # Identify overlapping alignments from the same read
         n_reads_w_osa_in_seq = 0
         for rn in readname2CoordsAndMQ:
@@ -151,26 +151,28 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
             if len(alns) > 1:
                 # Okay, so this particular read has multiple supplementary
                 # alignments to this sequence. Check if they overlap.
-    
+
                 for (a1, a2) in combinations(alns, 2):
                     # Efficiently test for overlap between two ranges:
                     # https://stackoverflow.com/a/3269471
                     if a1[0] <= a2[1] and a2[0] <= a1[1]:
-                        # Okay, these two alignments of this read overlap. 
+                        # Okay, these two alignments of this read overlap.
                         reads_with_osa.add(rn)
                         n_reads_w_osa_in_seq += 1
                         break
-    
-        fancylog(f"{n_reads_w_osa_in_seq:,} read(s) with OSA(s) in seq {seq}...")
-    
+
+        fancylog(
+            f"{n_reads_w_osa_in_seq:,} read(s) with OSA(s) in seq {seq}..."
+        )
+
     # Now we've made note of all reads with OSAs across *all* sequences in the
     # alignments. We can make another pass through and output all reads without
     # OSAs into a new BAM file.
-    
+
     # Output BAM file (filtered to remove reads with overlapping supplementary
     # alignments, aka OSAs)
     of = pysam.AlignmentFile(out_bam, "wb", template=bf)
-    
+
     # TODO: maybe generalize this iteration code into a generator or something
     # to limit code reuse
     for si, seq in enumerate(bf.references, 1):
@@ -179,7 +181,7 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
             f"OSA filter pass 2/2: on seq {seq} ({si:,} / {bf.nreferences:,}) "
             f"({pct:.2f}%)."
         )
-    
+
         num_alns_retained = 0
         num_alns_filtered = 0
         for linearaln in bf.fetch(seq):
@@ -191,7 +193,7 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
             else:
                 of.write(linearaln)
                 num_alns_retained += 1
-    
+
         num_alns_total = num_alns_retained + num_alns_filtered
         if num_alns_total > 0:
             apct = 100 * (num_alns_retained / num_alns_total)
@@ -201,16 +203,19 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
             f"{num_alns_retained:,} / {num_alns_total:,} ({apct:.2f}%) "
             "linear aln(s) retained in seq {seq}."
         )
-    
+
     bf.close()
     of.close()
-    
+
     fancylog("Done filtering out overlapping supplementary alignments.")
+
 
 ###############################################################################
 
+
 def filter_pm_reads():
     pass
+
 
 #! /usr/bin/env python3
 # Filters reads that are less than some percentage (MIN_PERCENT_ALIGNED)
@@ -232,7 +237,9 @@ from utils import load_gfa
 # the BAM file.
 MIN_PERCENT_ALIGNED = 0.9
 
-print("Filtering out reads mapped to other edges and partially-mapped reads...")
+print(
+    "Filtering out reads mapped to other edges and partially-mapped reads..."
+)
 
 # flush stdout to force this to show up even though it's not a newline
 print("Loading graph...", end=" ", flush=True)
@@ -243,7 +250,9 @@ graph = load_gfa(graph_filename)
 print("Done.")
 
 # Input BAM file (contains alignments to all edges in the graph)
-bf = pysam.AlignmentFile("output/overlap-supp-aln-filtered-and-sorted-aln.bam", "rb")
+bf = pysam.AlignmentFile(
+    "output/overlap-supp-aln-filtered-and-sorted-aln.bam", "rb"
+)
 # Output BAM file (will just contain alignments that pass the filter)
 of = pysam.AlignmentFile("output/pmread-filtered-aln.bam", "wb", template=bf)
 
@@ -268,9 +277,8 @@ of = pysam.AlignmentFile("output/pmread-filtered-aln.bam", "wb", template=bf)
 # an edge or group of edges.
 matches = re.compile("(\d+)[MX=]")
 
-def check_and_update_alignment(
-    aln, readname2len, readname2matchct, edge_name
-):
+
+def check_and_update_alignment(aln, readname2len, readname2matchct, edge_name):
     """Updates readname2len and readname2matchct based on an AlignedSegment.
 
     Note that readname2len and readname2matchct are both defined relative to
@@ -285,9 +293,9 @@ def check_and_update_alignment(
         if readname2len[aln.query_name] != aln.infer_read_length():
             raise ValueError(
                 "Inconsistent read lengths across alignments: {}: {}, {}".format(
-                    aln.query_name, 
+                    aln.query_name,
                     readname2len[aln.query_name],
-                    aln.infer_read_length()
+                    aln.infer_read_length(),
                 )
             )
     else:
@@ -321,6 +329,7 @@ def check_and_update_alignment(
             )
         )
 
+
 # Figure out all reads that are aligned to each edge to focus on
 for edge_to_focus_on in graph.nodes():
     # The loaded graph doesn't use the "edge_" prefix for nodes, but the
@@ -343,14 +352,16 @@ for edge_to_focus_on in graph.nodes():
             aln, readname2len, readname2matchct, focused_seq
         )
     print(f"\t{i} linear alignments to this edge.")
-    
+
     # Identify adjacent edges to this one in the graph, if present. Allow
     # alignments to these edges to count towards readname2matchct (so we can
     # somewhat avoid penalizing edges that aren't in isolated components).
     # We could also expand this to include _all_ other edges in this edge's
     # component, but that will probs cause problems with hairball
     # component(s) in the graph that span thousands of edges...
-    adj_edges = set(graph.neighbors(edge_to_focus_on)) - set([edge_to_focus_on])
+    adj_edges = set(graph.neighbors(edge_to_focus_on)) - set(
+        [edge_to_focus_on]
+    )
     nae = len(adj_edges)
 
     print(f"\t{nae} adjacent edges in the graph.")

@@ -17,7 +17,7 @@ def fancystart(cmd_name, inputs, outputs, verbose):
         input (e.g. "contig file"), and the second element should be a string
         representing the input specified (e.g. the filepath to the
         corresponding FASTA file of contigs).
-        
+
     outputs: tuple of 2-tuples of (str, str)
         A collection of command output information, formatted analogously to
         how "inputs" is formatted. For example, a variant caller might use
