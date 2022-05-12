@@ -28,11 +28,6 @@ conda activate strainflye
 pip install git+https://github.com/fedarko/strainFlye.git
 ```
 
-Note that, for now, this Conda environment pins the Python version to 3.7. This
-is due to some [issues with installing dependencies into environments using
-later versions of Python](https://github.com/fedarko/strainFlye/issues/8), and
-can hopefully be undone in the future.
-
 ## Command-line usage
 
 If you installed strainFlye using the steps shown above (creating a conda
