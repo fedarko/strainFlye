@@ -7,12 +7,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    # Test on multiple python versions -- same as pysamstats' GH Actions YAML
-    # file, as of writing --
-    # https://github.com/alimanfoo/pysamstats/blob/master/.github/workflows/python-package.yml
+    # For now (https://github.com/alimanfoo/pysamstats/blob/master/setup.py),
+    # it seems like pysamstats + pysam only works with Python 3.7 and lower.
+    # Ideally we could un-pin this eventually, but for now we can just mandate
+    # Python 3.7 be used.
     strategy:
       matrix:
-        python-version: [3.7, 3.8, 3.9]
+        python-version: [3.7]
 
     steps:
 
