@@ -4,8 +4,8 @@
 import os
 import subprocess
 import click
-import cli_utils
-import align_utils
+from . import cli_utils
+from . import align_utils
 
 
 cmd_params = {
