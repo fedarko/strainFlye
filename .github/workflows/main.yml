@@ -15,13 +15,13 @@ jobs:
         uses: conda-incubator/setup-miniconda@v2
         with:
           activate-environment: strainflye
-          environment-file: environment.yml
+          environment-file: pysam-env.yml
           python-version: 3.8
 
-      - name: Install pysam(stats), also
-        run: conda install "pysam < 0.16" pysamstats
+      - name: Install other conda dependencies
+        run: conda install "samtools >= 1.7" "minimap2 >= 2.17" prodigal
 
-      - name: Install strainFlye
+      - name: Install strainFlye (and pip dependencies)
         run: pip install -e .[dev]
 
       - name: Lint and stylecheck

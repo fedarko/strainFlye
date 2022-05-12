@@ -1,0 +1,16 @@
+name: strainflye
+channels:
+    - conda-forge
+    - bioconda
+    - defaults
+dependencies:
+    - python >= 3.7
+    - numpy
+    - cython
+    - pip
+    # pysamstats requires pysam < 0.16, as of writing.
+    # also, we install pysam(stats) via conda, rather than pip, to simplify
+    # installation (making it easier for pysam to "see" samtools) --
+    # https://stackoverflow.com/a/60197930
+    - pysam < 0.16
+    - pysamstats
