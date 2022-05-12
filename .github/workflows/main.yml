@@ -13,7 +13,7 @@ jobs:
     # Python 3.7 be used.
     strategy:
       matrix:
-        python-version: [3.7]
+        python-version: [3.7, 3.8]
 
     steps:
 
