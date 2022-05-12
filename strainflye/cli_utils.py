@@ -3,7 +3,7 @@
 import time
 
 
-def fancystart(cmd_name, inputs, outputs, verbose):
+def fancystart(cmd_name, inputs, outputs, verbose, prefix="--------\n"):
     """Starts logging things for a given strainFlye command.
 
     Parameters
@@ -28,27 +28,54 @@ def fancystart(cmd_name, inputs, outputs, verbose):
         nothing will be logged from here, and calling the returned logging
         function (fancylog) will not output anything.
 
+    prefix: str
+        Prefix to put before every logging message.
+
     Returns
     -------
     fancylog: function
-        A function that takes one parameter, msg (of type str), and logs this
-        message. Each logging message is prefixed with the command name and the
-        time (in seconds) since this command started (or, more accurately,
-        since fancystart() was called).
+        A simple logging function. The only required parameter to this function
+        is a string message. Each logging message is prefixed with the command
+        name and the time (in seconds) since this command started (or, more
+        accurately, since fancystart() was called).
     """
     t0 = time.time()
 
-    def fancylog(msg):
-        """Logs a message."""
+    def fancylog(msg, prefix=prefix):
+        """Logs a message.
+        
+        By default, the prefix (before the command name and time) matches what
+        was passed as the prefix parameter to fancystart(), but this can be
+        overridden here if desired.
+        
+        Parameters
+        ----------
+        msg: str
+            Message to log.
+            
+        prefix: str
+            Prefix to put before a logging message (and before the command name
+            and time).
+
+        Returns
+        -------
+        None
+        """
         if verbose:
             t1 = time.time()
-            print(f"--------\n{cmd_name} @ {t1 - t0:.2f} sec: {msg}")
+            print(f"{prefix}{cmd_name} @ {t1 - t0:.2f} sec: {msg}")
 
-    fancylog("Starting running...")
-    # Report to the user about the inputs and outputs
-    # ... This may be over-engineered
-    for paramtype in (("Input", inputs), "Output", outputs):
+    # Report to the user about the inputs and outputs.
+    # ... This may be over-engineered.
+    # Note that this should behave graciously if there are no inputs or
+    # outputs, since these will then be empty collections (and nothing will be
+    # printed). However, that probably shouldn't happen in practice.
+
+    starting_info = "Starting..."
+    for paramtype in (("Input", inputs), ("Output", outputs)):
         for ptuple in paramtype[1]:
-            fancylog(f"{paramtype[0]} {ptuple[0]}: {ptuple[1]}")
+            starting_info += f"\n{paramtype[0]} {ptuple[0]}: {ptuple[1]}"
+
+    fancylog(starting_info)
 
     return fancylog
