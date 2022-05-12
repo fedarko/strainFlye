@@ -65,7 +65,10 @@ def strainflye():
     "--output-dir",
     required=True,
     type=click.Path(dir_okay=True, file_okay=False),
-    help="Directory to which an output BAM file and index will be written.",
+    help=(
+        "Directory to which an output BAM file and BAM index file will be "
+        "written. Some temporary files may also be written to this directory."
+    ),
 )
 @click.option(
     "--verbose",
