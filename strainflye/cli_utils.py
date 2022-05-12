@@ -43,16 +43,16 @@ def fancystart(cmd_name, inputs, outputs, verbose, prefix="--------\n"):
 
     def fancylog(msg, prefix=prefix):
         """Logs a message.
-        
+
         By default, the prefix (before the command name and time) matches what
         was passed as the prefix parameter to fancystart(), but this can be
         overridden here if desired.
-        
+
         Parameters
         ----------
         msg: str
             Message to log.
-            
+
         prefix: str
             Prefix to put before a logging message (and before the command name
             and time).
