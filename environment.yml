@@ -4,9 +4,10 @@ channels:
     - bioconda
     - defaults
 dependencies:
-    - python >= 3.7
+    - python
+    - pip
     - numpy
-    - cython >= 0.29.12
+    - cython
     - samtools >= 1.7
     - minimap2 >= 2.17
     - prodigal
@@ -14,6 +15,5 @@ dependencies:
     # also, we install pysam(stats) via conda, rather than pip, to simplify
     # installation (making it easier for pysam to "see" samtools) --
     # https://stackoverflow.com/a/60197930
-    #- pysam < 0.16
-    #- pysamstats
-    - pip
+    - pysam < 0.16
+    - pysamstats
