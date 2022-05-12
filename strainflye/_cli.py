@@ -2,9 +2,10 @@
 # This lets the user do things like "strainFlye align", "strainFlye call",
 # etc. See https://click.palletsprojects.com/en/8.0.x/commands/ for details.
 import os
-import time
 import subprocess
 import click
+import .cli_utils
+import .align_utils
 
 
 cmd_params = {
@@ -73,7 +74,7 @@ def strainflye():
 @click.option(
     "--verbose",
     is_flag=True,
-    default=False,
+    default=True,
     help="Show extra details while running.",
 )
 # Regarding the \b marker, see https://stackoverflow.com/a/53302580 -- this is
@@ -93,25 +94,24 @@ def align(reads, contigs, graph, output_dir, verbose):
       3) Filter overlapping supplementary alignments within this BAM file
       4) Filter partially-mapped reads within this BAM file
     """
-    t0 = time.time()
 
-    def fancylog(msg):
-        t1 = time.time()
-        print(f"--------\n{t1 - t0:.2f} sec: {msg}")
+    # Convert collection of reads files into something more easy to "read"
+    # (I'm here all night, folks)
+    reads_info = ""
+    for i, rf in enumerate(reads, 1):
+        reads_info += f"\n{i}. {rf}"
 
-    fancylog("Starting strainFlye align...")
-    if verbose:
-        # Print list of reads files
-        reads_info = ""
-        for i, rf in enumerate(reads, 1):
-            reads_info += f"\n{i}. {rf}"
-        fancylog(f"Input file(s) of reads:{reads_info}")
-        fancylog(f"Input contig file: {contigs}")
-        fancylog(f"Output directory: {output_dir}")
+    # Get a snazzy logging function we can use
+    fancylog = cli_utils.fancystart(
+        "strainFlye align",
+        (("file(s) of reads", reads_info), ("contig file", contigs)),
+        (("directory", output_dir)),
+        verbose
+    )
 
     # Make the output dir if it doesn't already exist
     os.makedirs(output_dir, exist_ok=True)
-    output_bam = os.path.join(output_dir, "sorted-unfiltered.bam")
+    first_output_bam = os.path.join(output_dir, "sorted-unfiltered.bam")
 
     # There isn't really a need to store the SAM file from minimap2, or the
     # unsorted BAM file from "samtools view". So we use piping.
@@ -129,11 +129,6 @@ def align(reads, contigs, graph, output_dir, verbose):
         # for now let's be defensive. (If you encounter this error, go yell at
         # marcus)
         raise ValueError("The reads should be a tuple, right?")
-
-    if verbose:
-        fancylog(
-            f"FYI, we're telling minimap2 that the reads are:\n{reads_str}"
-        )
 
     # There's probably a way to print stuff after each individual command in
     # the chain finishes, but I don't think that sorta granularity is super
@@ -166,26 +161,27 @@ def align(reads, contigs, graph, output_dir, verbose):
     )
     minimap2_run.stdout.close()
     bam_to_sorted_bam_run = subprocess.Popen(
-        ["samtools", "sort", "-", "-o", output_bam],
+        ["samtools", "sort", "-", "-o", first_output_bam],
         stdin=sam_to_bam_run.stdout,
     )
     sam_to_bam_run.stdout.close()
     bam_to_sorted_bam_run.communicate()
 
-    if verbose:
-        fancylog(f"Done running {threesteps}.")
-        fancylog("Indexing this BAM...")
+    fancylog(f"Done running {threesteps}.")
 
-    subprocess.run(["samtools", "index", output_bam])
+    align_utils.index_bam(first_output_bam, "sorted BAM", fancylog)
 
-    if verbose:
-        fancylog("Indexed the BAM.")
+    fancylog("Filtering overlapping supplementary alignments (OSAs)...")
+    osa_filter_bam = os.path.join(output_dir, "sorted-osa-filtered.bam")
+    align_utils.filter_osa_reads(first_output_bam, osa_filter_bam, fancylog)
+    align_utils.index_bam(osa_filter_bam, "OSA-filtered BAM", fancylog)
 
-    # TODO! Invoke the filters, re-indexing after each
-    fancylog("Filtering overlapping supplementary alignments...")
     fancylog("Filtering partially-mapped reads...")
+    pm_filter_bam = os.path.join(output_dir, "final.bam")
+    align_utils.filter_pm_reads(osa_filter_bam, pm_filter_bam, fancylog)
+    align_utils.index_bam(pm_filter_bam, "final BAM", fancylog)
 
-    fancylog("Done running strainFlye align.")
+    fancylog("Done.")
 
 
 @strainflye.command(**cmd_params)
