@@ -18,6 +18,9 @@ jobs:
           environment-file: environment.yml
           python-version: 3.8
 
+      - name: Install pysam(stats), also
+        run: conda install "pysam < 0.16" pysamstats
+
       - name: Install strainFlye
         run: pip install -e .[dev]
 

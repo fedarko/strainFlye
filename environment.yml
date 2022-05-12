@@ -14,6 +14,6 @@ dependencies:
     # also, we install pysam(stats) via conda, rather than pip, to simplify
     # installation (making it easier for pysam to "see" samtools) --
     # https://stackoverflow.com/a/60197930
-    - pysam < 0.16
-    - pysamstats
+    #- pysam < 0.16
+    #- pysamstats
     - pip
