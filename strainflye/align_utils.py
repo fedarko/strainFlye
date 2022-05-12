@@ -65,14 +65,14 @@ def get_quartet(alnseg):
     # We add 1 to the end since this is a half-open interval -- we want
     # the coordinates we use for computing overlap to be completely
     # inclusive intervals
-    s = linearaln.reference_start
-    e = linearaln.reference_end + 1
+    s = alnseg.reference_start
+    e = alnseg.reference_end + 1
     if s > e:
         raise ValueError(
             f"Malformed linear alignment coordinates: start {s}, end {e}"
         )
-    mq = linearaln.mapping_quality
-    st = linearaln.to_string()
+    mq = alnseg.mapping_quality
+    st = alnseg.to_string()
     return (s, e, mq, st)
 
 
@@ -132,17 +132,12 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
             alndetails = get_quartet(linearaln)
             if alndetails in readname2CoordsAndMQ[rn]:
                 raise ValueError(
-                    f"Indistinguishable linear alignments to seq {seq} with read "
-                    f"name {rn}: multiple reads share (start, end, mapq, "
+                    f"Indistinguishable linear alignments to seq {seq} with "
+                    f"read name {rn}: multiple reads share (start, end, mapq, "
                     f"to_string()) of {alndetails}"
                 )
             readname2CoordsAndMQ[rn].append(alndetails)
             num_linear_alns += 1
-
-        # The number of unique reads is just the number of keys in this dict
-        num_reads = len(readname2CoordsAndMQ)
-
-        # print(f"\t{num_reads:,} unique read(s), {num_linear_alns:,} linear aln(s)...")
 
         # Identify overlapping alignments from the same read
         n_reads_w_osa_in_seq = 0
@@ -186,8 +181,8 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
         num_alns_filtered = 0
         for linearaln in bf.fetch(seq):
             rn = linearaln.query_name
-            # If this read has OSAs anywhere in the alignment, don't include it in
-            # the output BAM file. Otherwise, *do* include it!
+            # If this read has OSAs anywhere in the alignment, don't include
+            # it in the output BAM file. Otherwise, *do* include it!
             if rn in reads_with_osa:
                 num_alns_filtered += 1
             else:
@@ -217,6 +212,7 @@ def filter_pm_reads():
     pass
 
 
+'''
 #! /usr/bin/env python3
 # Filters reads that are less than some percentage (MIN_PERCENT_ALIGNED)
 # aligned to an edge in the graph, or to other edges adjacent to this edge in
@@ -275,7 +271,7 @@ of = pysam.AlignmentFile("output/pmread-filtered-aln.bam", "wb", template=bf)
 # alignments of a read and divide by the read length to get the approx
 # percentage (see above for slight caveats) of bases in the read aligned to
 # an edge or group of edges.
-matches = re.compile("(\d+)[MX=]")
+matches = re.compile("(\d+)[MX=]") # noqa
 
 
 def check_and_update_alignment(aln, readname2len, readname2matchct, edge_name):
@@ -458,3 +454,4 @@ bf.close()
 of.close()
 
 print("Filtered to fully (ish) aligned reads.")
+'''

@@ -30,7 +30,7 @@ def test_fancylogging_not_verbose(capsys):
         (("in1", "Input #1"), ("in2", "Input #2")),
         (("out1", "Output #1"),),
     )
-    fancylog = fancystart(*test_params, False, prefix="PREFIX ")
+    fancystart(*test_params, False, prefix="PREFIX ")
     captured = capsys.readouterr()
     # Changing verbose to False means that nothing should be logged by us
     assert captured.out == ""
