@@ -312,7 +312,11 @@ def filter_pm_reads(
     # alignments of a read and divide by the read length to get the approx
     # percentage (see above for slight caveats) of bases in the read aligned to
     # a contig or group of contigs.
-    matches = re.compile("(\d+)[MX=]")
+    #
+    # (By the way, use a raw string to avoid confusing python / flake8 into
+    # thinking that we're trying to add an escape sequence:
+    # https://stackoverflow.com/a/52335971)
+    matches = re.compile(r"(\d+)[MX=]")
 
     def check_and_update_alignment(
         aln, readname2len, readname2matchct, contig_name
