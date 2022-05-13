@@ -54,3 +54,9 @@ Commands:
   link-graph  Constructs the link graph structure for a MAG.
   smooth      Generates smoothed haplotypes.
 ```
+
+## Acknowledgements
+
+### Test data
+`sample1.gfa` was downloaded from the
+[gfalint](https://github.com/sjackman/gfalint) repository.
