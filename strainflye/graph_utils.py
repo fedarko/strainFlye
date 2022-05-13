@@ -1,17 +1,46 @@
 import networkx as nx
 
 
-def load_gfa(filepath):
+def load_gfa(gfa_fp):
     """Quick and dirty function that loads GFA files in NetworkX.
 
     GfaPy was being really slow on the SheepGut graph, which is why I wrote
     this.
+
+    Parameters
+    ----------
+    gfa_fp: str
+        Filepath to a GFA 1 file. Eventually I should ditch this function and
+        just use Gfapy to load this graph, but
+        https://github.com/ggonnella/gfapy/issues/25 is blocking that.
+
+    Returns
+    -------
+    graph: nx.Graph
+        Undirected graph representing the topology of the graph contained in
+        the input GFA file. Note that we ignore segment sequences (only storing
+        information about the nodes' lengths), and that we ignore
+        directionality entirely.
+
+    Raises
+    ------
+    ValueError
+        If any segment has either no length given for it (sequence is * and the
+        LN tag is missing) or multiple lengths given for it (sequence is
+        defined, and there is an LN tag given).
+
+        The latter of these conditions is a biiit overly strict, since -- for
+        some arbitrary segment S -- if a sequence is defined for S, and LN is
+        given for s, and if these lengths match up, then this is still
+        understandable. But I'm pessimistic, and if we accept this then
+        eventually we're gonna start seeing cases where the two lengths
+        disagree, and that way lies madness.
     """
 
     # We ignore directionality for right now.
     graph = nx.Graph()
 
-    with open(filepath, "r") as gfafile:
+    with open(gfa_fp, "r") as gfafile:
         for line in gfafile:
 
             if line[0] == "S":

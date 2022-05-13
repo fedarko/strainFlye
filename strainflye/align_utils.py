@@ -209,10 +209,11 @@ def filter_pm_reads(
 
     Parameters
     ----------
-    gfa: str
+    gfa: str or None
         Location of a GFA file whose segments correspond to contigs in the
         assembly graph. This is used when determining whether or not a read is
-        partially-mapped.
+        partially-mapped. If this is None, then we just don't consider adjacent
+        contigs.
 
     in_bam: str
         Location of the BAM file on which we will perform filtering. This BAM
@@ -275,24 +276,32 @@ def filter_pm_reads(
         )
 
     bf = pysam.AlignmentFile(in_bam, "rb")
-
-    fancylog("Loading assembly graph...")
-    graph = graph_utils.load_gfa(gfa)
-    fancylog("Loaded assembly graph.")
-
     bam_contigs = set(bf.references)
-    gfa_nodes = set(graph.nodes())
-    if bam_contigs != gfa_nodes:
-        raise ValueError(
-            f"Contigs in the BAM file ({in_bam}) and segments in the graph "
-            f"({gfa}) do not match. The BAM has {len(bam_contigs):,} contigs "
-            f"and the GFA has {len(gfa_nodes):,} nodes, for reference."
-        )
 
-    # this should never happen, but we use these two interchangeably so i wanna
-    # verify it in the weird case pysam starts exploding
+    # Super duper ultra paranoid sanity check.
+    # This should never happen, but we use these two numbers interchangeably in
+    # this code so i wanna verify this in the weird case pysam starts exploding
     if len(bam_contigs) != bf.nreferences:
         raise ValueError("This BAM file is cursed. Call a priest.")
+
+    graph = None
+    if gfa is not None:
+        fancylog("Loading assembly graph...")
+        graph = graph_utils.load_gfa(gfa)
+
+        # Another sanity check!
+        gfa_nodes = set(graph.nodes())
+        if bam_contigs != gfa_nodes:
+            raise ValueError(
+                f"Contigs in the BAM file ({in_bam}) and segments in the "
+                f"graph ({gfa}) do not match.\nThe BAM file has "
+                f"{len(bam_contigs):,} contigs and the GFA has "
+                f"{len(gfa_nodes):,} segments, for reference."
+            )
+
+        fancylog("Loaded assembly graph.")
+    else:
+        fancylog("No assembly graph given.")
 
     # Per the SAM v1 specification, top of page 8:
     # "Sum of lengths of the M/I/S/=/X operations shall equal the length of
@@ -441,72 +450,77 @@ def filter_pm_reads(
             )
         fancylog(f"{ai} linear alignments to {cdsc}.")
 
-        # Identify adjacent contigs to this one in the graph, if present. Allow
-        # alignments to these contigs to count towards readname2matchct (so we
-        # can somewhat avoid penalizing contigs that aren't in isolated
-        # components). We could also expand this to include _all_ other contigs
-        # in this contig's component, if desired (although due to hairballs
-        # that will likely cause problems unless we still impose the bound on
-        # nae).
-        #
-        # The removal of set([contig_to_focus_on]) is done because, if a contig
-        # has an edge to itself, then it'll be considered by NetworkX as a
-        # neighbor of itself (and thus will be included in adj_contigs). We
-        # don't want this, which is why we remove it!
-        adj_contigs = set(graph.neighbors(contig_to_focus_on)) - set(
-            [contig_to_focus_on]
-        )
-        nae = len(adj_contigs)
+        if graph is not None:
+            # Identify adjacent contigs to this one in the graph, if present.
+            # Allow alignments to these contigs to count towards
+            # readname2matchct (so we can somewhat avoid penalizing contigs
+            # that aren't in isolated components). We could also expand this to
+            # include _all_ other contigs in this contig's component, if
+            # desired (although due to hairballs that will likely cause
+            # problems unless we still impose the bound on nae).
+            #
+            # The removal of set([contig_to_focus_on]) is done because, if a
+            # contig has an edge to itself, then it'll be considered by
+            # NetworkX as a neighbor of itself (and thus will be included
+            # in adj_contigs). We don't want this, which is why we remove it!
+            adj_contigs = set(graph.neighbors(contig_to_focus_on)) - set(
+                [contig_to_focus_on]
+            )
+            nae = len(adj_contigs)
 
-        fancylog(f"{nae:,} contig(s) in the graph are adjacent to {cdsc}.")
+            fancylog(f"{nae:,} contig(s) in the graph are adjacent to {cdsc}.")
 
-        # To prevent this script from taking a super long amount of time, only
-        # allow alignments to adjacent contigs if there are less than
-        # "too_many_adj_contigs" adjacent contigs to this contig in the graph.
-        if nae > 0:
-            consider_adj = True
+            # To prevent this script from taking a super long amount of time,
+            # only allow alignments to adjacent contigs if there are less than
+            # "too_many_adj_contigs" adjacent contigs to this contig in the
+            # graph.
+            if nae > 0:
+                consider_adj = True
 
-            # too_many_adj_contigs being negative implies that we should
-            # always consider adj contigs.
-            if too_many_adj_contigs >= 0 and nae >= too_many_adj_contigs:
-                fancylog(
-                    "Too many adjacent contigs; we won't consider them "
-                    "when filtering partially-mapped reads from this contig."
-                )
-                consider_adj = False
+                # too_many_adj_contigs being negative implies that we should
+                # always consider adj contigs.
+                if too_many_adj_contigs >= 0 and nae >= too_many_adj_contigs:
+                    fancylog(
+                        "Too many adjacent contigs; we won't consider them "
+                        "when filtering partially-mapped reads from this "
+                        "contig."
+                    )
+                    consider_adj = False
 
-            if consider_adj:
-                fancylog(
-                    "Considering alignments of shared reads to these adjacent "
-                    "contig(s)..."
-                )
+                if consider_adj:
+                    fancylog(
+                        "Considering alignments of shared reads to these "
+                        "adjacent contig(s)..."
+                    )
 
-                # Go through these "allowed" other contigs; add to the number
-                # of matches in cc for any reads that we see that we've already
-                # seen in the contig to focus on. (We implicitly ignore any
-                # reads aligned to these other contigs but not to the contig to
-                # focus on.)
-                num_other_contig_alns_from_shared_reads = 0
-                for other_contig in adj_contigs:
-                    for aln in bf.fetch(other_contig):
-                        # If aln.query_name is NOT in readname2len, then this
-                        # alignment's read wasn't also aligned to the contig to
-                        # focus on -- in this case we implicitly ignore it, as
-                        # mentioned above, since we only really care about
-                        # reads aligned to the contig we're focusing on.
-                        if aln.query_name in readname2len:
-                            check_and_update_alignment(
-                                aln,
-                                readname2len,
-                                readname2matchct,
-                                other_contig,
-                            )
-                            num_other_contig_alns_from_shared_reads += 1
+                    # Go through these "allowed" other contigs; add to the
+                    # number of matches in cc for any reads that we see that
+                    # we've already seen in the contig to focus on. (We
+                    # implicitly ignore any reads aligned to these other
+                    # contigs but not to the contig to focus on.)
+                    num_other_contig_alns_from_shared_reads = 0
+                    for other_contig in adj_contigs:
+                        for aln in bf.fetch(other_contig):
+                            # If aln.query_name is NOT in readname2len, then
+                            # this alignment's read wasn't also aligned to the
+                            # contig to focus on -- in this case we implicitly
+                            # ignore it, as mentioned above, since we only
+                            # really care about reads aligned to the contig
+                            # we're focusing on.
+                            if aln.query_name in readname2len:
+                                check_and_update_alignment(
+                                    aln,
+                                    readname2len,
+                                    readname2matchct,
+                                    other_contig,
+                                )
+                                num_other_contig_alns_from_shared_reads += 1
 
-                fancylog(
-                    f"{num_other_contig_alns_from_shared_reads:,} linear alns "
-                    f"from shared reads to adjacent contigs of {cdsc}."
-                )
+                    fancylog(
+                        f"{num_other_contig_alns_from_shared_reads:,} linear "
+                        "alns from shared reads to adjacent contigs of "
+                        f"{cdsc}."
+                    )
 
         # Now that we've considered all relevant contigs (this contig and its
         # adjacent ones, if applicable and if certain checks passed), we can

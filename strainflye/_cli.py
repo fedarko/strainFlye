@@ -53,12 +53,14 @@ def strainflye():
 @click.option(
     "-g",
     "--graph",
-    required=True,
+    required=False,
     type=click.Path(exists=True),
     help=(
-        "GFA-formatted file describing an assembly graph of the contigs. "
+        "GFA 1-formatted file describing an assembly graph of the contigs. "
         'This is used in the "filter partially-mapped reads" step to make the '
-        "filter less strict for reads mapped to adjacent contigs in the graph."
+        "filter less strict for reads mapped to adjacent contigs in the "
+        "graph. This isn't required; if it isn't passed, adjacent contigs "
+        "will not be considered in this filter."
     ),
 )
 @click.option(
@@ -108,8 +110,12 @@ def align(reads, contigs, graph, output_dir, verbose):
     # Get a snazzy logging function we can use
     fancylog = cli_utils.fancystart(
         "strainFlye align",
-        (("file(s) of reads", reads_info), ("contig file", contigs)),
-        (("directory", output_dir)),
+        (
+            ("file(s) of reads", reads_info),
+            ("contig file", contigs),
+            ("graph file", graph),
+        ),
+        (("directory", output_dir),),
         verbose,
     )
 
