@@ -7,7 +7,7 @@
 # The -B in the invocation of python prevents this from creating pycache stuff.
 # The --cov-report xml seems to be needed to make this visible to Codecov.
 test:
-	python3 -B -m pytest strainflye/tests --cov strainflye -s
+	python3 -B -m pytest strainflye/tests --cov strainflye
 
 stylecheck:
 	flake8 --ignore=W503 strainflye/ misc/ setup.py
