@@ -262,8 +262,9 @@ def filter_pm_reads(
     ----------
     I realized after the fact that this bears some resemblance to samclip
     (https://github.com/tseemann/samclip), although this differs a bit in the
-    sort of alignments this allows to pass the filter and the sort of information
-    it takes into account. These are probs ultimately minor distinctions, tho.
+    sort of alignments this allows to pass the filter and the sort of
+    information it takes into account. These are probs ultimately minor
+    distinctions, tho.
     """
     fancylog("Filtering partially-mapped reads...")
 
@@ -294,16 +295,17 @@ def filter_pm_reads(
         raise ValueError("This BAM file is cursed. Call a priest.")
 
     # Per the SAM v1 specification, top of page 8:
-    # "Sum of lengths of the M/I/S/=/X operations shall equal the length of SEQ."
+    # "Sum of lengths of the M/I/S/=/X operations shall equal the length of
+    # SEQ."
     #
-    # These are the five CIGAR operations that consume character(s) from the query
-    # sequence (i.e. a read).
+    # These are the five CIGAR operations that consume character(s) from the
+    # query sequence (i.e. a read).
     #
-    # We ignore S (soft clipping), since this indicates that a given position in a
-    # read is not matched to a seq; and we ignore I (insertion), since this also
-    # indicates that a position in a read is not really "matched" anywhere on the
-    # seq (although I guess you could argue that including insertions here may be
-    # useful; it probably isn't a big deal either way).
+    # We ignore S (soft clipping), since this indicates that a given position
+    # in a read is not matched to a seq; and we ignore I (insertion), since
+    # this also indicates that a position in a read is not really "matched"
+    # anywhere on the seq (although I guess you could argue that including
+    # insertions here may be useful; it probably isn't a big deal either way).
     #
     # By just looking at M, X, and = occurrences, we can get a count for each
     # alignment of the number of bases "(mis)matched" to a seq.
@@ -321,9 +323,11 @@ def filter_pm_reads(
     def check_and_update_alignment(
         aln, readname2len, readname2matchct, contig_name
     ):
-        """Updates two dicts based on a single linear alignment.
+        """Updates two dicts in place based on a single linear alignment.
 
-        This is intended to be called multiple times
+        This is intended to be called multiple times, as we consider lots and
+        lots of alignments to a contig (or its adjacent contigs, sometimes) in
+        rapid succession.
 
         Parameters
         ----------
@@ -350,9 +354,6 @@ def filter_pm_reads(
         contig_name: str
             Name of the contig to which aln is aligned. This parameter is just
             used here for sanity checking.
-
-        Note that readname2len and readname2matchct are both defined relative to
-        a single contig in the graph (these aren't universal structures).
 
         Raises
         ------
@@ -397,14 +398,17 @@ def filter_pm_reads(
             readname2matchct[aln.query_name] += matchct
         else:
             # Raise an error if an alignment of this read does not involve
-            # any (mis)match operations at all. This *could* happen in practice,
-            # I guess, but if it does something is likely wrong. If this check
-            # needs to be removed in the future, then this block could just be
-            # commented out or replaced with a "pass" statement or something.
+            # any (mis)match operations at all. This *could* happen in
+            # practice, I guess, but if it does something is likely wrong. If
+            # this check needs to be removed in the future, then this block
+            # could just be commented out or replaced with a "pass" statement
+            # or something.
             raise ValueError(
                 "No (mis)match operations (M/X/=) found in an alignment of "
                 f"read {aln.query_name}.\nThe CIGAR string for this alignment "
-                f"is {aln.cigarstring}, for reference."
+                f"is {aln.cigarstring}, for reference.\nIf you encountered "
+                "this on a real dataset, please let the developers know and "
+                "we can look into removing this check."
             )
 
         # The function is done, now -- we've updated the two dicts based on
@@ -422,8 +426,8 @@ def filter_pm_reads(
             f"{bf.nreferences:,}) ({pct:.2f}%)."
         )
         # Maps read name to read length (which should be constant across all
-        # alignments of that read). This variable is used both to store this info
-        # (which is in turn used for sanity checking) as well as as a
+        # alignments of that read). This variable is used both to store this
+        # info (which is in turn used for sanity checking) as well as as a
         # crude indication of "have we seen this read yet?"
         readname2len = {}
 
@@ -466,7 +470,7 @@ def filter_pm_reads(
             # always consider adj contigs.
             if too_many_adj_contigs >= 0 and nae >= too_many_adj_contigs:
                 fancylog(
-                    f"Too many adjacent contigs; we won't consider them "
+                    "Too many adjacent contigs; we won't consider them "
                     "when filtering partially-mapped reads from this contig."
                 )
                 consider_adj = False
@@ -500,8 +504,8 @@ def filter_pm_reads(
                             num_other_contig_alns_from_shared_reads += 1
 
                 fancylog(
-                    f"{num_other_contig_alns_from_shared_reads:,} linear alns from "
-                    "shared reads to adjacent contigs of {cdsc}."
+                    f"{num_other_contig_alns_from_shared_reads:,} linear alns "
+                    f"from shared reads to adjacent contigs of {cdsc}."
                 )
 
         # Now that we've considered all relevant contigs (this contig and its
