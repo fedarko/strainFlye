@@ -30,7 +30,7 @@ def index_bam(in_bam, bam_descriptor, fancylog):
     """
     fancylog(f"Indexing the {bam_descriptor}...")
     subprocess.run(["samtools", "index", in_bam])
-    fancylog(f"Done indexing the {bam_descriptor}.")
+    fancylog(f"Done indexing the {bam_descriptor}.", prefix="")
 
 
 def get_coords(alnseg):
@@ -116,8 +116,11 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
     for si, seq in enumerate(bf.references, 1):
         pct = 100 * (si / bf.nreferences)
         fancylog(
-            f"OSA filter pass 1/2: on contig {seq} ({si:,} / "
-            f"{bf.nreferences:,}) ({pct:.2f}%)."
+            (
+                f"OSA filter pass 1/2: on contig {seq} ({si:,} / "
+                f"{bf.nreferences:,}) ({pct:.2f}%)."
+            ),
+            prefix="",
         )
 
         # Identify all linear alignments of each read to this sequence
@@ -145,7 +148,8 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
                         break
 
         fancylog(
-            f"{n_reads_w_osa_in_seq:,} read(s) with OSA(s) in contig {seq}..."
+            f"{n_reads_w_osa_in_seq:,} read(s) with OSA(s) in contig {seq}...",
+            prefix="",
         )
 
     # Now we've made note of all reads with OSAs across *all* sequences in the
@@ -162,7 +166,8 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
         pct = 100 * (si / bf.nreferences)
         fancylog(
             f"OSA filter pass 2/2: on contig {seq} ({si:,} / "
-            f"{bf.nreferences:,}) ({pct:.2f}%)."
+            f"{bf.nreferences:,}) ({pct:.2f}%).",
+            prefix="",
         )
 
         num_alns_retained = 0
@@ -184,13 +189,17 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
             apct = float("inf")
         fancylog(
             f"{num_alns_retained:,} / {num_alns_total:,} ({apct:.2f}%) "
-            "linear aln(s) retained in contig {seq}."
+            "linear aln(s) retained in contig {seq}.",
+            prefix="",
         )
 
     bf.close()
     of.close()
 
-    fancylog("Done filtering reads with overlapping supplementary alignments.")
+    fancylog(
+        "Done filtering reads with overlapping supplementary alignments.",
+        prefix="",
+    )
 
 
 def filter_pm_reads(
@@ -286,7 +295,7 @@ def filter_pm_reads(
 
     graph = None
     if gfa is not None:
-        fancylog("Loading assembly graph...")
+        fancylog("Loading assembly graph...", prefix="")
         graph = graph_utils.load_gfa(gfa)
 
         # Another sanity check!
@@ -299,9 +308,9 @@ def filter_pm_reads(
                 f"{len(gfa_nodes):,} segments, for reference."
             )
 
-        fancylog("Loaded assembly graph.")
+        fancylog("Loaded assembly graph.", prefix="")
     else:
-        fancylog("No assembly graph given.")
+        fancylog("No assembly graph given.", prefix="")
 
     # Per the SAM v1 specification, top of page 8:
     # "Sum of lengths of the M/I/S/=/X operations shall equal the length of
@@ -432,7 +441,8 @@ def filter_pm_reads(
         pct = 100 * (ci / bf.nreferences)
         fancylog(
             f"PM read filter: on {cdsc} ({ci:,} / "
-            f"{bf.nreferences:,}) ({pct:.2f}%)."
+            f"{bf.nreferences:,}) ({pct:.2f}%).",
+            prefix="",
         )
         # Maps read name to read length (which should be constant across all
         # alignments of that read). This variable is used both to store this
@@ -444,11 +454,12 @@ def filter_pm_reads(
         # contig or adjacent contigs in the graph.
         readname2matchct = defaultdict(int)
 
+        ai = 0
         for ai, aln in enumerate(bf.fetch(contig_to_focus_on), 1):
             check_and_update_alignment(
                 aln, readname2len, readname2matchct, contig_to_focus_on
             )
-        fancylog(f"{ai} linear alignments to {cdsc}.")
+        fancylog(f"{ai} linear alignments to {cdsc}.", prefix="")
 
         if graph is not None:
             # Identify adjacent contigs to this one in the graph, if present.
@@ -468,7 +479,10 @@ def filter_pm_reads(
             )
             nae = len(adj_contigs)
 
-            fancylog(f"{nae:,} contig(s) in the graph are adjacent to {cdsc}.")
+            fancylog(
+                f"{nae:,} contig(s) in the graph are adjacent to {cdsc}.",
+                prefix="",
+            )
 
             # To prevent this script from taking a super long amount of time,
             # only allow alignments to adjacent contigs if there are less than
@@ -483,14 +497,16 @@ def filter_pm_reads(
                     fancylog(
                         "Too many adjacent contigs; we won't consider them "
                         "when filtering partially-mapped reads from this "
-                        "contig."
+                        "contig.",
+                        prefix="",
                     )
                     consider_adj = False
 
                 if consider_adj:
                     fancylog(
                         "Considering alignments of shared reads to these "
-                        "adjacent contig(s)..."
+                        "adjacent contig(s)...",
+                        prefix="",
                     )
 
                     # Go through these "allowed" other contigs; add to the
@@ -519,7 +535,8 @@ def filter_pm_reads(
                     fancylog(
                         f"{num_other_contig_alns_from_shared_reads:,} linear "
                         "alns from shared reads to adjacent contigs of "
-                        f"{cdsc}."
+                        f"{cdsc}.",
+                        prefix="",
                     )
 
         # Now that we've considered all relevant contigs (this contig and its
@@ -541,7 +558,8 @@ def filter_pm_reads(
         # context of other contigs in this function).
         fancylog(
             "Computing percentages and outputting alignments from "
-            "reads that pass the not-partially-mapped check..."
+            "reads that pass the not-partially-mapped check...",
+            prefix="",
         )
         passing_aln_ct = 0
         for aln in bf.fetch(contig_to_focus_on):
@@ -582,10 +600,11 @@ def filter_pm_reads(
         passing_pct = 100 * (passing_aln_ct / ai)
         fancylog(
             f"{passing_aln_ct} / {ai} ({passing_pct:.2f}%) of alignments in "
-            f"{cdsc} passed the filter."
+            f"{cdsc} passed the filter.",
+            prefix="",
         )
 
     bf.close()
     of.close()
 
-    fancylog("Done filtering out partially-mapped reads.")
+    fancylog("Done filtering out partially-mapped reads.", prefix="")
