@@ -55,6 +55,7 @@ def strainflye():
     "--graph",
     required=False,
     type=click.Path(exists=True),
+    show_default="no graph",
     help=(
         "GFA 1-formatted file describing an assembly graph of the contigs. "
         'This is used in the "filter partially-mapped reads" step to make the '
@@ -77,6 +78,7 @@ def strainflye():
     "--verbose",
     is_flag=True,
     default=True,
+    show_default=True,
     help="Show extra details while running.",
 )
 # Regarding the \b marker, see https://stackoverflow.com/a/53302580 -- this is
