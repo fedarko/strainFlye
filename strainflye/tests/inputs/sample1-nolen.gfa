@@ -1,0 +1,11 @@
+H	VN:Z:1.0
+S	1	*	LN:i:8
+S	2	*	LN:i:10
+S	3	*	RC:i:4	LN:i:5
+S	4	*	RC:i:5
+S	5	*	LN:i:8
+S	6	*	LN:i:4
+L	1	+	2	+	5M
+L	3	+	2	+	0M
+L	3	+	4	-	1M1D3M
+L	4	-	5	+	0M

@@ -58,5 +58,7 @@ Commands:
 ## Acknowledgements
 
 ### Test data
-`sample1.gfa` was downloaded from the
-[gfalint](https://github.com/sjackman/gfalint) repository.
+`sample1.gfa` (located in `strainflye/tests/inputs/`)
+was downloaded from the [gfalint](https://github.com/sjackman/gfalint)
+repository. The other GFA files in this folder beginning with `sample1` are
+also based on this GFA file.

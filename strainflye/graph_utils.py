@@ -1,6 +1,10 @@
 import networkx as nx
 
 
+class GraphParsingError(Exception):
+    pass
+
+
 def load_gfa(gfa_fp):
     """Quick and dirty function that loads GFA files in NetworkX.
 
@@ -24,7 +28,7 @@ def load_gfa(gfa_fp):
 
     Raises
     ------
-    ValueError
+    GraphParsingError
         If any segment has either no length given for it (sequence is * and the
         LN tag is missing) or multiple lengths given for it (sequence is
         defined, and there is an LN tag given).
@@ -59,12 +63,12 @@ def load_gfa(gfa_fp):
                         if node_len is None:
                             node_len = int(tag[5:])
                         else:
-                            raise ValueError(
-                                "Duplicate length for node {node_name}"
+                            raise GraphParsingError(
+                                f"Duplicate length for segment {node_name}"
                             )
 
                 if node_len is None:
-                    raise ValueError("No length given for node {node_name}.")
+                    raise GraphParsingError(f"No length given for segment {node_name}")
 
                 graph.add_node(node_name, length=node_len)
 
