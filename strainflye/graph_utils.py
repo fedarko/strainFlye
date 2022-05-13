@@ -68,7 +68,9 @@ def load_gfa(gfa_fp):
                             )
 
                 if node_len is None:
-                    raise GraphParsingError(f"No length given for segment {node_name}")
+                    raise GraphParsingError(
+                        f"No length given for segment {node_name}"
+                    )
 
                 graph.add_node(node_name, length=node_len)
 
