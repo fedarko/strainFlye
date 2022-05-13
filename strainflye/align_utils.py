@@ -1,9 +1,11 @@
 # Utilities for strainFlye's alignment step.
 
-import pysam
+import re
 import subprocess
+import pysam
 from itertools import combinations
 from collections import defaultdict
+from . import graph_utils
 
 
 def index_bam(in_bam, bam_descriptor, fancylog):
@@ -95,6 +97,9 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
     -------
     None
     """
+    fancylog(
+        "Filtering reads with overlapping supplementary alignments (OSAs)..."
+    )
     bf = pysam.AlignmentFile(in_bam, "rb")
 
     # Keeps track of the names of reads with OSAs.
@@ -111,8 +116,8 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
     for si, seq in enumerate(bf.references, 1):
         pct = 100 * (si / bf.nreferences)
         fancylog(
-            f"OSA filter pass 1/2: on seq {seq} ({si:,} / {bf.nreferences:,}) "
-            f"({pct:.2f}%)."
+            f"OSA filter pass 1/2: on contig {seq} ({si:,} / "
+            f"{bf.nreferences:,}) ({pct:.2f}%)."
         )
 
         # Identify all linear alignments of each read to this sequence
@@ -140,7 +145,7 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
                         break
 
         fancylog(
-            f"{n_reads_w_osa_in_seq:,} read(s) with OSA(s) in seq {seq}..."
+            f"{n_reads_w_osa_in_seq:,} read(s) with OSA(s) in contig {seq}..."
         )
 
     # Now we've made note of all reads with OSAs across *all* sequences in the
@@ -156,8 +161,8 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
     for si, seq in enumerate(bf.references, 1):
         pct = 100 * (si / bf.nreferences)
         fancylog(
-            f"OSA filter pass 2/2: on seq {seq} ({si:,} / {bf.nreferences:,}) "
-            f"({pct:.2f}%)."
+            f"OSA filter pass 2/2: on contig {seq} ({si:,} / "
+            f"{bf.nreferences:,}) ({pct:.2f}%)."
         )
 
         num_alns_retained = 0
@@ -179,262 +184,386 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
             apct = float("inf")
         fancylog(
             f"{num_alns_retained:,} / {num_alns_total:,} ({apct:.2f}%) "
-            "linear aln(s) retained in seq {seq}."
+            "linear aln(s) retained in contig {seq}."
         )
 
     bf.close()
     of.close()
 
-    fancylog("Done filtering out overlapping supplementary alignments.")
+    fancylog("Done filtering reads with overlapping supplementary alignments.")
 
 
-###############################################################################
+def filter_pm_reads(
+    gfa,
+    in_bam,
+    out_bam,
+    fancylog,
+    min_percent_aligned=90,
+    too_many_adj_contigs=50,
+):
+    """Filters a BAM file to remove partially-mapped reads.
 
+    We identify "partially-mapped" reads as follows. Consider each contig, C,
+    in the graph (this is a GFA file, so contigs are represented as nodes aka
+    segments); now consider all reads TODO finish
 
-def filter_pm_reads():
-    pass
+    Parameters
+    ----------
+    gfa: str
+        Location of a GFA file whose segments correspond to contigs in the
+        assembly graph. This is used when determining whether or not a read is
+        partially-mapped.
 
+    in_bam: str
+        Location of the BAM file on which we will perform filtering. This BAM
+        file should already have been sorted and indexed, and should have had
+        OSAs filtered as well.
 
-'''
-#! /usr/bin/env python3
-# Filters reads that are less than some percentage (MIN_PERCENT_ALIGNED)
-# aligned to an edge in the graph, or to other edges adjacent to this edge in
-# the repeat graph.
-#
-# Realized after the fact that this bears some resemblance to samclip
-# (https://github.com/tseemann/samclip), although this differs a bit in the
-# sort of alignments this allows to pass the filter and the sort of information
-# it takes into account. These are probs ultimately minor distinctions, tho.
+    out_bam: str
+        Location to which an output BAM file (containing no partially-mapped
+        reads) will be written.
 
-import re
-import pysam
-from collections import defaultdict
-from utils import load_gfa
+    fancylog: function
+        Logging function.
 
-# This is a percentage (value in [0, 1]). Reads where less than this
-# percentage of the sequence is aligned to a given edge are filtered out of
-# the BAM file.
-MIN_PERCENT_ALIGNED = 0.9
+    min_percent_aligned: float
+        Number in the range [0, 100]. A given read is only included in the
+        filtered alignment information for some contig if the sum of all
+        (mis)match operations in this read in this contig -- and in adjacent
+        contigs, if applicable -- is at least this percentage of the read
+        length.
 
-print(
-    "Filtering out reads mapped to other edges and partially-mapped reads..."
-)
+    too_many_adj_contigs: int
+        If a contig C has at least this many adjacent contigs in the graph,
+        then -- when checking if a read is partially aligned to C -- we will
+        not bother checking the adjacent contigs of C. Why do we do this?
 
-# flush stdout to force this to show up even though it's not a newline
-print("Loading graph...", end=" ", flush=True)
-with open("../config/input-graph", "r") as igfile:
-    graph_filename = next(igfile).strip()
+          - Rationale 1: this saves us time, because there are likely a lot of
+            cases in the "hairball" component where a contig has tons of
+            adjacencies.
 
-graph = load_gfa(graph_filename)
-print("Done.")
+          - Rationale 2: Many of these "tons of adjacencies" are likely
+            not very meaningful. The main reason that we check adjacent contigs
+            in the first place is because we don't want to unjustly penalize
+            contigs that are present in components that happen to be
+            incompletely assembled.
 
-# Input BAM file (contains alignments to all edges in the graph)
-bf = pysam.AlignmentFile(
-    "output/overlap-supp-aln-filtered-and-sorted-aln.bam", "rb"
-)
-# Output BAM file (will just contain alignments that pass the filter)
-of = pysam.AlignmentFile("output/pmread-filtered-aln.bam", "wb", template=bf)
+        Setting this to 0 or 1 implies that adjacent contigs will never be
+        considered at all (this is fine). Setting this to a negative number
+        disables the check, meaning that adjacent contigs will ALWAYS be
+        considered. (This is not encouraged unless you really know what you're
+        doing, since this could drastically increase runtime...)
 
-# Per the SAM v1 specification, top of page 8:
-# "Sum of lengths of the M/I/S/=/X operations shall equal the length of SEQ."
-#
-# These are the five CIGAR operations that consume character(s) from the query
-# sequence (i.e. a read).
-#
-# We ignore S (soft clipping), since this indicates that a given position in a
-# read is not matched to an edge; and we ignore I (insertion), since this also
-# indicates that a position in a read is not really "matched" anywhere on the
-# edge (although I guess you could argue that including insertions here may be
-# useful; it probably isn't a big deal either way).
-#
-# By just looking at M, X, and = occurrences, we can get a count for each
-# alignment of the number of bases "(mis)matched" to an edge.
-# Since we have already filtered secondary alignments and overlapping
-# supplementary alignments, we can sum these match counts across all
-# alignments of a read and divide by the read length to get the approx
-# percentage (see above for slight caveats) of bases in the read aligned to
-# an edge or group of edges.
-matches = re.compile("(\d+)[MX=]") # noqa
+    Returns
+    -------
+    None
 
-
-def check_and_update_alignment(aln, readname2len, readname2matchct, edge_name):
-    """Updates readname2len and readname2matchct based on an AlignedSegment.
-
-    Note that readname2len and readname2matchct are both defined relative to
-    a single edge in the graph (these aren't universal structures).
+    References
+    ----------
+    I realized after the fact that this bears some resemblance to samclip
+    (https://github.com/tseemann/samclip), although this differs a bit in the
+    sort of alignments this allows to pass the filter and the sort of information
+    it takes into account. These are probs ultimately minor distinctions, tho.
     """
-    # Ensure that read length is consistent across all alignments involving
-    # this read; also, make a record of previously unseen reads' lengths.
-    # (Apparently query length is dependent on the actual alignment of this
-    # read, so we use infer_read_length() instead because we care about the
-    # actual length of the read)
-    if aln.query_name in readname2len:
-        if readname2len[aln.query_name] != aln.infer_read_length():
-            raise ValueError(
-                "Inconsistent read lengths across alignments: {}: {}, {}".format(
-                    aln.query_name,
-                    readname2len[aln.query_name],
-                    aln.infer_read_length(),
+    fancylog("Filtering partially-mapped reads...")
+
+    # Sanity check
+    if min_percent_aligned < 0 or min_percent_aligned > 100:
+        raise ValueError(
+            "min_percent_aligned = {min_percent_aligned} is not in [0, 100]."
+        )
+
+    bf = pysam.AlignmentFile(in_bam, "rb")
+
+    fancylog("Loading assembly graph...")
+    graph = graph_utils.load_gfa(gfa)
+    fancylog("Loaded assembly graph.")
+
+    bam_contigs = set(bf.references)
+    gfa_nodes = set(graph.nodes())
+    if bam_contigs != gfa_nodes:
+        raise ValueError(
+            f"Contigs in the BAM file ({in_bam}) and segments in the graph "
+            f"({gfa}) do not match. The BAM has {len(bam_contigs):,} contigs "
+            f"and the GFA has {len(gfa_nodes):,} nodes, for reference."
+        )
+
+    # this should never happen, but we use these two interchangeably so i wanna
+    # verify it in the weird case pysam starts exploding
+    if len(bam_contigs) != bf.nreferences:
+        raise ValueError("This BAM file is cursed. Call a priest.")
+
+    # Per the SAM v1 specification, top of page 8:
+    # "Sum of lengths of the M/I/S/=/X operations shall equal the length of SEQ."
+    #
+    # These are the five CIGAR operations that consume character(s) from the query
+    # sequence (i.e. a read).
+    #
+    # We ignore S (soft clipping), since this indicates that a given position in a
+    # read is not matched to a seq; and we ignore I (insertion), since this also
+    # indicates that a position in a read is not really "matched" anywhere on the
+    # seq (although I guess you could argue that including insertions here may be
+    # useful; it probably isn't a big deal either way).
+    #
+    # By just looking at M, X, and = occurrences, we can get a count for each
+    # alignment of the number of bases "(mis)matched" to a seq.
+    # Since we have already filtered secondary alignments and overlapping
+    # supplementary alignments, we can sum these match counts across all
+    # alignments of a read and divide by the read length to get the approx
+    # percentage (see above for slight caveats) of bases in the read aligned to
+    # a contig or group of contigs.
+    matches = re.compile("(\d+)[MX=]")
+
+    def check_and_update_alignment(
+        aln, readname2len, readname2matchct, contig_name
+    ):
+        """Updates two dicts based on a single linear alignment.
+
+        This is intended to be called multiple times
+
+        Parameters
+        ----------
+        aln: pysam.AlignedSegment
+
+        readname2len: dict
+            Maps read name (str) to the length of this read (int). The first
+            dict that will be updated. A read's length is important information
+            for us to know when we later define a read as partially-mapped or
+            not (since the read length is the denominator in that fraction).
+
+            It's very possible that, when this function is called, it will have
+            already been called for another alignment of a given read. In this
+            case, readname2len won't be updated, but it will be checked -- if
+            the read lengths from the previous and current alignments of this
+            read disagree, then this function will raise an error.
+
+        readname2matchct: defaultdict(int)
+            Maps read name (str) to the number of (mis)match operations of this
+            read observed on this contig (int). Note that this number may
+            include operations to adjacent contigs (...if this function is
+            called across multiple contigs).
+
+        contig_name: str
+            Name of the contig to which aln is aligned. This parameter is just
+            used here for sanity checking.
+
+        Note that readname2len and readname2matchct are both defined relative to
+        a single contig in the graph (these aren't universal structures).
+
+        Raises
+        ------
+        ValueError
+            - If the inferred lengths of a read are observed to be inconsistent
+              (see readname2len's description).
+
+            - If contig_name and aln.reference_name do not match.
+
+            - If aln's CIGAR string has no (mis)match operations.
+        """
+        # Ensure that read length is consistent across all alignments involving
+        # this read; also, make a record of previously unseen reads' lengths.
+        # (Apparently query length is dependent on the actual alignment of this
+        # read, so we use infer_read_length() instead because we care about the
+        # actual length of the read.)
+        obs_read_len = aln.infer_read_length()
+        if aln.query_name in readname2len:
+            if readname2len[aln.query_name] != obs_read_len:
+                raise ValueError(
+                    "Inconsistent read lengths across alignments of read "
+                    f"{aln.query_name}: prev aln = "
+                    f"{readname2len[aln.query_name]:,}, this aln = "
+                    f"{obs_read_len:,}"
                 )
-            )
-    else:
-        readname2len[aln.query_name] = aln.infer_read_length()
+        else:
+            readname2len[aln.query_name] = obs_read_len
 
-    # Each AlignedSegment returned by fetch(edge) should pertain to that
-    # specific edge sequence -- this lets know that the CIGAR string of
-    # this segment applies to the edge
-    if aln.reference_name != edge_name:
-        raise ValueError(
-            "Alignment reference name, {}, isn't {} as expected".format(
-                aln.reference_name, edge_name
-            )
-        )
-
-    # The meat of this -- parse the CIGAR string of this alignment and
-    # count all (mis)match operations, updating a defaultdict.
-    allmatches = matches.findall(aln.cigarstring)
-    if allmatches:
-        matchct = sum([int(c) for c in allmatches])
-        readname2matchct[aln.query_name] += matchct
-    else:
-        # Raise an error if an alignment of this read does not involve
-        # any (mis)match operations at all. This *could* happen in practice,
-        # I guess, but if it does something is likely wrong. If this check
-        # needs to be removed in the future, then this block could just be
-        # commented out or replaced with a "pass" statement or something.
-        raise ValueError(
-            "No match chars (M/X/=) found in read {} CIGAR: {}".format(
-                aln.query_name, aln.cigarstring
-            )
-        )
-
-
-# Figure out all reads that are aligned to each edge to focus on
-for edge_to_focus_on in graph.nodes():
-    # The loaded graph doesn't use the "edge_" prefix for nodes, but the
-    # alignment does -- add back in and use it wherever we have to deal with
-    # pysam here
-    focused_seq = f"edge_{edge_to_focus_on}"
-    print(f"Looking at edge {edge_to_focus_on}...")
-    # Maps read name to read length (which should be constant across all
-    # alignments of that read). This variable is used both to store this info
-    # (which is in turn used for sanity checking) as well as as a
-    # crude indication of "have we seen this read yet?"
-    readname2len = {}
-
-    # Maps read name to number of match operations to the sequences of this
-    # edge or adjacent edges in the graph.
-    readname2matchct = defaultdict(int)
-
-    for i, aln in enumerate(bf.fetch(focused_seq), 1):
-        check_and_update_alignment(
-            aln, readname2len, readname2matchct, focused_seq
-        )
-    print(f"\t{i} linear alignments to this edge.")
-
-    # Identify adjacent edges to this one in the graph, if present. Allow
-    # alignments to these edges to count towards readname2matchct (so we can
-    # somewhat avoid penalizing edges that aren't in isolated components).
-    # We could also expand this to include _all_ other edges in this edge's
-    # component, but that will probs cause problems with hairball
-    # component(s) in the graph that span thousands of edges...
-    adj_edges = set(graph.neighbors(edge_to_focus_on)) - set(
-        [edge_to_focus_on]
-    )
-    nae = len(adj_edges)
-
-    print(f"\t{nae} adjacent edges in the graph.")
-
-    # To prevent this script from taking a super long amount of time, only
-    # allow alignments to adjacent edges if there are < 50 adjacent edges to
-    # this edge in the graph. This isn't ideal, I guess, but it's better than
-    # the script running forever (and we're already trying to care a lot about
-    # the small details here by caring about the graph at all in the alignment
-    # filtering process).
-    #
-    # NOTE: could probs speed this up by looking at SA: tags of reads from
-    # minimap2 (although we'd still need to perform fetch to get accurate
-    # CIGAR strings of those alignments; see
-    # https://github.com/lh3/minimap2/issues/724)
-    if nae >= 50:
-        print("\tToo many adj. edges; we won't look at their alignments here.")
-    elif nae <= 0:
-        print("\tNothing to consider in adjacent edges; moving on.")
-    else:
-        # nae is > 0 and < 50, so we can look at adjacent edges
-        print("\tLooking at alignments of shared reads to adjacent edges...")
-        # Go through these "allowed" other edges; add to the number
-        # of matches in cc for any reads that we see that we've already seen in
-        # the edge to focus on. (We implicitly ignore any reads aligned to
-        # these edges but not to the edge to focus on.)
-        num_other_edge_alns_from_shared_reads = 0
-        for other_edge in adj_edges:
-            other_edge_seq = f"edge_{other_edge}"
-            for aln in bf.fetch(other_edge_seq):
-                # If aln.query_name is NOT in readname2len, then this
-                # alignment's read wasn't also aligned to the edge to focus on
-                # -- in this case we implicitly ignore it, as mentioned above,
-                # since we only really care about reads aligned to the edge
-                # we're focusing on.
-                if aln.query_name in readname2len:
-                    check_and_update_alignment(
-                        aln, readname2len, readname2matchct, other_edge_seq
-                    )
-                    num_other_edge_alns_from_shared_reads += 1
-
-        print(
-            f"\t{num_other_edge_alns_from_shared_reads} linear alns from "
-            "shared reads to adjacent edges."
-        )
-
-    # Now that we've considered all relevant edges, we can compute
-    # the approximate percentages of each read (aligned to the edge we're
-    # focusing on) aligned to all edges in this component.
-    #
-    # And, finally, we can selectively write these reads' alignments
-    # to an output BAM file accordingly.
-    #
-    # Note that although we're iterating over all alignments, these
-    # computations are identical for alignments from the same read (at least in
-    # the context of the same focused_seq). So if a read passes the
-    # filter for an edge, all its alignments to this edge will be output to the
-    # BAM file; and if the read fails the filter for an edge, none of its
-    # alignments to this edge will be output to the BAM file (although this
-    # does not preclude other alignments from this read to other edges from
-    # being output in the context of other edges in this script).
-    print(
-        "\tComputing percentages and outputting alignments from "
-        "passing reads..."
-    )
-    p = 0
-    for aln in bf.fetch(focused_seq):
-        if aln.query_name not in readname2len:
+        # Each AlignedSegment returned by fetch(contig) should pertain to that
+        # specific contig
+        if aln.reference_name != contig_name:
             raise ValueError(
-                f"We should have seen read {aln.query_name} earlier!"
+                f"Alignment reference name, {aln.reference_name}, isn't "
+                f"{contig_name} as expected"
             )
-        read_len = readname2len[aln.query_name]
 
-        if readname2matchct[aln.query_name] == 0:
-            # As with a similar error case in check_and_update_alignment(),
-            # I *guess* this could happen in practice but it is probably
-            # indicative of an error in most cases.
+        # The meat of this -- parse the CIGAR string of this alignment and
+        # count all (mis)match operations, updating a defaultdict.
+        allmatches = matches.findall(aln.cigarstring)
+        if allmatches:
+            matchct = sum([int(c) for c in allmatches])
+            readname2matchct[aln.query_name] += matchct
+        else:
+            # Raise an error if an alignment of this read does not involve
+            # any (mis)match operations at all. This *could* happen in practice,
+            # I guess, but if it does something is likely wrong. If this check
+            # needs to be removed in the future, then this block could just be
+            # commented out or replaced with a "pass" statement or something.
             raise ValueError(
-                f"Read {aln.query_name} had no match operations done?"
+                "No (mis)match operations (M/X/=) found in an alignment of "
+                f"read {aln.query_name}.\nThe CIGAR string for this alignment "
+                f"is {aln.cigarstring}, for reference."
             )
 
-        read_matchct_in_cc = readname2matchct[aln.query_name]
-        perc = read_matchct_in_cc / read_len
+        # The function is done, now -- we've updated the two dicts based on
+        # this alignment, and all sanity checks have passed.
 
-        if perc >= MIN_PERCENT_ALIGNED:
-            of.write(aln)
-            p += 1
-    print(
-        f"\t{p} / {i} ({((p / i)*100):.2f}%) of alignments in "
-        f"edge {edge_to_focus_on} passed the filter."
-    )
+    of = pysam.AlignmentFile(out_bam, "wb", template=bf)
 
-bf.close()
-of.close()
+    # Figure out all reads that are aligned to each contig to focus on
+    for ci, contig_to_focus_on in enumerate(bam_contigs, 1):
+        # just for convenience's sake, since we write this out a lot
+        cdsc = f"contig {contig_to_focus_on}"
+        pct = 100 * (ci / bf.nreferences)
+        fancylog(
+            f"PM read filter: on {cdsc} ({ci:,} / "
+            f"{bf.nreferences:,}) ({pct:.2f}%)."
+        )
+        # Maps read name to read length (which should be constant across all
+        # alignments of that read). This variable is used both to store this info
+        # (which is in turn used for sanity checking) as well as as a
+        # crude indication of "have we seen this read yet?"
+        readname2len = {}
 
-print("Filtered to fully (ish) aligned reads.")
-'''
+        # Maps read name to number of match operations to the sequences of this
+        # contig or adjacent contigs in the graph.
+        readname2matchct = defaultdict(int)
+
+        for ai, aln in enumerate(bf.fetch(contig_to_focus_on), 1):
+            check_and_update_alignment(
+                aln, readname2len, readname2matchct, contig_to_focus_on
+            )
+        fancylog(f"{ai} linear alignments to {cdsc}.")
+
+        # Identify adjacent contigs to this one in the graph, if present. Allow
+        # alignments to these contigs to count towards readname2matchct (so we
+        # can somewhat avoid penalizing contigs that aren't in isolated
+        # components). We could also expand this to include _all_ other contigs
+        # in this contig's component, if desired (although due to hairballs
+        # that will likely cause problems unless we still impose the bound on
+        # nae).
+        #
+        # The removal of set([contig_to_focus_on]) is done because, if a contig
+        # has an edge to itself, then it'll be considered by NetworkX as a
+        # neighbor of itself (and thus will be included in adj_contigs). We
+        # don't want this, which is why we remove it!
+        adj_contigs = set(graph.neighbors(contig_to_focus_on)) - set(
+            [contig_to_focus_on]
+        )
+        nae = len(adj_contigs)
+
+        fancylog(f"{nae:,} contig(s) in the graph are adjacent to {cdsc}.")
+
+        # To prevent this script from taking a super long amount of time, only
+        # allow alignments to adjacent contigs if there are less than
+        # "too_many_adj_contigs" adjacent contigs to this contig in the graph.
+        if nae > 0:
+            consider_adj = True
+
+            # too_many_adj_contigs being negative implies that we should
+            # always consider adj contigs.
+            if too_many_adj_contigs >= 0 and nae >= too_many_adj_contigs:
+                fancylog(
+                    f"Too many adjacent contigs; we won't consider them "
+                    "when filtering partially-mapped reads from this contig."
+                )
+                consider_adj = False
+
+            if consider_adj:
+                fancylog(
+                    "Considering alignments of shared reads to these adjacent "
+                    "contig(s)..."
+                )
+
+                # Go through these "allowed" other contigs; add to the number
+                # of matches in cc for any reads that we see that we've already
+                # seen in the contig to focus on. (We implicitly ignore any
+                # reads aligned to these other contigs but not to the contig to
+                # focus on.)
+                num_other_contig_alns_from_shared_reads = 0
+                for other_contig in adj_contigs:
+                    for aln in bf.fetch(other_contig):
+                        # If aln.query_name is NOT in readname2len, then this
+                        # alignment's read wasn't also aligned to the contig to
+                        # focus on -- in this case we implicitly ignore it, as
+                        # mentioned above, since we only really care about
+                        # reads aligned to the contig we're focusing on.
+                        if aln.query_name in readname2len:
+                            check_and_update_alignment(
+                                aln,
+                                readname2len,
+                                readname2matchct,
+                                other_contig,
+                            )
+                            num_other_contig_alns_from_shared_reads += 1
+
+                fancylog(
+                    f"{num_other_contig_alns_from_shared_reads:,} linear alns from "
+                    "shared reads to adjacent contigs of {cdsc}."
+                )
+
+        # Now that we've considered all relevant contigs (this contig and its
+        # adjacent ones, if applicable and if certain checks passed), we can
+        # compute the approximate percentages of each read (aligned to the
+        # contig we're focusing on) aligned to all contigs in this component.
+        #
+        # And, finally, we can selectively write these reads' alignments
+        # to an output BAM file accordingly.
+        #
+        # Note that although we're iterating over all alignments, these
+        # computations are identical for alignments from the same read (at
+        # least in the context of the same contig_to_focus_on). So if a read
+        # passes the filter for a contig, all its alignments to this contig
+        # will be output to the BAM file one by one; and if the read fails the
+        # filter for a contig, none of its alignments to this contig will be
+        # output to the BAM file (although this does not preclude other
+        # alignments from this read to other contigs from being output in the
+        # context of other contigs in this function).
+        fancylog(
+            "Computing percentages and outputting alignments from "
+            "reads that pass the not-partially-mapped check..."
+        )
+        passing_aln_ct = 0
+        for aln in bf.fetch(contig_to_focus_on):
+            if aln.query_name not in readname2len:
+                raise ValueError(
+                    f"We should have seen read {aln.query_name} earlier!"
+                )
+            read_len = readname2len[aln.query_name]
+
+            if readname2matchct[aln.query_name] == 0:
+                # As with a similar error case in check_and_update_alignment(),
+                # I *guess* this could happen in practice but it is almost
+                # certainly indicative of an error in most cases.
+                #
+                # Our earlier error check should prevent us from ever getting
+                # to this point, but you never know.
+                raise ValueError(
+                    f"Read {aln.query_name} had no match operations done? Sus."
+                )
+
+            read_matchct_in_cc = readname2matchct[aln.query_name]
+            # We say a read passes the filter if
+            # (match ct / read len) >= (min_percent_aligned / 100).
+            #
+            # Or, equivalently, if
+            # (100 * match ct) >= (min_percent_aligned * read len).
+            #
+            # This way we can avoid division. This is analogous to how naive
+            # p-mutation calling works in the SheepGut github repo -- see
+            # https://github.com/fedarko/sheepgut/blob/ee74a550145c5e0c2fb56b8ed0484b7df6decc1b/notebooks/pileup.py#L301-L314
+            lhs = 100 * read_matchct_in_cc
+            rhs = min_percent_aligned * read_len
+
+            if lhs >= rhs:
+                of.write(aln)
+                passing_aln_ct += 1
+
+        passing_pct = 100 * (passing_aln_ct / ai)
+        fancylog(
+            f"{passing_aln_ct} / {ai} ({passing_pct:.2f}%) of alignments in "
+            f"{cdsc} passed the filter."
+        )
+
+    bf.close()
+    of.close()
+
+    fancylog("Done filtering out partially-mapped reads.")

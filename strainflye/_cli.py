@@ -93,6 +93,10 @@ def align(reads, contigs, graph, output_dir, verbose):
       2) Convert this SAM file to a sorted and indexed BAM file
       3) Filter overlapping supplementary alignments within this BAM file
       4) Filter partially-mapped reads within this BAM file
+
+    Note that we only sort the alignment file once, although we do re-index it
+    after the two filtering steps. This decision is motivated by
+    https://www.biostars.org/p/131333/#131335.
     """
 
     # Convert collection of reads files into something more easy to "read"
@@ -171,14 +175,12 @@ def align(reads, contigs, graph, output_dir, verbose):
 
     align_utils.index_bam(first_output_bam, "sorted BAM", fancylog)
 
-    fancylog("Filtering overlapping supplementary alignments (OSAs)...")
     osa_filter_bam = os.path.join(output_dir, "sorted-osa-filtered.bam")
     align_utils.filter_osa_reads(first_output_bam, osa_filter_bam, fancylog)
     align_utils.index_bam(osa_filter_bam, "OSA-filtered BAM", fancylog)
 
-    fancylog("Filtering partially-mapped reads...")
     pm_filter_bam = os.path.join(output_dir, "final.bam")
-    align_utils.filter_pm_reads(osa_filter_bam, pm_filter_bam, fancylog)
+    align_utils.filter_pm_reads(graph, osa_filter_bam, pm_filter_bam, fancylog)
     align_utils.index_bam(pm_filter_bam, "final BAM", fancylog)
 
     fancylog("Done.")
