@@ -133,9 +133,7 @@ def align(reads, contigs, graph, output_dir, verbose):
     # https://stackoverflow.com/a/9655939
 
     # reads will be a tuple
-    if type(reads) == tuple:
-        reads_str = " ".join(reads)
-    else:
+    if type(reads) != tuple:
         # if we just have a single string (e.g. click changes something in the
         # future about how variadic arguments work) then we can fix this, but
         # for now let's be defensive. (If you encounter this error, go yell at
@@ -162,7 +160,7 @@ def align(reads, contigs, graph, output_dir, verbose):
             "--secondary=no",
             "--MD",
             contigs,
-            reads_str,
+            *reads,
         ],
         stdout=subprocess.PIPE,
     )
