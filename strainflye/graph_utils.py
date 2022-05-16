@@ -96,7 +96,7 @@ def load_gfa(gfa_fp):
     return graph
 
 
-def gfa_to_fasta(gfa_fp, fasta_fp):
+def gfa_to_fasta(gfa_fp, fasta_file):
     """Converts a GFA file to a FASTA file.
 
     Parameters
@@ -104,9 +104,16 @@ def gfa_to_fasta(gfa_fp, fasta_fp):
     gfa_fp: str
         Filepath to a GFA 1 file.
 
-    fasta_fp: str
-        Filepath to which an output FASTA file (containing the sequences of
-        the segments in the input GFA file) will be written.
+    fasta_file: typing.TextIO
+        Opened IO stream to which an output FASTA file (containing the
+        sequences of the segments in the input GFA file) will be written.
+
+        To clarify, this should be something like an opened file handle
+        or an opened io.StringIO object. (The main use-case for the io.StringIO
+        thing is to simplify testing.)
+
+        See https://stackoverflow.com/a/38569536 for details on this
+        sort of abstraction.
 
     Returns
     -------
@@ -129,7 +136,7 @@ def gfa_to_fasta(gfa_fp, fasta_fp):
                 seq = split[2]
                 if seq == "*":
                     raise GraphParsingError(
-                        "No sequence given for segment {split[1]}."
+                        f"No sequence given for segment {split[1]}"
                     )
                 fout += f">{split[1]}\n{split[2]}\n"
                 num_seqs += 1
@@ -137,7 +144,6 @@ def gfa_to_fasta(gfa_fp, fasta_fp):
     if num_seqs == 0:
         raise GraphParsingError("Didn't see any segments in the GFA file?")
 
-    with open(fasta_fp, "w") as fasta_file:
-        fasta_file.write(fout)
+    fasta_file.write(fout)
 
     return num_seqs
