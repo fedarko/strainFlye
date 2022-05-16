@@ -47,12 +47,9 @@ def test_load_gfa_nolen():
     assert "No length given for segment 4" == str(errorinfo.value)
 
 
-def test_gfa_to_fasta():
-    """A 'normal' test case for this."""
-    sio = StringIO()
-    gu.gfa_to_fasta("strainflye/tests/inputs/sample1.gfa", sio)
+def check_sample1_fasta(fasta_text, num_seqs):
 
-    assert sio.getvalue() == (
+    assert fasta_text == (
         ">1\nCGATGCAA\n"
         ">2\nTGCAAAGTAC\n"
         ">3\nTGCAACGTATAGACTTGTCAC\n"
@@ -60,6 +57,24 @@ def test_gfa_to_fasta():
         ">5\nCGATGATA\n"
         ">6\nATGA\n"
     )
+
+    assert num_seqs == 6
+
+
+def test_gfa_to_fasta():
+    """A 'normal' test case for this."""
+    sio = StringIO()
+    num_seqs = gu.gfa_to_fasta("strainflye/tests/inputs/sample1.gfa", sio)
+    check_sample1_fasta(sio.getvalue(), num_seqs)
+
+
+def test_gfa_to_fasta_smallchunksize():
+    """Verifies that using a small chunk size works ok."""
+    sio = StringIO()
+    num_seqs = gu.gfa_to_fasta(
+        "strainflye/tests/inputs/sample1.gfa", sio, chunk_size=2
+    )
+    check_sample1_fasta(sio.getvalue(), num_seqs)
 
 
 def test_gfa_to_fasta_noseq():
@@ -74,7 +89,9 @@ def test_gfa_to_fasta_noseq():
     assert "No sequence given for segment 1" == str(errorinfo.value)
 
     # Nothing should have been written to the StringIO representing the output
-    # FASTA file yet
+    # FASTA file yet -- however, since we write to the FASTA file periodically,
+    # this behavior is only guaranteed here because segment 1 is the first one
+    # given in the GFA file
     assert sio.getvalue() == ""
 
 

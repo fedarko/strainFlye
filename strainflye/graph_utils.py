@@ -96,7 +96,7 @@ def load_gfa(gfa_fp):
     return graph
 
 
-def gfa_to_fasta(gfa_fp, fasta_file):
+def gfa_to_fasta(gfa_fp, fasta_file, chunk_size=500):
     """Converts a GFA file to a FASTA file.
 
     Parameters
@@ -114,6 +114,15 @@ def gfa_to_fasta(gfa_fp, fasta_file):
 
         See https://stackoverflow.com/a/38569536 for details on this
         sort of abstraction.
+
+    chunk_size: int
+        After seeing this many segments, we'll write out their sequences to
+        fasta_file. This way, we avoid storing every sequence in the GFA file
+        in memory at once.
+
+        Note that there's a tradeoff here, since writing things out to the
+        FASTA file too frequently will slow things down. The default should be
+        reasonable-ish, but feel free to adjust it if desired.
 
     Returns
     -------
@@ -140,10 +149,13 @@ def gfa_to_fasta(gfa_fp, fasta_file):
                     )
                 fout += f">{split[1]}\n{split[2]}\n"
                 num_seqs += 1
+                if num_seqs == chunk_size:
+                    fasta_file.write(fout)
+                    fout = ""
+    if fout != "":
+        fasta_file.write(fout)
 
     if num_seqs == 0:
         raise GraphParsingError("Didn't see any segments in the GFA file?")
-
-    fasta_file.write(fout)
 
     return num_seqs
