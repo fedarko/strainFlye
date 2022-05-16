@@ -47,12 +47,6 @@ def test_load_gfa_nolen():
     assert "No length given for segment 4" == str(errorinfo.value)
 
 
-def test_load_gfa_nolen():
-    with pytest.raises(gu.GraphParsingError) as errorinfo:
-        gu.load_gfa("strainflye/tests/inputs/sample1-nolen.gfa")
-    assert "No length given for segment 4" == str(errorinfo.value)
-
-
 def test_gfa_to_fasta():
     """A 'normal' test case for this."""
     sio = StringIO()
