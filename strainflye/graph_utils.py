@@ -94,3 +94,44 @@ def load_gfa(gfa_fp):
                 # are implicitly ignored by networkx.
                 graph.add_edge(src, snk)
     return graph
+
+
+def gfa_to_fasta(gfa_fp, fasta_fp):
+    """Converts a GFA file to a FASTA file.
+
+    Parameters
+    ----------
+    gfa_fp: str
+        Filepath to a GFA 1 file.
+
+    fasta_fp: str
+        Filepath to which an output FASTA file (containing the sequences of
+        the segments in the input GFA file) will be written.
+
+    Returns
+    -------
+    num_seqs: int
+        The number of segments (sequences) contained in the input GFA (output
+        FASTA) file.
+
+    Raises
+    ------
+    GraphParsingError
+        If any segment has either no length given for it (sequence is * and the
+        LN tag is missing), or if there are no segments contained in the GFA
+        file.
+    """
+    num_seqs = 0
+    fout = ""
+    with open(gfa_fp, "r") as gfa_file:
+        for line in gfa_file:
+            if line.startswith("S\t"):
+                split = line.strip().split("\t")
+                seq = split[2]
+                fout += f">{split[1]}\n{split[2]}\n"
+                num_seqs += 1
+
+    with open(fasta_fp, "w") as fasta_file:
+        fasta_file.write(fout)
+
+    return num_seqs

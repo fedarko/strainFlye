@@ -3,7 +3,7 @@
 import time
 
 
-def fancystart(cmd_name, inputs, outputs, verbose, prefix="--------\n"):
+def fancystart(cmd_name, inputs, outputs, verbose=True, prefix="--------\n"):
     """Starts logging things for a given strainFlye command.
 
     Parameters

@@ -6,6 +6,7 @@ import subprocess
 import click
 from . import cli_utils
 from . import align_utils
+from . import graph_utils
 
 
 cmd_params = {
@@ -31,9 +32,18 @@ class ClickGroupWithOrderedCommands(click.Group):
         return self.commands.keys()
 
 
-@click.group(cls=ClickGroupWithOrderedCommands, **cmd_params)
+grp_params = {"cls": ClickGroupWithOrderedCommands}
+
+
+@click.group(**grp_params, **cmd_params)
 def strainflye():
     """Pipeline for the analysis of rare mutations in metagenomes."""
+    pass
+
+
+@click.group(name="utils", **grp_params, **cmd_params)
+def utils():
+    """Various utility commands provided with strainFlye."""
     pass
 
 
@@ -118,7 +128,7 @@ def align(reads, contigs, graph, output_dir, verbose):
             ("graph file", graph),
         ),
         (("directory", output_dir),),
-        verbose,
+        verbose=verbose,
     )
 
     # Make the output dir if it doesn't already exist
@@ -363,3 +373,44 @@ def smooth():
     # input: contigs, reads, vcf of mutations
     # output: contigs / graph / etc. assembled by LJA
     print("SMOOTH")
+
+
+# Nest command groups -- so we can, for example, put our "utility" commands
+# under a single group, to un-clutter the top-level strainFlye CLI.
+# Use of add_command() based on https://stackoverflow.com/a/61353240.
+strainflye.add_command(utils)
+
+
+@utils.command(**cmd_params)
+@click.option(
+    "-g",
+    "--graph",
+    required=True,
+    type=click.Path(exists=True),
+    help=(
+        "GFA 1-formatted file describing an assembly graph. This assumes "
+        "that the assembly graph contains a sequence for each segment "
+        "(i.e. there are no segment lines where the sequence is omitted "
+        "and replaced with a * symbol)."
+    ),
+)
+@click.option(
+    "-o",
+    "--output-fasta",
+    required=True,
+    type=click.Path(),
+    help="Output FASTA file containing the contigs in this input graph.",
+)
+def gfa_to_fasta(graph, output_fasta):
+    """Converts a GFA 1 file to a FASTA file.
+
+    Many of strainFlye's analyses accept a FASTA file as input (rather
+    than a graph), and this is a small command that performs this conversion.
+    """
+    fancylog = cli_utils.fancystart(
+        "strainFlye utils gfa-to-fasta",
+        (("GFA file", graph),),
+        (("FASTA file", output_fasta),),
+    )
+    num_seqs = graph_utils.gfa_to_fasta(graph, output_fasta)
+    fancylog(f"Done.\nOutput FASTA file contains {num_seqs:,} sequences.")
