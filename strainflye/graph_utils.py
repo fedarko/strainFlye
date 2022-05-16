@@ -117,9 +117,8 @@ def gfa_to_fasta(gfa_fp, fasta_fp):
     Raises
     ------
     GraphParsingError
-        If any segment has either no length given for it (sequence is * and the
-        LN tag is missing), or if there are no segments contained in the GFA
-        file.
+        If any segment has no sequence given (i.e. the provided sequence is *),
+        or if there are no segments contained in the GFA file.
     """
     num_seqs = 0
     fout = ""
@@ -128,8 +127,15 @@ def gfa_to_fasta(gfa_fp, fasta_fp):
             if line.startswith("S\t"):
                 split = line.strip().split("\t")
                 seq = split[2]
+                if seq == "*":
+                    raise GraphParsingError(
+                        "No sequence given for segment {split[1]}."
+                    )
                 fout += f">{split[1]}\n{split[2]}\n"
                 num_seqs += 1
+
+    if num_seqs == 0:
+        raise GraphParsingError("Didn't see any segments in the GFA file?")
 
     with open(fasta_fp, "w") as fasta_file:
         fasta_file.write(fout)

@@ -412,5 +412,7 @@ def gfa_to_fasta(graph, output_fasta):
         (("GFA file", graph),),
         (("FASTA file", output_fasta),),
     )
+    # graph_utils.gfa_to_fasta() also writes the result to output_fasta, so our
+    # work is essentially done after we call it
     num_seqs = graph_utils.gfa_to_fasta(graph, output_fasta)
     fancylog(f"Done.\nOutput FASTA file contains {num_seqs:,} sequences.")
