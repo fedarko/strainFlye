@@ -63,7 +63,9 @@ def fancystart(cmd_name, inputs, outputs, verbose=True, prefix="--------\n"):
         """
         if verbose:
             t1 = time.time()
-            print(f"{prefix}{cmd_name} @ {t1 - t0:,.2f} sec: {msg}", flush=True)
+            print(
+                f"{prefix}{cmd_name} @ {t1 - t0:,.2f} sec: {msg}", flush=True
+            )
 
     # Report to the user about the inputs and outputs.
     # ... This may be over-engineered.

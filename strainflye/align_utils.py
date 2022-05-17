@@ -113,6 +113,10 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
     # https://stackoverflow.com/a/212971
     reads_with_osa = set()
 
+    # If literally nothing is aligned to this seq (before filtering), set its
+    # entry in this to True -- this way, we can skip some work later
+    seq2isempty = defaultdict(bool)
+
     for si, seq in enumerate(bf.references, 1):
         pct = 100 * (si / bf.nreferences)
         fancylog(
@@ -124,11 +128,28 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
         )
 
         # Identify all linear alignments of each read to this sequence
+        num_lin_alns = 0
         readname2Coords = defaultdict(list)
-        for linearaln in bf.fetch(seq):
+        for num_lin_alns, linearaln in enumerate(bf.fetch(seq), 1):
             rn = linearaln.query_name
             alncoords = get_coords(linearaln)
             readname2Coords[rn].append(alncoords)
+
+        # How many (unique) reads are aligned total to this contig?
+        n_reads_in_seq = len(readname2Coords)
+        if n_reads_in_seq == 0:
+            seq2isempty[seq] = True
+            fancylog(
+                f"No reads were aligned to contig {seq}! Ignoring this contig."
+            )
+            continue
+
+        # Sanity checking -- should never happen (TM) because we should have
+        # already continued if n_reads_in_seq == 0
+        if num_lin_alns == 0:
+            raise ValueError(
+                "0 linear alns, but > 0 aligned reads? Something's wrong."
+            )
 
         # Identify overlapping alignments from the same read
         n_reads_w_osa_in_seq = 0
@@ -148,13 +169,21 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
                         break
 
         fancylog(
-            f"{n_reads_w_osa_in_seq:,} read(s) with OSA(s) in contig {seq}...",
+            f"There are {num_lin_alns:,} linear alignment(s) (from "
+            f"{n_reads_in_seq:,} unique read(s) to contig {seq}."
+        )
+        # We can compute this percentage without worrying about division by
+        # zero because we've already ensured above that n_reads_in_seq != 0.
+        rpct = 100 * (n_reads_w_osa_in_seq / n_reads_in_seq)
+        fancylog(
+            f"{n_reads_w_osa_in_seq:,} / {n_reads_in_seq:,} ({rpct:.2f}%) "
+            "of these unique read(s) have OSAs.",
             prefix="",
         )
 
-    # Now we've made note of all reads with OSAs across *all* sequences in the
-    # alignments. We can make another pass through and output all reads without
-    # OSAs into a new BAM file.
+    # Now that we've made note of all reads with OSAs across *all* sequences in
+    # the alignments, we can make another pass through and output all reads
+    # without OSAs into a new BAM file.
 
     # Output BAM file (filtered to remove reads with overlapping supplementary
     # alignments, aka OSAs)
@@ -163,6 +192,11 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
     # TODO: maybe generalize this iteration code into a generator or something
     # to limit code reuse
     for si, seq in enumerate(bf.references, 1):
+
+        # Ignore already-known-to-be empty sequences
+        if seq2isempty[seq]:
+            continue
+
         pct = 100 * (si / bf.nreferences)
         fancylog(
             f"OSA filter pass 2/2: on contig {seq} ({si:,} / "
@@ -174,19 +208,19 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
         num_alns_filtered = 0
         for linearaln in bf.fetch(seq):
             rn = linearaln.query_name
-            # If this read has OSAs anywhere in the alignment, don't include
-            # it in the output BAM file. Otherwise, *do* include it!
+            # If this read has OSAs anywhere in the alignment (even if it's to
+            # other contigs), don't include it in the output BAM file.
+            # Otherwise, *do* include it!
             if rn in reads_with_osa:
                 num_alns_filtered += 1
             else:
                 of.write(linearaln)
                 num_alns_retained += 1
 
+        # Like when we computed rpct above, we know at this point that seq is
+        # non-empty (at least pre-OSA-filtering), so num_alns_total must be > 0
         num_alns_total = num_alns_retained + num_alns_filtered
-        if num_alns_total > 0:
-            apct = 100 * (num_alns_retained / num_alns_total)
-        else:
-            apct = float("inf")
+        apct = 100 * (num_alns_retained / num_alns_total)
         fancylog(
             f"{num_alns_retained:,} / {num_alns_total:,} ({apct:.2f}%) "
             f"linear aln(s) retained in contig {seq}.",
@@ -280,16 +314,18 @@ def filter_pm_reads(
 
     # Sanity check
     if min_percent_aligned < 0 or min_percent_aligned > 100:
+        # not gonna bother trying to format this number nicely because it could
+        # be, well, anything outside of [0, 100]
         raise ValueError(
-            "min_percent_aligned = {min_percent_aligned} is not in [0, 100]."
+            f"min_percent_aligned = {min_percent_aligned} is not in [0, 100]."
         )
 
     bf = pysam.AlignmentFile(in_bam, "rb")
     bam_contigs = set(bf.references)
 
     # Super duper ultra paranoid sanity check.
-    # This should never happen, but we use these two numbers interchangeably in
-    # this code so i wanna verify this in the weird case pysam starts exploding
+    # This should never happen, but we originally used these two numbers
+    # interchangeably and i wanna verify this just in case pysam breaks
     if len(bam_contigs) != bf.nreferences:
         raise ValueError("This BAM file is cursed. Call a priest.")
 
@@ -304,7 +340,7 @@ def filter_pm_reads(
             raise ValueError(
                 f"Contigs in the BAM file ({in_bam}) and segments in the "
                 f"graph ({gfa}) do not match.\nThe BAM file has "
-                f"{len(bam_contigs):,} contigs and the GFA has "
+                f"{bf.nreferences:,} contigs and the GFA has "
                 f"{len(gfa_nodes):,} segments, for reference."
             )
 
@@ -429,13 +465,13 @@ def filter_pm_reads(
                 "we can look into removing this check."
             )
 
-        # The function is done, now -- we've updated the two dicts based on
+        # The function is done now -- we've updated the two dicts based on
         # this alignment, and all sanity checks have passed.
 
     of = pysam.AlignmentFile(out_bam, "wb", template=bf)
 
     # Figure out all reads that are aligned to each contig to focus on
-    for ci, contig_to_focus_on in enumerate(bam_contigs, 1):
+    for ci, contig_to_focus_on in enumerate(bf.references, 1):
         # just for convenience's sake, since we write this out a lot
         cdsc = f"contig {contig_to_focus_on}"
         pct = 100 * (ci / bf.nreferences)
@@ -454,12 +490,28 @@ def filter_pm_reads(
         # contig or adjacent contigs in the graph.
         readname2matchct = defaultdict(int)
 
-        ai = 0
-        for ai, aln in enumerate(bf.fetch(contig_to_focus_on), 1):
+        num_lin_alns = 0
+        for num_lin_alns, aln in enumerate(bf.fetch(contig_to_focus_on), 1):
             check_and_update_alignment(
                 aln, readname2len, readname2matchct, contig_to_focus_on
             )
-        fancylog(f"{ai} linear alignments to {cdsc}.", prefix="")
+
+        # Analogous to the seq2isempty check in the OSA filter function.
+        # Here, we don't need to define such a data structure, because we only
+        # apply a single "pass" over our BAM file -- so we can just move on
+        # immediately. (Since no reads are aligned to this contig, there are no
+        # linear alignments to this contig, and thus nothing from this contig
+        # could possibly be included in the output BAM file.)
+        if num_lin_alns == 0:
+            fancylog(
+                f"No reads were aligned to {cdsc}! Ignoring this contig.",
+                prefix="",
+            )
+            continue
+        else:
+            fancylog(
+                f"{num_lin_alns:,} linear alignment(s) to {cdsc}.", prefix=""
+            )
 
         if graph is not None:
             # Identify adjacent contigs to this one in the graph, if present.
@@ -534,7 +586,7 @@ def filter_pm_reads(
 
                     fancylog(
                         f"{num_other_contig_alns_from_shared_reads:,} linear "
-                        "alns from shared reads to adjacent contigs of "
+                        "alignments(s) from shared reads to adjacent contigs of "
                         f"{cdsc}.",
                         prefix="",
                     )
@@ -556,11 +608,6 @@ def filter_pm_reads(
         # output to the BAM file (although this does not preclude other
         # alignments from this read to other contigs from being output in the
         # context of other contigs in this function).
-        fancylog(
-            "Computing percentages and outputting alignments from "
-            "reads that pass the not-partially-mapped check...",
-            prefix="",
-        )
         passing_aln_ct = 0
         for aln in bf.fetch(contig_to_focus_on):
             if aln.query_name not in readname2len:
@@ -597,10 +644,12 @@ def filter_pm_reads(
                 of.write(aln)
                 passing_aln_ct += 1
 
-        passing_pct = 100 * (passing_aln_ct / ai)
+        # If we've made it this far, we know num_lin_alns != 0. So no need to
+        # worry about division by zero.
+        passing_pct = 100 * (passing_aln_ct / num_lin_alns)
         fancylog(
-            f"{passing_aln_ct} / {ai} ({passing_pct:.2f}%) of alignments in "
-            f"{cdsc} passed the filter.",
+            f"{passing_aln_ct:,} / {num_lin_alns:,} ({passing_pct:.2f}%) of "
+            f"alignments to {cdsc} passed the filter.",
             prefix="",
         )
 
