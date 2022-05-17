@@ -27,8 +27,8 @@ def get_alt_pos_info(rec):
 
     Returns
     -------
-    (cov, alt nt freq, alt nt): tuple of (int, int, str)
-        Describes the second-most-common nucleotide at a position.
+    (cov, alt nt freq, alt nt, ref nt freq, ref nt): (int, int, str, int, str)
+        Describes the first- and second-most-common nucleotides at a position.
 
         The first entry in this tuple is the (mis)match coverage at this
         position. This is an integer defined as the sum of A, C, G, T
@@ -37,18 +37,20 @@ def get_alt_pos_info(rec):
         useful, I suppose). Note that this coverage could be zero, if no reads
         are aligned to this specific position.
 
-        The second entry is the raw frequency of this nucleotide
-        at this position: this will be an integer greater than or equal to 0.
-        This is also referred to in the paper, etc. as alt(pos).
+        The second entry is the raw frequency of the second-most-common
+        nucleotide at this position: this will be an integer greater than or
+        equal to 0. This is also referred to in the paper, etc. as alt(pos).
 
         The third entry is just the alternate nucleotide (one of A, C, G, T),
-        represented as a string. This is returned for reference -- as of
-        writing this isn't actually needed for Pleuk itself, but I have other
-        code outside of Pleuk that benefits from this!
+        represented as a string.
+
+        The fourth and fifth entries are analogous to the second and third, but
+        this time correspond to the first-most-common nucleotide at this
+        position.
 
     References
     ----------
-    I mean, I wrote this code, but it's copied from
+    I mean, I wrote this code, but it's copied (and modified) from
     https://github.com/fedarko/sheepgut/blob/main/notebooks/pleuk_copied_code.py
     (which is in turn copied from https://github.com/fedarko/pleuk, but that
     project is still in the oven so it's private for now).
@@ -62,9 +64,18 @@ def get_alt_pos_info(rec):
     alt_nt = ordered_nts[-2]
 
     # The raw frequency (in counts) of alt_nt. An integer >= 0.
-    alt_nt_freq = rec[alt_nt]
+    alt_freq = rec[alt_nt]
 
-    return (cov, alt_nt_freq, alt_nt)
+    # Replicate this stuff for the "reference" nucleotide.
+    # We'll implicitly treat the reference nucleotide as the most common (aka
+    # "consensus") nucleotide at this position, even at "unreasonable"
+    # positions where the nucleotide located here on the contig disagrees
+    # with the consensus
+    ref_nt = ordered_nts[-1]
+
+    ref_nt_freq = rec[ref_nt]
+
+    return (cov, alt_freq, alt_nt, ref_nt_freq, ref_nt)
 
 
 def run(contigs, bam, output_vcf, min_alt_pos, p=None, r=None):
@@ -115,36 +126,28 @@ def run(contigs, bam, output_vcf, min_alt_pos, p=None, r=None):
     using_p = p is not None
     using_r = r is not None
 
-    if using_p:
-        if using_r:
-            raise cli_utils.ParameterError(
-                "p and r can't be specified at the same time. Please choose "
-                "one."
-            )
-        else:
-            # p-mutation calling
-            return call_p(contigs, bam, output_vcf, min_alt_pos, p)
-
-    elif using_r:
-        # r-mutation calling
-        return call_r(contigs, bam, output_vcf, r)
-
-    else:
+    if using_p and using_r:
+        raise cli_utils.ParameterError(
+            "p and r can't be specified at the same time. Please choose one."
+        )
+    elif not using_p and not using_r:
         raise cli_utils.ParameterError("Either p or r needs to be specified.")
 
-    # Header info gleaned by reading over the VCF 4.2 docs
-    # (https://samtools.github.io/hts-specs/VCFv4.2.pdf) and copying how LoFreq
-    # organizes their header
-    vcf = (
-        "##fileformat=VCFv4.2\n"
-        f"##fileDate={time.strftime('%Y%m%d')}\n"
-        f'##source="strainFlye v{__version__}"\n'
-        f"##reference={os.path.abspath(contigs)}\n"
-        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
-    )
+    with open(output_vcf, "w") as vcf_file:
+        # Header info gleaned by reading over the VCF 4.2 docs
+        # (https://samtools.github.io/hts-specs/VCFv4.2.pdf) and copying how
+        # LoFreq organizes their header
+        vcf_file.write(
+            "##fileformat=VCFv4.2\n"
+            f"##fileDate={time.strftime('%Y%m%d')}\n"
+            f'##source="strainFlye v{__version__}"\n'
+            f"##reference={os.path.abspath(contigs)}\n"
+            "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        )
 
     bf = pysam.AlignmentFile(bam, "rb")
     for si, seq in enumerate(bf.references, 1):
+        vcf_text = ""
         for pos, rec in enumerate(
             pysamstats.stat_variation(
                 bf,
@@ -169,14 +172,46 @@ def run(contigs, bam, output_vcf, min_alt_pos, p=None, r=None):
                     f"rec['pos'] + 1 is {rpos:,}"
                 )
 
-            cov, alt_nt_freq, alt_nt = get_alt_pos_info(rec)
+            cov, alt_freq, alt_nt, ref_freq, ref_nt = get_alt_pos_info(rec)
 
             if using_p:
-                if call_p_mutation(alt_nt_freq, cov, p, min_alt_pos):
-                    pass  # TODO add to VCF
+                is_mut = call_p_mutation(alt_freq, cov, p, min_alt_pos)
             else:
-                if call_r_mutation(alt_nt_freq, r):
-                    pass  # TODO add to VCF
+                is_mut = call_r_mutation(alt_freq, r)
+
+            if is_mut:
+                # 1. CHROM = seq (aka contig name)
+                #
+                # 2. POS = pos (position on this contig)
+                #
+                # 3. ID = . (this can be a unique identifier for this variant,
+                #            but... we don't have that sort of information)
+                #
+                # 4. REF = ref_nt (consensus nucleotide -- this can disagree
+                #                  with the actual nucleotide at this position
+                #                  on the contig in the case of "unreasonable"
+                #                  positions)
+                #
+                # 5. ALT = alt_nt (second-most-common nucleotide at this
+                #                  position, for which we are calling a
+                #                  mutation; note that we currently just call
+                #                  at most one mutation per position, although
+                #                  this could in theory be generalized to work
+                #                  with multiallelic mutations)
+                #
+                # 6. QUAL = . (In lieu of providing a single probability here,
+                #              we use the FDR estimation stuff described in the
+                #              paper)
+                #
+                # 7. FILTER = . (I guess if we use multiple values of r or p we
+                #                could extend this to mention partial calls,
+                #                but for now we don't make use of this)
+                #
+                # 8. INFO = . (Maybe I'll add extra stuff here later)
+                vcf_text += f"{seq}\t{pos}\t.\t{ref_nt}\t{alt_nt}\t.\t.\t.\n"
+
+        with open(output_vcf, "a") as vcf_file:
+            vcf_file.write(vcf_text)
 
     if using_p:
         return f"na\u00efve p-mutation calling at p = {p:.2f}%"
@@ -204,7 +239,7 @@ def call_p_mutation(alt_pos, cov, p, min_alt_pos, only_call_if_rare=False):
         # right hand side here would be what, p = 50 times a coverage
         # of say 1,000,000x? That's no biggie.)
 
-        lhs = 100 * alt_nt_freq
+        lhs = 100 * alt_pos
         rhs = p * cov
 
         if lhs >= rhs:
