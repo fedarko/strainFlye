@@ -187,7 +187,7 @@ def align(reads, contigs, graph, output_dir, verbose):
     sam_to_bam_run.stdout.close()
     bam_to_sorted_bam_run.communicate()
 
-    fancylog(f"Done running {threesteps}.")
+    fancylog(f"Done running {threesteps}.", prefix="")
 
     align_utils.index_bam(first_output_bam, "sorted BAM", fancylog)
 

@@ -189,7 +189,7 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
             apct = float("inf")
         fancylog(
             f"{num_alns_retained:,} / {num_alns_total:,} ({apct:.2f}%) "
-            "linear aln(s) retained in contig {seq}.",
+            f"linear aln(s) retained in contig {seq}.",
             prefix="",
         )
 
