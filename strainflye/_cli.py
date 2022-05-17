@@ -4,13 +4,7 @@
 import os
 import subprocess
 import click
-from . import cli_utils
-from . import align_utils
-from . import graph_utils
-
-
-class CLIError(Exception):
-    pass
+from . import cli_utils, align_utils, graph_utils, call_utils
 
 
 # By default, Click's help info (shown when running e.g. "strainFlye -h")
@@ -151,7 +145,9 @@ def align(reads, contigs, graph, output_dir, verbose):
         # future about how variadic arguments work) then we can fix this, but
         # for now let's be defensive. (If you encounter this error, go yell at
         # marcus)
-        raise CLIError("The reads should be a tuple, right?")
+        raise cli_utils.ParameterError(
+            "Collection of input reads should be a tuple."
+        )
 
     # There's probably a way to print stuff after each individual command in
     # the chain finishes, but I don't think that sorta granularity is super
@@ -299,14 +295,19 @@ def call(contigs, bam, p, r, min_alt_pos, output_vcf):
     This takes as input some integer r \u2265 0. We classify pos as an
     r-mutation if N2 \u2265 r.
     """
-    if p is None and r is None:
-        raise CLIError("Either p or r needs to be specified.")
-
-    if p is not None and r is not None:
-        raise CLIError(
-            "p and r can't be specified at the same time. Please pick one, "
-            "sorry!"
-        )
+    fancylog = cli_utils.fancystart(
+        "strainFlye call",
+        (
+            ("contig file", contigs),
+            ("BAM file", bam),
+            ("p-mutation parameter", p),
+            ("r-mutation parameter", r),
+            ("--min-alt-pos", min_alt_pos),
+        ),
+        (("VCF file", output_vcf),),
+    )
+    call_str = call_utils.run(contigs, bam, output_vcf, min_alt_pos, p=p, r=r)
+    fancylog(f"Done with {call_str}.")
 
 
 @strainflye.command(**cmd_params)

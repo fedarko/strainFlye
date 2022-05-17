@@ -3,6 +3,10 @@
 import time
 
 
+class ParameterError(Exception):
+    pass
+
+
 def fancystart(cmd_name, inputs, outputs, verbose=True, prefix="--------\n"):
     """Starts logging things for a given strainFlye command.
 
