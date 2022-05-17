@@ -586,8 +586,8 @@ def filter_pm_reads(
 
                     fancylog(
                         f"{num_other_contig_alns_from_shared_reads:,} linear "
-                        "alignments(s) from shared reads to adjacent contigs of "
-                        f"{cdsc}.",
+                        "alignments(s) from shared reads to adjacent contigs "
+                        f"of {cdsc}.",
                         prefix="",
                     )
 
