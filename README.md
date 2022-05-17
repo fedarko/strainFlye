@@ -37,7 +37,7 @@ strainFlye (e.g. `conda activate strainflye`).
 
 <!-- STARTDOCS -->
 ```
-Usage: strainFlye [OPTIONS] COMMAND [ARGS]...
+Usage: strainflye [OPTIONS] COMMAND [ARGS]...
 
   Pipeline for the analysis of rare mutations in metagenomes.
 
@@ -46,13 +46,14 @@ Options:
 
 Commands:
   align       Aligns reads to contigs, then filters this alignment.
-  call-naive  Performs naive mutation calling with controlled FDR.
+  call        Performs naïve mutation calling.
   diversity   Computes the diversity index for MAGs.
   spots       Identifies hot- and/or cold-spots in MAGs.
   covskew     Visualizes MAG coverage and GC skew.
   matrix      Computes mutation matrices of a MAG.
   link-graph  Constructs the link graph structure for a MAG.
   smooth      Generates smoothed haplotypes.
+  utils       Various utility commands provided with strainFlye.
 ```
 
 ## Acknowledgements

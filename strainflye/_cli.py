@@ -9,15 +9,8 @@ from . import align_utils
 from . import graph_utils
 
 
-cmd_params = {
-    # github.com/marbl/MetagenomeScope/blob/master/metagenomescope/_cli.py:
-    # make -h work as an alternative to --help
-    "context_settings": {"help_option_names": ["-h", "--help"]},
-    # https://click.palletsprojects.com/en/8.0.x/api/: if the user just
-    # types "strainflye" or "strainflye align", show them the help for this
-    # command rather than yelling at them for not providing required options
-    "no_args_is_help": True,
-}
+class CLIError(Exception):
+    pass
 
 
 # By default, Click's help info (shown when running e.g. "strainFlye -h")
@@ -33,6 +26,16 @@ class ClickGroupWithOrderedCommands(click.Group):
 
 
 grp_params = {"cls": ClickGroupWithOrderedCommands}
+
+cmd_params = {
+    # github.com/marbl/MetagenomeScope/blob/master/metagenomescope/_cli.py:
+    # make -h work as an alternative to --help
+    "context_settings": {"help_option_names": ["-h", "--help"]},
+    # https://click.palletsprojects.com/en/8.0.x/api/: if the user just
+    # types "strainflye" or "strainflye align", show them the help for this
+    # command rather than yelling at them for not providing required options
+    "no_args_is_help": True,
+}
 
 
 @click.group(**grp_params, **cmd_params)
@@ -148,7 +151,7 @@ def align(reads, contigs, graph, output_dir, verbose):
         # future about how variadic arguments work) then we can fix this, but
         # for now let's be defensive. (If you encounter this error, go yell at
         # marcus)
-        raise ValueError("The reads should be a tuple, right?")
+        raise CLIError("The reads should be a tuple, right?")
 
     # There's probably a way to print stuff after each individual command in
     # the chain finishes, but I don't think that sorta granularity is super
@@ -208,7 +211,7 @@ def align(reads, contigs, graph, output_dir, verbose):
     "--contigs",
     required=True,
     type=click.Path(exists=True),
-    help="FASTA file of contigs in which to call mutations.",
+    help="FASTA file of contigs in which to na\u00efvely call mutations.",
 )
 @click.option(
     "-b",
@@ -218,32 +221,40 @@ def align(reads, contigs, graph, output_dir, verbose):
     help="BAM file representing an alignment of reads to contigs.",
 )
 @click.option(
-    "-f",
-    "--fdr",
+    "-p",
     required=False,
+    default=None,
+    type=click.FloatRange(min=0, max=50),
+    help=(
+        "Main parameter used in p-mutation (percentage-based) calling. "
+        "If this is specified, r cannot be specified."
+    ),
+)
+@click.option(
+    "-r",
+    required=False,
+    default=None,
     type=click.FloatRange(min=0),
-    default=5,
     help=(
-        "False Discovery Rate (FDR) to fix mutation calls at. This "
-        "corresponds to a percentage, so this should usually be a value "
-        "within the range [0, 100]. In theory the target-decoy approach "
-        "can estimate FDRs greater than 100%, which is why we have left "
-        "the upper bound here open."
+        "Main parameter used in r-mutation (read-count-based) calling. "
+        "If this is specified, p cannot be specified."
     ),
 )
 @click.option(
-    "-dc",
-    "--decoy-contig",
+    "--min-alt-pos",
+    default=2,
     required=False,
-    type=click.STRING,
+    show_default=True,
+    type=click.IntRange(min=0),
     help=(
-        "A contig name in the --contigs FASTA file. "
-        "You can use this option to force strainFlye to use a specific "
-        'decoy contig (e.g. "edge_6104").'
+        "Additional parameter for p-mutation calling: the alternate "
+        "nucleotide for a p-mutation must be supported by at least this many "
+        "reads. If you want to completely disable this check, you can set "
+        "this to zero (but this is not recommended)."
     ),
 )
 @click.option(
-    "-ov",
+    "-o",
     "--output-vcf",
     required=True,
     type=click.Path(dir_okay=False),
@@ -252,55 +263,50 @@ def align(reads, contigs, graph, output_dir, verbose):
         "mutations) will be written."
     ),
 )
-@click.option(
-    "-ofc",
-    "--output-fdr-curve",
-    required=False,
-    type=click.Path(dir_okay=False),
-    help="Filepath to which an output FDR curve PNG image will be written.",
-)
-@click.option(
-    "-ofd",
-    "--output-fdr-data",
-    required=False,
-    type=click.Path(dir_okay=False),
-    help=(
-        "Filepath to which a TSV file describing the FDR curve data will be "
-        "written. This can be useful if you'd prefer to handle FDR curve "
-        "plotting yourself."
-    ),
-)
-def call_naive(
-    contigs,
-    bam,
-    fdr,
-    decoy_contig,
-    output_vcf,
-    output_fdr_curve,
-    output_fdr_data,
-):
-    """Performs naive mutation calling with controlled FDR.
+def call(contigs, bam, p, r, min_alt_pos, output_vcf):
+    """Performs na\u00efve mutation calling.
 
-    The FDR (false discovery rate) is estimated based on the target-decoy
-    approach.
+    Consider a position "pos" in a contig. A given read with a (mis)match
+    operation at "pos" must have one of four nucleotides (A, C, G, T) aligned
+    to pos. We represent these nucleotides' counts at pos as follows:
+
+    \b
+        N1 = # reads of the most-common aligned nucleotide at pos,
+        N2 = # reads of the second-most-common aligned nucleotide at pos,
+        N3 = # reads of the third-most-common aligned nucleotide at pos,
+        N4 = # reads of the fourth-most-common aligned nucleotide at pos.
+
+    (We break ties arbitrarily.)
+
+    This command supports two types of na\u00efve mutation calling based on
+    these counts: p-mutations and r-mutations. These are described below.
+    You can specify either p or r to trigger p- or r-mutation calling; however,
+    you can't specify both at once here.
+
+    p-mutations (na\u00efve percentage-based mutation calling)
+    -----------------------------------------------------
+
+    This takes as input some percentage p in the range [0%, 50%].
+    Define freq(pos) = N2 / (N1 + N2 + N3 + N4). This value, constrained to
+    the range [0%, 50%], is an estimate of the mutation frequency of this
+    position. We classify pos as a p-mutation if freq(pos) \u2265 p, AND if
+    N2 \u2265 the --min-alt-pos parameter (an integer representing a minimum
+    number of reads that must support the alternate nucleotide).
+
+    r-mutations (na\u00efve read-count-based mutation calling)
+    -----------------------------------------------------
+
+    This takes as input some integer r \u2265 0. We classify pos as an
+    r-mutation if N2 \u2265 r.
     """
-    # This should contain stuff from bam-to-pileup.py. Need to:
-    #
-    # save mutation info about MAGs to a space-efficient format (ideally
-    # better than the "pileup" format I set up for the jupyter notebooks),
-    #
-    # then quickly
-    # (greedily?) find a decoy genome [high coverage, lowest #muts at a given
-    # threshold],
-    #
-    # then, given the specified FDR -- use binary search or
-    # something to control mutations with this FDR.
-    #
-    # TODO?: Either just select best decoy filter combination (e.g. CP2) or
-    # set it manually in advance. likely do that and expose as parameter here
-    # (with transversions, CP2, nonsyn, nonsense), maybe with
-    # multiple=True so that these can be added together
-    print("Calling")
+    if p is None and r is None:
+        raise CLIError("Either p or r needs to be specified.")
+
+    if p is not None and r is not None:
+        raise CLIError(
+            "p and r can't be specified at the same time. Please pick one, "
+            "sorry!"
+        )
 
 
 @strainflye.command(**cmd_params)
