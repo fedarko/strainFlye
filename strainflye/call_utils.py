@@ -133,14 +133,22 @@ def run(contigs, bam, output_vcf, min_alt_pos, p=None, r=None):
     elif not using_p and not using_r:
         raise cli_utils.ParameterError("Either p or r needs to be specified.")
 
+    if using_p:
+        # p can be any float (in a given range); let's not bother here trying
+        # to format it beyond what Python does
+        call_str = f"p-mutation calling at p = {p}%"
+    else:
+        call_str = f"r-mutation calling at r = {r:,}"
+
     with open(output_vcf, "w") as vcf_file:
         # Header info gleaned by reading over the VCF 4.2 docs
         # (https://samtools.github.io/hts-specs/VCFv4.2.pdf) and copying how
         # LoFreq organizes their header
+
         vcf_file.write(
             "##fileformat=VCFv4.2\n"
             f"##fileDate={time.strftime('%Y%m%d')}\n"
-            f'##source="strainFlye v{__version__}"\n'
+            f'##source="strainFlye v{__version__}: {call_str}"\n'
             f"##reference={os.path.abspath(contigs)}\n"
             "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
         )
@@ -213,11 +221,7 @@ def run(contigs, bam, output_vcf, min_alt_pos, p=None, r=None):
         with open(output_vcf, "a") as vcf_file:
             vcf_file.write(vcf_text)
 
-    if using_p:
-        return f"na\u00efve p-mutation calling at p = {p:.2f}%"
-    else:
-        return f"na\u00efve r-mutation calling at r = {r:,}"
-
+    return call_str
 
 def is_position_rare_direct(alt_pos, cov):
     """Determines if a p-mutated position is a "rare" mutation.

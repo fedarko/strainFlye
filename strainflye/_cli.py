@@ -299,8 +299,8 @@ def call(contigs, bam, p, r, min_alt_pos, output_vcf):
         (
             ("contig file", contigs),
             ("BAM file", bam),
-            ("p-mutation parameter", p),
-            ("r-mutation parameter", r),
+            ("p-mutation parameter p", p),
+            ("r-mutation parameter r", r),
             ("--min-alt-pos", min_alt_pos),
         ),
         (("VCF file", output_vcf),),
