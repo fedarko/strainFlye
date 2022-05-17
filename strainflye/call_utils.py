@@ -143,7 +143,7 @@ def run(contigs, bam, output_vcf, min_alt_pos, fancylog, p=None, r=None):
     else:
         call_str = f"r-mutation calling at r = {r:,}"
 
-    fancylog("Running {call_str}.", prefix="")
+    fancylog(f"Running {call_str}.", prefix="")
 
     with open(output_vcf, "w") as vcf_file:
         # Header info gleaned by reading over the VCF 4.2 docs
