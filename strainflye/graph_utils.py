@@ -1,8 +1,5 @@
 import networkx as nx
-
-
-class GraphParsingError(Exception):
-    pass
+from .errors import GraphParsingError
 
 
 def load_gfa(gfa_fp):

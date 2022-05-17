@@ -5,6 +5,7 @@ import os
 import subprocess
 import click
 from . import cli_utils, align_utils, graph_utils, call_utils
+from .errors import ParameterError
 
 
 # By default, Click's help info (shown when running e.g. "strainFlye -h")
@@ -145,9 +146,7 @@ def align(reads, contigs, graph, output_dir, verbose):
         # future about how variadic arguments work) then we can fix this, but
         # for now let's be defensive. (If you encounter this error, go yell at
         # marcus)
-        raise cli_utils.ParameterError(
-            "Collection of input reads should be a tuple."
-        )
+        raise ParameterError("Collection of input reads should be a tuple.")
 
     # There's probably a way to print stuff after each individual command in
     # the chain finishes, but I don't think that sorta granularity is super
@@ -220,7 +219,7 @@ def align(reads, contigs, graph, output_dir, verbose):
     "-p",
     required=False,
     default=None,
-    type=click.FloatRange(min=0, max=50),
+    type=click.FloatRange(min=0, max=50, min_open=True),
     help=(
         "Main parameter used in p-mutation (percentage-based) calling. "
         "If this is specified, r cannot be specified."
@@ -230,7 +229,7 @@ def align(reads, contigs, graph, output_dir, verbose):
     "-r",
     required=False,
     default=None,
-    type=click.FloatRange(min=0),
+    type=click.IntRange(min=0, min_open=True),
     help=(
         "Main parameter used in r-mutation (read-count-based) calling. "
         "If this is specified, p cannot be specified."
@@ -276,13 +275,13 @@ def call(contigs, bam, p, r, min_alt_pos, output_vcf):
 
     This command supports two types of na\u00efve mutation calling based on
     these counts: p-mutations and r-mutations. These are described below.
-    You can specify either p or r to trigger p- or r-mutation calling; however,
-    you can't specify both at once here.
+    You can specify either p or r to trigger p- or r-mutation calling,
+    respectively; however, you can't specify both at once here.
 
     p-mutations (na\u00efve percentage-based mutation calling)
     -----------------------------------------------------
 
-    This takes as input some percentage p in the range [0%, 50%].
+    This takes as input some percentage p in the range (0%, 50%].
     Define freq(pos) = N2 / (N1 + N2 + N3 + N4). This value, constrained to
     the range [0%, 50%], is an estimate of the mutation frequency of this
     position. We classify pos as a p-mutation if freq(pos) \u2265 p, AND if
@@ -292,7 +291,7 @@ def call(contigs, bam, p, r, min_alt_pos, output_vcf):
     r-mutations (na\u00efve read-count-based mutation calling)
     -----------------------------------------------------
 
-    This takes as input some integer r \u2265 0. We classify pos as an
+    This takes as input some integer r > 0. We classify pos as an
     r-mutation if N2 \u2265 r.
     """
     fancylog = cli_utils.fancystart(
