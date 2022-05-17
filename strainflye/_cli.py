@@ -305,7 +305,9 @@ def call(contigs, bam, p, r, min_alt_pos, output_vcf):
         ),
         (("VCF file", output_vcf),),
     )
-    call_str = call_utils.run(contigs, bam, output_vcf, min_alt_pos, p=p, r=r)
+    call_str = call_utils.run(
+        contigs, bam, output_vcf, min_alt_pos, fancylog, p=p, r=r
+    )
     fancylog(f"Done with {call_str}.")
 
 

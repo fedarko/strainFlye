@@ -78,7 +78,7 @@ def get_alt_pos_info(rec):
     return (cov, alt_freq, alt_nt, ref_nt_freq, ref_nt)
 
 
-def run(contigs, bam, output_vcf, min_alt_pos, p=None, r=None):
+def run(contigs, bam, output_vcf, min_alt_pos, fancylog, p=None, r=None):
     """Launches the process of naive p- or r-mutation calling.
 
     In the user-facing code in the CLI, I try to consistently say "naive" with
@@ -102,6 +102,9 @@ def run(contigs, bam, output_vcf, min_alt_pos, p=None, r=None):
     min_alt_pos: int >= 0
         During p-mutation calling, the second-most-common aligned nucleotide's
         frequency must be at least this.
+
+    fancylog: function
+        Logging function.
 
     p: int in (0, 50]
         p-mutation parameter.
@@ -140,6 +143,8 @@ def run(contigs, bam, output_vcf, min_alt_pos, p=None, r=None):
     else:
         call_str = f"r-mutation calling at r = {r:,}"
 
+    fancylog("Running {call_str}.", prefix="")
+
     with open(output_vcf, "w") as vcf_file:
         # Header info gleaned by reading over the VCF 4.2 docs
         # (https://samtools.github.io/hts-specs/VCFv4.2.pdf) and copying how
@@ -155,6 +160,12 @@ def run(contigs, bam, output_vcf, min_alt_pos, p=None, r=None):
 
     bf = pysam.AlignmentFile(bam, "rb")
     for si, seq in enumerate(bf.references, 1):
+        pct = 100 * (si / bf.nreferences)
+        fancylog(
+            f"On contig {seq} ({si:,} / {bf.nreferences:,}) ({pct:.2f}%).",
+            prefix="",
+        )
+        num_muts = 0
         vcf_text = ""
         for pos, rec in enumerate(
             pysamstats.stat_variation(
@@ -217,11 +228,18 @@ def run(contigs, bam, output_vcf, min_alt_pos, p=None, r=None):
                 #
                 # 8. INFO = . (Maybe I'll add extra stuff here later)
                 vcf_text += f"{seq}\t{pos}\t.\t{ref_nt}\t{alt_nt}\t.\t.\t.\n"
+                num_muts += 1
 
-        with open(output_vcf, "a") as vcf_file:
-            vcf_file.write(vcf_text)
+        if num_muts > 0:
+            with open(output_vcf, "a") as vcf_file:
+                vcf_file.write(vcf_text)
+
+        fancylog(
+            f"Called {num_muts:,} mutation(s) in contig {seq}.", prefix=""
+        )
 
     return call_str
+
 
 def is_position_rare_direct(alt_pos, cov):
     """Determines if a p-mutated position is a "rare" mutation.
