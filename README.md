@@ -37,7 +37,7 @@ strainFlye (e.g. `conda activate strainflye`).
 
 <!-- STARTDOCS -->
 ```
-Usage: strainflye [OPTIONS] COMMAND [ARGS]...
+Usage: strainFlye [OPTIONS] COMMAND [ARGS]...
 
   Pipeline for the analysis of rare mutations in metagenomes.
 
