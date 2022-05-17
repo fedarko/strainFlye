@@ -269,7 +269,7 @@ def call_p_mutation(alt_pos, cov, p, min_alt_pos, only_call_if_rare=False):
         raise ParameterError("p must be in the range (0, 50]")
 
     if min_alt_pos < 0:
-        raise ParameterError("min_alt_pos must be >= 0.")
+        raise ParameterError("--min-alt-pos must be >= 0")
 
     if alt_pos >= min_alt_pos:
         # We call a p-mutation if alt(pos) / reads(pos) >= p / 100.
