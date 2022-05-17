@@ -2,6 +2,7 @@ import pytest
 import networkx as nx
 import strainflye.graph_utils as gu
 from io import StringIO
+from strainflye.errors import GraphParsingError
 
 
 def check_sample1_graph(g):
@@ -36,13 +37,13 @@ def test_load_gfa_noseq():
 def test_load_gfa_duplen():
     # based on previous test code I wrote at
     # https://github.com/marbl/MetagenomeScope/blob/master/metagenomescope/tests/assembly_graph_parser/utils.py
-    with pytest.raises(gu.GraphParsingError) as errorinfo:
+    with pytest.raises(GraphParsingError) as errorinfo:
         gu.load_gfa("strainflye/tests/inputs/sample1-duplen.gfa")
     assert "Duplicate length for segment 3" == str(errorinfo.value)
 
 
 def test_load_gfa_nolen():
-    with pytest.raises(gu.GraphParsingError) as errorinfo:
+    with pytest.raises(GraphParsingError) as errorinfo:
         gu.load_gfa("strainflye/tests/inputs/sample1-nolen.gfa")
     assert "No length given for segment 4" == str(errorinfo.value)
 
@@ -79,7 +80,7 @@ def test_gfa_to_fasta_smallchunksize():
 
 def test_gfa_to_fasta_noseq():
     sio = StringIO()
-    with pytest.raises(gu.GraphParsingError) as errorinfo:
+    with pytest.raises(GraphParsingError) as errorinfo:
         gu.gfa_to_fasta("strainflye/tests/inputs/sample1-noseq.gfa", sio)
 
     # All of the segments in this particular test GFA have no sequences given,
@@ -97,7 +98,7 @@ def test_gfa_to_fasta_noseq():
 
 def test_gfa_to_fasta_nosegs():
     sio = StringIO()
-    with pytest.raises(gu.GraphParsingError) as errorinfo:
+    with pytest.raises(GraphParsingError) as errorinfo:
         gu.gfa_to_fasta("strainflye/tests/inputs/sample1-empty.gfa", sio)
 
     assert "Didn't see any segments in the GFA file?" == str(errorinfo.value)

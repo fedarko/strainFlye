@@ -6,7 +6,7 @@ import time
 import pysam
 import pysamstats
 from . import cli_utils, config
-from .errors import SequencingDataError
+from .errors import SequencingDataError, ParameterError
 from strainflye import __version__
 
 
@@ -103,10 +103,10 @@ def run(contigs, bam, output_vcf, min_alt_pos, p=None, r=None):
         During p-mutation calling, the second-most-common aligned nucleotide's
         frequency must be at least this.
 
-    p: int in [0, 50]
+    p: int in (0, 50]
         p-mutation parameter.
 
-    r: int >= 0
+    r: int > 0
         r-mutation parameter.
 
     Returns
@@ -117,11 +117,11 @@ def run(contigs, bam, output_vcf, min_alt_pos, p=None, r=None):
     Raises
     ------
     cli_utils.ParameterError
-        If something went wrong with the parameters. We don't check that they
-        fall into their respective allowed ranges (since Click should have
-        already enforced that thanks to the range parameter settings), but we
-        do check that only p or only r is specified -- we can't have both
-        specified at once, or neither specified.
+        If something went wrong with the parameters. We don't check (at least
+        within this function) that they fall into their respective allowed
+        ranges (since Click should have already enforced that thanks to the
+        range parameter settings), but we do check that only p or only r is
+        specified -- exactly one of these parameters must be given.
     """
     using_p = p is not None
     using_r = r is not None
@@ -220,12 +220,57 @@ def run(contigs, bam, output_vcf, min_alt_pos, p=None, r=None):
 
 
 def is_position_rare_direct(alt_pos, cov):
+    """Determines if a p-mutated position is a "rare" mutation.
+
+    Parameters
+    ----------
+    alt_pos: int
+
+    cov: int
+
+    Returns
+    -------
+    bool
+        True if this position is "rare" (aka its mutation frequency is less
+        than config.HIGH_FREQUENCY_MIN_PCT), False otherwise.
+    """
     lhs = 100 * alt_pos
     rhs_upper = config.HIGH_FREQUENCY_MIN_PCT * cov
     return lhs < rhs_upper
 
 
 def call_p_mutation(alt_pos, cov, p, min_alt_pos, only_call_if_rare=False):
+    """Calls a p-mutation at a position.
+
+    Parameters
+    ----------
+    alt_pos: int
+
+    cov: int
+
+    p: float
+
+    min_alt_pos: int
+
+    only_call_if_rare: bool
+
+    Returns
+    -------
+    bool
+        True if there is a p-mutation at this position, False otherwise.
+
+    Raises
+    ------
+    ParameterError
+        - If p <= 0 or p > 50.
+        - If min_alt_pos < 0.
+    """
+    if p <= 0 or p > 50:
+        raise ParameterError("p must be in the range (0, 50]")
+
+    if min_alt_pos < 0:
+        raise ParameterError("min_alt_pos must be >= 0.")
+
     if alt_pos >= min_alt_pos:
         # We call a p-mutation if alt(pos) / reads(pos) >= p / 100.
         # Equivalently: we call a p-mutation if 100*alt(pos) >= p*reads(pos).
@@ -254,4 +299,24 @@ def call_p_mutation(alt_pos, cov, p, min_alt_pos, only_call_if_rare=False):
 
 
 def call_r_mutation(alt_pos, r):
+    """Calls a r-mutation at a position.
+
+    Parameters
+    ----------
+    alt_pos: int
+
+    r: int
+
+    Returns
+    -------
+    bool
+        True if there is an r-mutation at this position, False otherwise.
+
+    Raises
+    ------
+    ParameterError
+        If r <= 0.
+    """
+    if r <= 0:
+        raise ParameterError("r must be > 0")
     return alt_pos >= r
