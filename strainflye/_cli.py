@@ -272,27 +272,35 @@ strainflye.add_command(call)
     "--min-p",
     required=False,
     show_default=True,
-    default=0.5,
-    type=click.FloatRange(min=0, max=50, min_open=True),
-    help="Minimum value of p for which to call p-mutations.",
+    default=50,
+    type=click.IntRange(min=0, max=5000, min_open=True, max_open=True),
+    help=(
+        "Minimum value of p for which to call p-mutations. This is scaled "
+        "up by 100 (i.e. the default of 50 corresponds to 50 / 100 = 0.5%) "
+        "in order to bypass floating-point precision issues."
+    ),
 )
 @click.option(
     "--max-p",
     required=False,
     show_default=True,
-    default=2,
-    type=click.FloatRange(min=0, max=50, min_open=True),
-    help="Maximum value of p for which to call p-mutations.",
+    default=200,
+    type=click.IntRange(min=0, max=5000, min_open=True),
+    help=(
+        "Maximum value of p for which to call p-mutations. Scaled up by "
+        "100 (the default, 200, corresponds to 200 / 100 = 2%)."
+    ),
 )
 @click.option(
     "--delta-p",
     required=False,
     show_default=True,
-    default=0.01,
-    type=click.FloatRange(min=0, max=50, min_open=True, max_open=True),
+    default=1,
+    type=click.IntRange(min=0, max=5000, min_open=True, max_open=True),
     help=(
         "We'll consider all values of p between --min-p and --max-p, "
-        "increasing in increments of --delta-p."
+        "increasing in increments of --delta-p. Scaled up by 100 (the "
+        "default, 1, corresponds to 1 / 100 = 0.01%)."
     ),
 )
 @click.option(
@@ -333,6 +341,10 @@ def p_mutation(
     We consider multiple values of the p parameter (defined by the min, max,
     and delta p options), and our output VCF file represents each of the
     resulting values of p tested as a separate FILTER.
+
+    Note that --min-p, --max-p, and --delta-p must all be integers -- these
+    will be converted to floating-point percentages later, but for now keeping
+    them as integers makes the computation of ranges of values of p simpler.
     """
     fancylog = cli_utils.fancystart(
         "strainFlye call",
@@ -356,7 +368,7 @@ def p_mutation(
         p_vals=p_vals,
         min_alt_pos=min_alt_pos,
     )
-    fancylog(f"Done with p-mutation calling.")
+    fancylog("Done with p-mutation calling.")
 
 
 @call.command(**cmd_params)
@@ -439,7 +451,7 @@ def r_mutation(contigs, bam, min_r, max_r, delta_r, output_vcf, verbose):
     )
     r_vals = call_utils.get_r_increments(min_r, max_r, delta_r, fancylog)
     call_utils.run(contigs, bam, output_vcf, fancylog, verbose, r_vals=r_vals)
-    fancylog(f"Done with r-mutation calling.")
+    fancylog("Done with r-mutation calling.")
 
 
 @strainflye.command(**cmd_params)

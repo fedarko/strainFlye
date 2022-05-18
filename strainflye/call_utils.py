@@ -79,6 +79,84 @@ def get_r_increments(min_r, max_r, delta_r, fancylog):
     return r_vals
 
 
+def get_p_increments(min_p, max_p, delta_p, fancylog):
+    """Given a min, max, and delta p, computes a list of p values.
+
+    We bypass floating-point issues by just keeping the three parameters as
+    integers, and then dividing them by 100 later. Makes my life easier,
+    although it makes the UI a bit more complicated.
+
+    This also handles conversion back to normal percentages, so the output
+    values of p are in the range (0, 50] rather than (0, 5000].
+
+    Parameters
+    ----------
+    min_p: float in (0, 5000)
+        Minimum value of p to use.
+
+    max_p: float in (0, 5000]
+        Maximum value of p to use.
+
+    delta_p: float in (0, 5000)
+        Increment p by this much, starting at min_p.
+
+    fancylog: function
+        Logging function.
+
+    Returns
+    -------
+    p_vals: list of floats in (0, 50]
+        List of p values beginning at min_p and increasing by delta_p until we
+        reach max_p. Note that this can not include max_p.
+
+    Raises
+    ------
+    ParameterError
+        If min_p >= max_p.
+
+    ValueError
+        - If something goes seriously wrong when generating p_vals.
+          This should never happen (knock on wood).
+    """
+    if min_p >= max_p:
+        raise ParameterError("Minimum p must be less than maximum p.")
+
+    p_vals = [p for p in range(min_p, max_p + 1, delta_p)]
+
+    if len(p_vals) == 1:
+        fancylog(
+            f"Computing p-mutations for 1 value of p: {p_vals[0] / 100:.2f}%."
+        )
+    else:
+        fancylog(f"Computing p-mutations for {len(p_vals):,} values of p.")
+
+    # If p is not 1, it's possible for us to "miss" the maximum p value.
+    # Warn the user about this, but don't throw an error.
+    #
+    # Note that this check is a reason why we delay dividing the p_vals by 100
+    # until now (although I guess we could restructure things to do the
+    # division immediately; whatever, this probs won't be a bottleneck).
+    if p_vals[-1] != max_p:
+        divisibility = (max_p - min_p) % delta_p
+        # This should never happen, but check it anyway
+        if divisibility == 0:
+            raise ValueError("Max p was excluded without cause?")
+        fancylog(
+            f"Warning: --max-p = {max_p:,} (aka {max_p / 100:.2f}%) will "
+            "not be included in the values of p used. "
+            "This is due to --max-p minus --min-p not "
+            f"being divisible by --delta-p: {max_p:,} - {min_p:,} = "
+            f"{max_p - min_p:,}, and {max_p - min_p:,} mod {delta_p:,} = "
+            f"{divisibility:,}."
+        )
+
+    # Extra sanity check (this should definitely not happen)
+    if p_vals[0] != min_p:
+        raise ValueError("Min p was excluded without cause?")
+
+    return [p / 100 for p in p_vals]
+
+
 def get_alt_pos_info(rec):
     """Returns info about the second-most-common nucleotide at a position.
 
@@ -206,8 +284,8 @@ def run(
         range parameter settings), but we do check that only p or only r is
         specified -- exactly one of these parameters must be given.
     """
-    using_p = p is not None
-    using_r = r is not None
+    using_p = len(p_vals) > 0
+    using_r = len(r_vals) > 0
 
     if using_p and using_r:
         raise cli_utils.ParameterError(
@@ -217,11 +295,14 @@ def run(
         raise cli_utils.ParameterError("Either p or r needs to be specified.")
 
     if using_p:
-        # p can be any float (in a given range); let's not bother here trying
-        # to format it beyond what Python does
-        call_str = f"p-mutation calling at p = {p}%"
+        call_str = (
+            f"p-mutation calling for p from {p_vals[0]:.2f}% to "
+            f"{p_vals[-1]:.2f}%"
+        )
     else:
-        call_str = f"r-mutation calling at r = {r:,}"
+        call_str = (
+            f"r-mutation calling for r from {r_vals[0]:,} to {r_vals[-1]:,}"
+        )
 
     fancylog(f"Running {call_str}.", prefix="")
 

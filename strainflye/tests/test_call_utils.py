@@ -1,11 +1,18 @@
 import pytest
 from strainflye.call_utils import (
     get_r_increments,
+    get_p_increments,
     get_alt_pos_info,
     call_r_mutation,
     call_p_mutation,
 )
 from strainflye.errors import ParameterError
+from pytest import approx
+
+
+def check_approx_equal(obs, exp):
+    for op, ep in zip(obs, exp):
+        assert op == approx(ep)
 
 
 def test_get_r_increments_d1():
@@ -78,6 +85,42 @@ def test_get_r_increments_bad():
     with pytest.raises(ParameterError) as errorinfo:
         get_r_increments(5, 2, 1, print)
     assert "Minimum r must be less than maximum r." == str(errorinfo.value)
+
+
+def test_get_p_increments_bad():
+    with pytest.raises(ParameterError) as errorinfo:
+        get_p_increments(5, 2, 1, print)
+    assert "Minimum p must be less than maximum p." == str(errorinfo.value)
+
+
+def test_get_p_increments(capsys):
+    pv = get_p_increments(1, 5, 1, print)
+    check_approx_equal(pv, [0.01, 0.02, 0.03, 0.04, 0.05])
+    captured = capsys.readouterr()
+    exp_out = "Computing p-mutations for 5 values of p.\n"
+    assert captured.out == exp_out
+
+
+def test_get_p_increments_one_p_due_to_large_delta(capsys):
+    pv = get_p_increments(2, 5, 45, print)
+    check_approx_equal(pv, [0.02])
+    captured = capsys.readouterr()
+    exp_out = (
+        "Computing p-mutations for 1 value of p: 0.02%.\n"
+        "Warning: --max-p = 5 (aka 0.05%) will not be included in the values "
+        "of p used. This is due to --max-p minus --min-p not being divisible "
+        "by --delta-p: 5 - 2 = 3, and 3 mod 45 = 3.\n"
+    )
+    assert captured.out == exp_out
+
+
+def test_get_p_increments_sf_paper_fig2(capsys):
+    obs_pv = get_p_increments(15, 200, 1, print)
+    exp_pv = [p / 100 for p in range(15, 201)]
+    check_approx_equal(obs_pv, exp_pv)
+    captured = capsys.readouterr()
+    exp_out = "Computing p-mutations for 186 values of p.\n"
+    assert captured.out == exp_out
 
 
 def test_get_alt_pos_info():
