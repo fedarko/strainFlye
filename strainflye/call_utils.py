@@ -89,6 +89,10 @@ def get_p_increments(min_p, max_p, delta_p, fancylog):
     This also handles conversion back to normal percentages, so the output
     values of p are in the range (0, 50] rather than (0, 5000].
 
+    NOTE: I'm well aware that this function is annoyingly similar to
+    get_r_increments(), and the shared code should probably be extracted
+    somehow eventually to avoid duplication.
+
     Parameters
     ----------
     min_p: float in (0, 5000)
