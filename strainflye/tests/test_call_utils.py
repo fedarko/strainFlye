@@ -184,6 +184,8 @@ def test_call_p_mutations():
         "p0.60;p1.00;p2.00;p3.00",
         True,
     )
+    # failure due to min alt pos
+    assert call_p_mutations(2, 10, [50], 100) == ("", False)
 
 
 def test_p2filter():
