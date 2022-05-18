@@ -83,11 +83,11 @@ def utils():
     ),
 )
 @click.option(
-    "--verbose",
+    "--verbose/--no-verbose",
     is_flag=True,
-    default=True,
+    default=False,
     show_default=True,
-    help="Show extra details while running.",
+    help="Display extra details for each contig during alignment filtering.",
 )
 # Regarding the \b marker, see https://stackoverflow.com/a/53302580 -- this is
 # apparently needed to get the formatting to look the way I want (otherwise all
@@ -126,7 +126,6 @@ def align(reads, contigs, graph, output_dir, verbose):
             ("graph file", graph),
         ),
         (("directory", output_dir),),
-        verbose=verbose,
     )
 
     # Make the output dir if it doesn't already exist
@@ -190,11 +189,15 @@ def align(reads, contigs, graph, output_dir, verbose):
     align_utils.index_bam(first_output_bam, "sorted BAM", fancylog)
 
     osa_filter_bam = os.path.join(output_dir, "sorted-osa-filtered.bam")
-    align_utils.filter_osa_reads(first_output_bam, osa_filter_bam, fancylog)
+    align_utils.filter_osa_reads(
+        first_output_bam, osa_filter_bam, fancylog, verbose
+    )
     align_utils.index_bam(osa_filter_bam, "OSA-filtered BAM", fancylog)
 
     pm_filter_bam = os.path.join(output_dir, "final.bam")
-    align_utils.filter_pm_reads(graph, osa_filter_bam, pm_filter_bam, fancylog)
+    align_utils.filter_pm_reads(
+        graph, osa_filter_bam, pm_filter_bam, fancylog, verbose
+    )
     align_utils.index_bam(pm_filter_bam, "final BAM", fancylog)
 
     fancylog("Done.")
@@ -258,7 +261,14 @@ def align(reads, contigs, graph, output_dir, verbose):
         "mutations) will be written."
     ),
 )
-def call(contigs, bam, p, r, min_alt_pos, output_vcf):
+@click.option(
+    "--verbose/--no-verbose",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Display extra details for each contig.",
+)
+def call(contigs, bam, p, r, min_alt_pos, output_vcf, verbose):
     """Performs na\u00efve mutation calling.
 
     Consider a position "pos" in a contig. A given read with a (mis)match
@@ -306,7 +316,7 @@ def call(contigs, bam, p, r, min_alt_pos, output_vcf):
         (("VCF file", output_vcf),),
     )
     call_str = call_utils.run(
-        contigs, bam, output_vcf, min_alt_pos, fancylog, p=p, r=r
+        contigs, bam, output_vcf, min_alt_pos, fancylog, verbose, p=p, r=r
     )
     fancylog(f"Done with {call_str}.")
 

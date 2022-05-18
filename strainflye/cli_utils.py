@@ -3,7 +3,7 @@
 import time
 
 
-def fancystart(cmd_name, inputs, outputs, verbose=True, prefix="--------\n"):
+def fancystart(cmd_name, inputs, outputs, quiet=False, prefix="--------\n"):
     """Starts logging things for a given strainFlye command.
 
     Parameters
@@ -23,10 +23,11 @@ def fancystart(cmd_name, inputs, outputs, verbose=True, prefix="--------\n"):
         how "inputs" is formatted. For example, a variant caller might use
         something like (("VCF file", vcf_filepath)).
 
-    verbose: bool
-        Whether or not to log any messages at all. If this is False, then
-        nothing will be logged from here, and calling the returned logging
-        function (fancylog) will not output anything.
+    quiet: bool
+        If this is True, then nothing will be logged from here, and calling
+        the returned logging function (fancylog) will not output anything.
+        This isn't used anywhere yet, but if folks ask for a "quiet" option we
+        can add it using this. (I know, I know, YAGNI...)
 
     prefix: str
         Prefix to put before every logging message.
@@ -61,7 +62,7 @@ def fancystart(cmd_name, inputs, outputs, verbose=True, prefix="--------\n"):
         -------
         None
         """
-        if verbose:
+        if not quiet:
             t1 = time.time()
             print(
                 f"{prefix}{cmd_name} @ {t1 - t0:,.2f} sec: {msg}", flush=True

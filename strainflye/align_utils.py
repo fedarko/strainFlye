@@ -69,7 +69,7 @@ def get_coords(alnseg):
     return (s, e)
 
 
-def filter_osa_reads(in_bam, out_bam, fancylog):
+def filter_osa_reads(in_bam, out_bam, fancylog, verbose):
     """Filters a BAM file to remove all reads with OSAs.
 
     A read has an OSA (overlapping supplementary alignment) if any two
@@ -93,6 +93,11 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
     fancylog: function
         Logging function.
 
+    verbose: bool
+        Log extra info about individual contigs. This comes out to multiple
+        lines per contig, so it may be best to set this to False if the graph
+        has thousands of contigs.
+
     Returns
     -------
     None
@@ -100,6 +105,11 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
     fancylog(
         "Filtering reads with overlapping supplementary alignments (OSAs)..."
     )
+
+    def verboselog(*args, **kwargs):
+        if verbose:
+            fancylog(*args, **kwargs)
+
     bf = pysam.AlignmentFile(in_bam, "rb")
 
     # Keeps track of the names of reads with OSAs.
@@ -119,7 +129,7 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
 
     for si, seq in enumerate(bf.references, 1):
         pct = 100 * (si / bf.nreferences)
-        fancylog(
+        verboselog(
             (
                 f"OSA filter pass 1/2: on contig {seq} ({si:,} / "
                 f"{bf.nreferences:,}) ({pct:.2f}%)."
@@ -139,7 +149,7 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
         n_reads_in_seq = len(readname2Coords)
         if n_reads_in_seq == 0:
             seq2isempty[seq] = True
-            fancylog(
+            verbose(
                 f"Nothing is aligned to contig {seq}! Ignoring this contig."
             )
             continue
@@ -168,7 +178,7 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
                         n_reads_w_osa_in_seq += 1
                         break
 
-        fancylog(
+        verboselog(
             f"There are {num_lin_alns:,} linear alignment(s) (from "
             f"{n_reads_in_seq:,} unique read(s)) to contig {seq}.",
             prefix="",
@@ -176,7 +186,7 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
         # We can compute this percentage without worrying about division by
         # zero because we've already ensured above that n_reads_in_seq != 0.
         rpct = 100 * (n_reads_w_osa_in_seq / n_reads_in_seq)
-        fancylog(
+        verboselog(
             f"{n_reads_w_osa_in_seq:,} / {n_reads_in_seq:,} ({rpct:.2f}%) "
             "of these unique read(s) have OSAs.",
             prefix="",
@@ -199,7 +209,7 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
             continue
 
         pct = 100 * (si / bf.nreferences)
-        fancylog(
+        verboselog(
             f"OSA filter pass 2/2: on contig {seq} ({si:,} / "
             f"{bf.nreferences:,}) ({pct:.2f}%).",
             prefix="",
@@ -222,7 +232,7 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
         # non-empty (at least pre-OSA-filtering), so num_alns_total must be > 0
         num_alns_total = num_alns_retained + num_alns_filtered
         apct = 100 * (num_alns_retained / num_alns_total)
-        fancylog(
+        verboselog(
             f"{num_alns_retained:,} / {num_alns_total:,} ({apct:.2f}%) "
             f"linear aln(s) retained in contig {seq}.",
             prefix="",
@@ -242,14 +252,11 @@ def filter_pm_reads(
     in_bam,
     out_bam,
     fancylog,
+    verbose,
     min_percent_aligned=90,
     too_many_adj_contigs=50,
 ):
     """Filters a BAM file to remove partially-mapped reads.
-
-    We identify "partially-mapped" reads as follows. Consider each contig, C,
-    in the graph (this is a GFA file, so contigs are represented as nodes aka
-    segments); now consider all reads TODO finish
 
     Parameters
     ----------
@@ -270,6 +277,9 @@ def filter_pm_reads(
 
     fancylog: function
         Logging function.
+
+    verbose: bool
+        Log extra info about individual contigs.
 
     min_percent_aligned: float
         Number in the range [0, 100]. A given read is only included in the
@@ -312,6 +322,10 @@ def filter_pm_reads(
     distinctions, tho.
     """
     fancylog("Filtering partially-mapped reads...")
+
+    def verboselog(*args, **kwargs):
+        if verbose:
+            fancylog(*args, **kwargs)
 
     # Sanity check
     if min_percent_aligned < 0 or min_percent_aligned > 100:
@@ -476,7 +490,7 @@ def filter_pm_reads(
         # just for convenience's sake, since we write this out a lot
         cdsc = f"contig {contig_to_focus_on}"
         pct = 100 * (ci / bf.nreferences)
-        fancylog(
+        verboselog(
             f"PM read filter: on {cdsc} ({ci:,} / "
             f"{bf.nreferences:,}) ({pct:.2f}%).",
             prefix="",
@@ -504,13 +518,13 @@ def filter_pm_reads(
         # linear alignments to this contig, and thus nothing from this contig
         # could possibly be included in the output BAM file.)
         if num_lin_alns == 0:
-            fancylog(
+            verboselog(
                 f"Nothing is aligned to {cdsc}! Ignoring this contig.",
                 prefix="",
             )
             continue
         else:
-            fancylog(
+            verboselog(
                 f"{num_lin_alns:,} linear alignment(s) to {cdsc}.", prefix=""
             )
 
@@ -532,7 +546,7 @@ def filter_pm_reads(
             )
             nae = len(adj_contigs)
 
-            fancylog(
+            verboselog(
                 f"{nae:,} contig(s) in the graph are adjacent to {cdsc}.",
                 prefix="",
             )
@@ -547,7 +561,7 @@ def filter_pm_reads(
                 # too_many_adj_contigs being negative implies that we should
                 # always consider adj contigs.
                 if too_many_adj_contigs >= 0 and nae >= too_many_adj_contigs:
-                    fancylog(
+                    verboselog(
                         "Too many adjacent contigs; we won't consider them "
                         "when filtering partially-mapped reads from this "
                         "contig.",
@@ -556,7 +570,7 @@ def filter_pm_reads(
                     consider_adj = False
 
                 if consider_adj:
-                    fancylog(
+                    verboselog(
                         "Considering alignments of shared reads to these "
                         "adjacent contig(s)...",
                         prefix="",
@@ -585,7 +599,7 @@ def filter_pm_reads(
                                 )
                                 num_other_contig_alns_from_shared_reads += 1
 
-                    fancylog(
+                    verboselog(
                         f"{num_other_contig_alns_from_shared_reads:,} linear "
                         "alignments(s) from shared reads to adjacent "
                         f"contig(s) of {cdsc}.",
@@ -648,7 +662,7 @@ def filter_pm_reads(
         # If we've made it this far, we know num_lin_alns != 0. So no need to
         # worry about division by zero.
         passing_pct = 100 * (passing_aln_ct / num_lin_alns)
-        fancylog(
+        verboselog(
             f"{passing_aln_ct:,} / {num_lin_alns:,} ({passing_pct:.2f}%) of "
             f"alignments to {cdsc} passed the filter.",
             prefix="",

@@ -78,7 +78,9 @@ def get_alt_pos_info(rec):
     return (cov, alt_freq, alt_nt, ref_nt_freq, ref_nt)
 
 
-def run(contigs, bam, output_vcf, min_alt_pos, fancylog, p=None, r=None):
+def run(
+    contigs, bam, output_vcf, min_alt_pos, fancylog, verbose, p=None, r=None
+):
     """Launches the process of naive p- or r-mutation calling.
 
     In the user-facing code in the CLI, I try to consistently say "naive" with
@@ -105,6 +107,9 @@ def run(contigs, bam, output_vcf, min_alt_pos, fancylog, p=None, r=None):
 
     fancylog: function
         Logging function.
+
+    verbose: bool
+        Log extra info about individual contigs.
 
     p: int in (0, 50]
         p-mutation parameter.
@@ -160,11 +165,12 @@ def run(contigs, bam, output_vcf, min_alt_pos, fancylog, p=None, r=None):
 
     bf = pysam.AlignmentFile(bam, "rb")
     for si, seq in enumerate(bf.references, 1):
-        pct = 100 * (si / bf.nreferences)
-        fancylog(
-            f"On contig {seq} ({si:,} / {bf.nreferences:,}) ({pct:.2f}%).",
-            prefix="",
-        )
+        if verbose:
+            pct = 100 * (si / bf.nreferences)
+            fancylog(
+                f"On contig {seq} ({si:,} / {bf.nreferences:,}) ({pct:.2f}%).",
+                prefix="",
+            )
         num_muts = 0
         vcf_text = ""
         for pos, rec in enumerate(
@@ -234,9 +240,10 @@ def run(contigs, bam, output_vcf, min_alt_pos, fancylog, p=None, r=None):
             with open(output_vcf, "a") as vcf_file:
                 vcf_file.write(vcf_text)
 
-        fancylog(
-            f"Called {num_muts:,} mutation(s) in contig {seq}.", prefix=""
-        )
+        if verbose:
+            fancylog(
+                f"Called {num_muts:,} mutation(s) in contig {seq}.", prefix=""
+            )
 
     return call_str
 
