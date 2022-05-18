@@ -429,7 +429,7 @@ def run(
             fancylog(
                 (
                     f"Called {num_any_muts:,} mutation(s) (for any setting of "
-                    f"{param_name} in contig {seq}."
+                    f"{param_name}) in contig {seq}."
                 ),
                 prefix="",
             )
