@@ -140,7 +140,7 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
         if n_reads_in_seq == 0:
             seq2isempty[seq] = True
             fancylog(
-                f"No reads were aligned to contig {seq}! Ignoring this contig."
+                f"Nothing is aligned to contig {seq}! Ignoring this contig."
             )
             continue
 
@@ -170,7 +170,8 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
 
         fancylog(
             f"There are {num_lin_alns:,} linear alignment(s) (from "
-            f"{n_reads_in_seq:,} unique read(s) to contig {seq}."
+            f"{n_reads_in_seq:,} unique read(s)) to contig {seq}.",
+            prefix=""
         )
         # We can compute this percentage without worrying about division by
         # zero because we've already ensured above that n_reads_in_seq != 0.
@@ -504,7 +505,7 @@ def filter_pm_reads(
         # could possibly be included in the output BAM file.)
         if num_lin_alns == 0:
             fancylog(
-                f"No reads were aligned to {cdsc}! Ignoring this contig.",
+                f"Nothing is aligned to {cdsc}! Ignoring this contig.",
                 prefix="",
             )
             continue
@@ -586,8 +587,8 @@ def filter_pm_reads(
 
                     fancylog(
                         f"{num_other_contig_alns_from_shared_reads:,} linear "
-                        "alignments(s) from shared reads to adjacent contigs "
-                        f"of {cdsc}.",
+                        "alignments(s) from shared reads to adjacent "
+                        f"contig(s) of {cdsc}.",
                         prefix="",
                     )
 
