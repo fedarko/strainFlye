@@ -28,7 +28,14 @@ conda activate strainflye
 pip install git+https://github.com/fedarko/strainFlye.git
 ```
 
-## Command-line usage
+## Documentation
+
+### Tutorial
+
+We provide a (work in progress) tutorial using the SheepGut dataset
+[here](https://nbviewer.org/github/fedarko/strainFlye/blob/main/docs/SheepGutExample.ipynb).
+
+### Command-line usage
 
 If you installed strainFlye using the steps shown above (creating a conda
 environment and installing strainFlye and its dependencies into this
@@ -37,7 +44,7 @@ strainFlye (e.g. `conda activate strainflye`).
 
 <!-- STARTDOCS -->
 ```
-Usage: strainFlye [OPTIONS] COMMAND [ARGS]...
+Usage: strainflye [OPTIONS] COMMAND [ARGS]...
 
   Pipeline for the analysis of rare mutations in metagenomes.
 
@@ -46,7 +53,7 @@ Options:
 
 Commands:
   align       Aligns reads to contigs, then filters this alignment.
-  call        Performs naïve mutation calling.
+  call        Methods for naïve mutation calling.
   diversity   Computes the diversity index for MAGs.
   spots       Identifies hot- and/or cold-spots in MAGs.
   covskew     Visualizes MAG coverage and GC skew.
