@@ -1,5 +1,7 @@
 import pytest
 from strainflye.call_utils import (
+    p2filter,
+    r2filter,
     get_r_increments,
     get_p_increments,
     get_alt_pos_info,
@@ -185,3 +187,22 @@ def test_call_p_mutations():
         [True, True, True, True, True, False, False, False, False],
         True,
     )
+
+
+def test_p2filter():
+    # should always use exactly two points of precision
+    # and since we have the min, max, and delta p parameters as integers with
+    # min 0.01, this works
+    assert p2filter(0.01) == "p0.01"
+    assert p2filter(0.010000003) == "p0.01"
+    assert p2filter(3) == "p3.00"
+    assert p2filter(1.5) == "p1.50"
+    assert p2filter(1.53219) == "p1.53"
+    assert p2filter(1.53819) == "p1.54"
+
+
+def test_r2filter():
+    assert r2filter(1) == "r1"
+    assert r2filter(1000) == "r1000"
+    assert r2filter(10000) == "r10000"
+    assert r2filter(35) == "r35"
