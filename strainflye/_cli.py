@@ -308,12 +308,10 @@ strainflye.add_command(call)
     default=2,
     required=False,
     show_default=True,
-    type=click.IntRange(min=0),
+    type=click.IntRange(min=1),
     help=(
-        "Additional parameter: the alternate "
-        "nucleotide for a p-mutation must be supported by at least this many "
-        "reads. If you want to completely disable this check, you can set "
-        "this to zero (but this is not recommended)."
+        "Additional parameter: the alternate nucleotide for a p-mutation must "
+        "be supported by at least this many reads."
     ),
 )
 @click.option(

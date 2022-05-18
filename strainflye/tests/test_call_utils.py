@@ -3,8 +3,8 @@ from strainflye.call_utils import (
     get_r_increments,
     get_p_increments,
     get_alt_pos_info,
-    call_r_mutation,
-    call_p_mutation,
+    call_r_mutations,
+    call_p_mutations,
 )
 from strainflye.errors import ParameterError
 from pytest import approx
@@ -158,35 +158,30 @@ def test_get_alt_pos_info():
     assert tie_api[2] != tie_api[4]
 
 
-def test_call_r_mutation():
+def test_call_r_mutations():
     # paranoia
-    assert call_r_mutation(5, 5)
-    assert call_r_mutation(5, 4)
-    assert not call_r_mutation(5, 6)
-    assert not call_r_mutation(5, 100)
-    assert call_r_mutation(100, 5)
-    assert call_r_mutation(1, 1)
+    assert call_r_mutations(5, [1, 2, 3, 4, 5, 6, 7, 8]) == (
+        [True, True, True, True, True, False, False, False],
+        True,
+    )
+    assert call_r_mutations(5, [4]) == ([True], True)
+    assert call_r_mutations(5, [6]) == ([False], False)
+    assert call_r_mutations(5, [100, 101]) == ([False, False], False)
+    assert call_r_mutations(100, [5, 6]) == ([True, True], True)
+    assert call_r_mutations(1, [1]) == ([True], True)
 
 
-def test_call_r_mutation_rangecheck():
-    with pytest.raises(ParameterError) as errorinfo:
-        call_r_mutation(1, 0)
-    assert "r must be > 0" == str(errorinfo.value)
-
-
-def test_call_p_mutation():
-    # TODO add more stuff here
-    assert call_p_mutation(5, 10, 50, 2)
-    assert not call_p_mutation(2, 10, 50, 2)
-
-
-def test_call_p_mutation_rangecheck():
-    for bad_p in (-140, -100, -51, -1, -0.5, 0, 50.1, 51, 100, 140):
-        with pytest.raises(ParameterError) as errorinfo:
-            call_p_mutation(5, 10, bad_p, 2)
-        assert "p must be in the range (0, 50]" == str(errorinfo.value)
-
-    for bad_map in (-150, -100, -50, -1, -0.5):
-        with pytest.raises(ParameterError) as errorinfo:
-            call_p_mutation(5, 10, 2, bad_map)
-        assert "--min-alt-pos must be >= 0" == str(errorinfo.value)
+def test_call_p_mutations():
+    # TODO add more stuff here -- e.g. more detailed floating-point tests
+    assert call_p_mutations(5, 10, [50], 2) == ([True], True)
+    assert call_p_mutations(2, 10, [50], 2) == ([False], False)
+    assert call_p_mutations(2, 10, [1, 2, 3, 5, 10, 15, 18, 20, 25], 2) == (
+        [True, True, True, True, True, True, True, True, False],
+        True,
+    )
+    assert call_p_mutations(
+        5, 1000, [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 1, 2, 3], 2
+    ) == (
+        [True, True, True, True, True, False, False, False, False],
+        True,
+    )

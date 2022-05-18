@@ -229,6 +229,14 @@ def get_alt_pos_info(rec):
     return (cov, alt_freq, alt_nt, ref_nt_freq, ref_nt)
 
 
+def p2filter(p):
+    return f"p{p:.2f}"
+
+
+def r2filter(r):
+    return f"r{r}"
+
+
 def run(
     contigs,
     bam,
@@ -271,7 +279,7 @@ def run(
     r_vals: list of ints > 0
         List of r-mutation parameters for which to call r-mutations.
 
-    min_alt_pos: int >= 0 or None
+    min_alt_pos: int >= 1 or None
         During p-mutation calling, the second-most-common aligned nucleotide's
         frequency must be at least this. Not used when calling r-mutations.
 
@@ -298,15 +306,27 @@ def run(
     elif not using_p and not using_r:
         raise cli_utils.ParameterError("Either p or r needs to be specified.")
 
+    filter_header = ""
+
     if using_p:
+        param_name = "p"
         call_str = (
             f"p-mutation calling for p from {p_vals[0]:.2f}% to "
             f"{p_vals[-1]:.2f}%"
         )
+        for p in p_vals:
+            filter_header += (
+                f'##FILTER=<ID={p2filter(p)},Description="p = {p:.2f}%">\n'
+            )
     else:
+        param_name = "r"
         call_str = (
             f"r-mutation calling for r from {r_vals[0]:,} to {r_vals[-1]:,}"
         )
+        for r in r_vals:
+            filter_header += (
+                f'##FILTER=<ID={r2filter(r)},Description="r = {r:,}">\n'
+            )
 
     fancylog(f"Running {call_str}.", prefix="")
 
@@ -316,9 +336,10 @@ def run(
         # LoFreq organizes their header
 
         vcf_file.write(
-            "##fileformat=VCFv4.2\n"
+            "##fileformat=VCFv4.3\n"
             f"##fileDate={time.strftime('%Y%m%d')}\n"
             f'##source="strainFlye v{__version__}: {call_str}"\n'
+            f"{filter_header}"
             f"##reference={os.path.abspath(contigs)}\n"
             "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
         )
@@ -331,7 +352,7 @@ def run(
                 f"On contig {seq} ({si:,} / {bf.nreferences:,}) ({pct:.2f}%).",
                 prefix="",
             )
-        num_muts = 0
+        num_any_muts = 0
         vcf_text = ""
         for pos, rec in enumerate(
             pysamstats.stat_variation(
@@ -359,12 +380,38 @@ def run(
 
             cov, alt_freq, alt_nt, ref_freq, ref_nt = get_alt_pos_info(rec)
 
+            # TODO: call mutations across all p_vals or r_vals.
+            # These functions should return a list of bools (of same dimensions
+            # as p_vals or r_vals: True if mut, False otherwise), as well as
+            # a separate bool (are there any muts at all?). Using this data,
+            # create a FILTER string for this position based on which
+            # thresholds do/do not pass; and then update the VCF text
+            # accordingly. Then we should be good to go!
             if using_p:
-                is_mut = call_p_mutation(alt_freq, cov, p, min_alt_pos)
+                results, any_pass = call_p_mutations(
+                    alt_freq, cov, p_vals, min_alt_pos
+                )
             else:
-                is_mut = call_r_mutation(alt_freq, r)
+                results, any_pass = call_r_mutations(alt_freq, r_vals)
 
-            if is_mut:
+            filter_str = ""
+            for param_i, param_result in enumerate(results):
+                if not param_result:
+                    if len(filter_str) > 0:
+                        filter_str += ";"
+
+                    if using_p:
+                        filter_name = p2filter(p_vals[param_i])
+                    else:
+                        filter_name = r2filter(r_vals[param_i])
+
+                    filter_str += filter_name
+
+            # This position passed all filters (aka p or r thresholds)!
+            if len(filter_str) == 0:
+                filter_str == "PASS"
+
+            if any_pass:
                 # 1. CHROM = seq (aka contig name)
                 #
                 # 2. POS = pos (position on this contig)
@@ -388,21 +435,28 @@ def run(
                 #              we use the FDR estimation stuff described in the
                 #              paper)
                 #
-                # 7. FILTER = . (I guess if we use multiple values of r or p we
+                # 7. FILTER = filter_string
                 #                could extend this to mention partial calls,
                 #                but for now we don't make use of this)
                 #
                 # 8. INFO = . (Maybe I'll add extra stuff here later)
-                vcf_text += f"{seq}\t{pos}\t.\t{ref_nt}\t{alt_nt}\t.\t.\t.\n"
-                num_muts += 1
+                vcf_text += (
+                    f"{seq}\t{pos}\t.\t{ref_nt}\t{alt_nt}\t.\t{filter_str}\t."
+                    "\n"
+                )
+                num_any_muts += 1
 
-        if num_muts > 0:
+        if num_any_muts > 0:
             with open(output_vcf, "a") as vcf_file:
                 vcf_file.write(vcf_text)
 
         if verbose:
             fancylog(
-                f"Called {num_muts:,} mutation(s) in contig {seq}.", prefix=""
+                (
+                    f"Called {num_any_muts:,} mutation(s) (for any setting of "
+                    f"{param_name} in contig {seq}."
+                ),
+                prefix="",
             )
 
 
@@ -426,38 +480,36 @@ def is_position_rare_direct(alt_pos, cov):
     return lhs < rhs_upper
 
 
-def call_p_mutation(alt_pos, cov, p, min_alt_pos, only_call_if_rare=False):
-    """Calls a p-mutation at a position.
+def call_p_mutations(
+    alt_pos, cov, p_vals, min_alt_pos, only_call_if_rare=False
+):
+    """Calls a p-mutation at a position, given many values of p to check.
 
     Parameters
     ----------
-    alt_pos: int
+    alt_pos: int >= 0
 
-    cov: int
+    cov: int >= 0
 
-    p: float
+    p_vals: list of float in (0, 50]
 
-    min_alt_pos: int
+    min_alt_pos: int >= 1
 
     only_call_if_rare: bool
 
     Returns
     -------
-    bool
-        True if there is a p-mutation at this position, False otherwise.
+    (results, any_pass): (list of bool, bool)
+        results is a list with the same length as p_vals. Each entry in results
+        corresponds to an entry in p_vals: a True indicates that a p-mutation
+        was called at this position for this value of p, and a False indicates
+        that a p-mutation was not called at this position for this value of p.
 
-    Raises
-    ------
-    ParameterError
-        - If p <= 0 or p > 50.
-        - If min_alt_pos < 0.
+        If there exist any occurrences of True in results, then any_pass will
+        be True. Otherwise, it will be False.
     """
-    if p <= 0 or p > 50:
-        raise ParameterError("p must be in the range (0, 50]")
-
-    if min_alt_pos < 0:
-        raise ParameterError("--min-alt-pos must be >= 0")
-
+    # This implicitly avoids the messed-up case where alt(pos) and cov are both
+    # zero, since min_alt_pos must be at least 1
     if alt_pos >= min_alt_pos:
         # We call a p-mutation if alt(pos) / reads(pos) >= p / 100.
         # Equivalently: we call a p-mutation if 100*alt(pos) >= p*reads(pos).
@@ -472,38 +524,61 @@ def call_p_mutation(alt_pos, cov, p, min_alt_pos, only_call_if_rare=False):
         # of say 1,000,000x? That's no biggie.)
 
         lhs = 100 * alt_pos
-        rhs = p * cov
 
-        if lhs >= rhs:
-            # This position counts as a p-mutation, but we may still need to
-            # make the "is this a rare mutation?" check.
-            if only_call_if_rare:
-                return is_position_rare_direct(alt_pos, cov)
-            else:
-                return True
+        results = []
+        any_pass = False
+
+        for p in p_vals:
+            rhs = p * cov
+            is_mut = False
+            if lhs >= rhs:
+                # This position counts as a p-mutation, but we may still need
+                # to make the "is this a rare mutation?" check.
+                if only_call_if_rare:
+                    is_mut = is_position_rare_direct(alt_pos, cov)
+                else:
+                    is_mut = True
+            results.append(is_mut)
+            any_pass = any_pass or is_mut
+        return results, any_pass
     else:
-        return False
+        # NOTE: this is silly, just update the docstring to handle this case to
+        # avoid doing extra work
+        return [False] * len(p_vals), False
 
 
-def call_r_mutation(alt_pos, r):
-    """Calls a r-mutation at a position.
+def call_r_mutations(alt_pos, r_vals):
+    """Calls a r-mutation at a position, given many values of r to check.
 
     Parameters
     ----------
-    alt_pos: int
+    alt_pos: int >= 0
 
-    r: int
+    r_vals: list of int >= 1
 
     Returns
     -------
-    bool
-        True if there is an r-mutation at this position, False otherwise.
+    (results, any_pass): (list of bool, bool)
+        results is a list with the same length as r_vals. Each entry in results
+        corresponds to an entry in r_vals: a True indicates that an r-mutation
+        was called at this position for this value of r, and a False indicates
+        that an r-mutation was not called at this position for this value of r.
 
-    Raises
-    ------
-    ParameterError
-        If r <= 0.
+        If there exist any occurrences of True in results, then any_pass will
+        be True. Otherwise, it will be False.
     """
-    if r <= 0:
-        raise ParameterError("r must be > 0")
-    return alt_pos >= r
+    # NOTE: it's probably possible to speed this up by figuring out the
+    # "crossover point" between True and False, and thus avoiding |r_vals|
+    # checks. not sure if this'll make a big difference tho.
+    results = []
+    any_pass = False
+    for r in r_vals:
+        is_mut = alt_pos >= r
+        results.append(is_mut)
+        # If is_mut is True at any point throughout this loop, update any_pass
+        # to True. I guess we could use the |= operator for this, but there are
+        # caveats and stuff, and this is probs clearer. See
+        # https://stackoverflow.com/a/19964319 and
+        # https://stackoverflow.com/a/43404379.
+        any_pass = any_pass or is_mut
+    return results, any_pass
