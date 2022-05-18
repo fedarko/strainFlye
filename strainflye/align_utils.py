@@ -171,7 +171,7 @@ def filter_osa_reads(in_bam, out_bam, fancylog):
         fancylog(
             f"There are {num_lin_alns:,} linear alignment(s) (from "
             f"{n_reads_in_seq:,} unique read(s)) to contig {seq}.",
-            prefix=""
+            prefix="",
         )
         # We can compute this percentage without worrying about division by
         # zero because we've already ensured above that n_reads_in_seq != 0.
