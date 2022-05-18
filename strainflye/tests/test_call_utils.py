@@ -1,10 +1,83 @@
 import pytest
 from strainflye.call_utils import (
+    get_r_increments,
     get_alt_pos_info,
     call_r_mutation,
     call_p_mutation,
 )
 from strainflye.errors import ParameterError
+
+
+def test_get_r_increments_d1():
+    rv = get_r_increments(1, 5, 1, print)
+    assert rv == [1, 2, 3, 4, 5]
+
+    rv = get_r_increments(1, 2, 1, print)
+    assert rv == [1, 2]
+
+    rv = get_r_increments(5, 10, 1, print)
+    assert rv == [5, 6, 7, 8, 9, 10]
+
+
+def test_get_r_increments_d2():
+    rv = get_r_increments(1, 5, 2, print)
+    assert rv == [1, 3, 5]
+
+
+def test_get_r_increments_one_r_due_to_large_delta(capsys):
+    rv = get_r_increments(5, 50, 100, print)
+    captured = capsys.readouterr()
+    exp_out = (
+        "Computing r-mutations for 1 value of r: 5.\n"
+        "Warning: --max-r = 50 will not be included in the r-values used. "
+        "This is due to --max-r minus --min-r not being divisible by "
+        "--delta-r: 50 - 5 = 45, and 45 mod 100 = 45.\n"
+    )
+    assert captured.out == exp_out
+    assert rv == [5]
+
+
+def test_get_r_increments_nomax(capsys):
+    rv = get_r_increments(5, 50, 2, print)
+    captured = capsys.readouterr()
+    exp_out = (
+        "Computing r-mutations for 23 values of r.\n"
+        "Warning: --max-r = 50 will not be included in the r-values used. "
+        "This is due to --max-r minus --min-r not being divisible by "
+        "--delta-r: 50 - 5 = 45, and 45 mod 2 = 1.\n"
+    )
+    assert captured.out == exp_out
+    assert rv == [
+        5,
+        7,
+        9,
+        11,
+        13,
+        15,
+        17,
+        19,
+        21,
+        23,
+        25,
+        27,
+        29,
+        31,
+        33,
+        35,
+        37,
+        39,
+        41,
+        43,
+        45,
+        47,
+        49,
+    ]
+
+
+def test_get_r_increments_bad():
+    with pytest.raises(ParameterError) as errorinfo:
+        get_r_increments(5, 2, 1, print)
+    assert "Minimum r must be less than maximum r." == str(errorinfo.value)
 
 
 def test_get_alt_pos_info():

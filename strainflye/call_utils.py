@@ -19,20 +19,29 @@ def get_r_increments(min_r, max_r, delta_r, fancylog):
     Parameters
     ----------
     min_r: int >= 1
+        Minimum value of r to use.
 
     max_r: int >= 1
+        Maximum value of r to use.
 
     delta_r: int >= 1
+        Increment r by this much, starting at min_r.
+
+    fancylog: function
+        Logging function.
 
     Returns
     -------
     r_vals: list of ints >= 1
+        List of r values beginning at min_r and increasing by delta_r until we
+        reach max_r. Note that this will not include max_r if
+        (max_r - min_r) % delta_r != 0 -- we'll warn the user via fancylog()
+        if this happens.
 
     Raises
     ------
     ParameterError
-        - If min_r >= max_r.
-        - If delta_r >= max_r.
+        If min_r >= max_r.
 
     ValueError
         - If something goes seriously wrong when generating r_vals.
@@ -40,12 +49,13 @@ def get_r_increments(min_r, max_r, delta_r, fancylog):
     """
     if min_r >= max_r:
         raise ParameterError("Minimum r must be less than maximum r.")
-    if delta_r >= max_r:
-        raise ParameterError("Delta r must be less than maximum r.")
 
     r_vals = list(range(min_r, max_r + 1, delta_r))
 
-    fancylog(f"Computing r-mutations for {len(r_vals):,} values of r.")
+    if len(r_vals) == 1:
+        fancylog(f"Computing r-mutations for 1 value of r: {r_vals[0]:,}.")
+    else:
+        fancylog(f"Computing r-mutations for {len(r_vals):,} values of r.")
 
     # If r is not 1, it's possible for us to "miss" the maximum r value.
     # Warn the user about this, but don't throw an error.
@@ -55,8 +65,11 @@ def get_r_increments(min_r, max_r, delta_r, fancylog):
         if divisibility == 0:
             raise ValueError("Max r was excluded without cause?")
         fancylog(
-            "Warning: --max-r = {max_r:,} is not included. This is due to "
-            "due to --max-r minus --min-r not being divisible by --delta-r."
+            f"Warning: --max-r = {max_r:,} will not be included in the "
+            "r-values used. This is due to --max-r minus --min-r not "
+            f"being divisible by --delta-r: {max_r:,} - {min_r:,} = "
+            f"{max_r - min_r:,}, and {max_r - min_r:,} mod {delta_r:,} = "
+            f"{divisibility:,}."
         )
 
     # Extra sanity check (this should definitely not happen)
@@ -306,8 +319,6 @@ def run(
             fancylog(
                 f"Called {num_muts:,} mutation(s) in contig {seq}.", prefix=""
             )
-
-    return call_str
 
 
 def is_position_rare_direct(alt_pos, cov):
