@@ -209,6 +209,8 @@ def align(reads, contigs, graph, output_dir, verbose):
     align_utils.index_bam(pm_filter_bam, "final BAM", fancylog)
 
     # Similarly, we can remove the OSA-filtered (but not PM-filtered) BAM now.
+    # The PM-filtered BAM represents the "final" BAM produced by the alignment
+    # step, and is the one that should be used in downstream analyses.
     os.remove(osa_filter_bam)
     os.remove(osa_filter_bam + ".bai")
 
