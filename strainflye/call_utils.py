@@ -10,6 +10,62 @@ from .errors import SequencingDataError, ParameterError
 from strainflye import __version__
 
 
+def get_r_increments(min_r, max_r, delta_r, fancylog):
+    """Given a min, max, and delta r, computes a list of r values.
+
+    This should be a simple problem if the delta is 1 and the min and max are
+    specified sanely, but... yeah, we gotta be defensive.
+
+    Parameters
+    ----------
+    min_r: int >= 1
+
+    max_r: int >= 1
+
+    delta_r: int >= 1
+
+    Returns
+    -------
+    r_vals: list of ints >= 1
+
+    Raises
+    ------
+    ParameterError
+        - If min_r >= max_r.
+        - If delta_r >= max_r.
+
+    ValueError
+        - If something goes seriously wrong when generating r_vals.
+          This should never happen (knock on wood).
+    """
+    if min_r >= max_r:
+        raise ParameterError("Minimum r must be less than maximum r.")
+    if delta_r >= max_r:
+        raise ParameterError("Delta r must be less than maximum r.")
+
+    r_vals = list(range(min_r, max_r + 1, delta_r))
+
+    fancylog(f"Computing r-mutations for {len(r_vals):,} values of r.")
+
+    # If r is not 1, it's possible for us to "miss" the maximum r value.
+    # Warn the user about this, but don't throw an error.
+    if r_vals[-1] != max_r:
+        divisibility = (max_r - min_r) % delta_r
+        # This should never happen, but check it anyway
+        if divisibility == 0:
+            raise ValueError("Max r was excluded without cause?")
+        fancylog(
+            "Warning: --max-r = {max_r:,} is not included. This is due to "
+            "due to --max-r minus --min-r not being divisible by --delta-r."
+        )
+
+    # Extra sanity check (this should definitely not happen)
+    if r_vals[0] != min_r:
+        raise ValueError("Min r was excluded without cause?")
+
+    return r_vals
+
+
 def get_alt_pos_info(rec):
     """Returns info about the second-most-common nucleotide at a position.
 
@@ -79,7 +135,14 @@ def get_alt_pos_info(rec):
 
 
 def run(
-    contigs, bam, output_vcf, min_alt_pos, fancylog, verbose, p=None, r=None
+    contigs,
+    bam,
+    output_vcf,
+    fancylog,
+    verbose,
+    p_vals=[],
+    r_vals=[],
+    min_alt_pos=None,
 ):
     """Launches the process of naive p- or r-mutation calling.
 
@@ -101,26 +164,25 @@ def run(
         Filepath to which a VCF file describing called mutations will be
         written.
 
-    min_alt_pos: int >= 0
-        During p-mutation calling, the second-most-common aligned nucleotide's
-        frequency must be at least this.
-
     fancylog: function
         Logging function.
 
     verbose: bool
         Log extra info about individual contigs.
 
-    p: int in (0, 50]
-        p-mutation parameter.
+    p_vals: list of floats in (0, 50]
+        List of p-mutation parameters for which to call p-mutations.
 
-    r: int > 0
-        r-mutation parameter.
+    r_vals: list of ints > 0
+        List of r-mutation parameters for which to call r-mutations.
+
+    min_alt_pos: int >= 0 or None
+        During p-mutation calling, the second-most-common aligned nucleotide's
+        frequency must be at least this. Not used when calling r-mutations.
 
     Returns
     -------
-    call_str: str
-        Description of the type of mutation calling that just happened.
+    None
 
     Raises
     ------

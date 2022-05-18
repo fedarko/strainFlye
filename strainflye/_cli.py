@@ -39,12 +39,6 @@ def strainflye():
     pass
 
 
-@click.group(name="utils", **grp_params, **cmd_params)
-def utils():
-    """Various utility commands provided with strainFlye."""
-    pass
-
-
 @strainflye.command(**cmd_params)
 # We use arguments to allow for multiple read files -- this works well with
 # globbing in unix, i.e. "strainflye align read*.fasta [other stuff here...]"
@@ -217,7 +211,49 @@ def align(reads, contigs, graph, output_dir, verbose):
     fancylog("Done.")
 
 
-@strainflye.command(**cmd_params)
+@click.group(name="call", **grp_params, **cmd_params)
+def call():
+    """Methods for na\u00efve mutation calling.
+
+    Consider a position "pos" in a contig. A given read with a (mis)match
+    operation at "pos" must have one of four nucleotides (A, C, G, T) aligned
+    to pos. We represent these nucleotides' counts at pos as follows:
+
+    \b
+        N1 = # reads of the most-common aligned nucleotide at pos,
+        N2 = # reads of the second-most-common aligned nucleotide at pos,
+        N3 = # reads of the third-most-common aligned nucleotide at pos,
+        N4 = # reads of the fourth-most-common aligned nucleotide at pos.
+
+    (We break ties arbitrarily.)
+
+    strainFlye supports two types of na\u00efve mutation calling based on
+    these counts: p-mutations and r-mutations. These are described below.
+
+    p-mutations (na\u00efve percentage-based mutation calling)
+    -----------------------------------------------------
+
+    This takes as input some percentage p in the range (0%, 50%].
+    Define freq(pos) = N2 / (N1 + N2 + N3 + N4). This value, constrained to
+    the range [0%, 50%], is an estimate of the mutation frequency of this
+    position. We classify pos as a p-mutation if freq(pos) \u2265 p, AND if
+    N2 \u2265 the --min-alt-pos parameter (an integer representing a minimum
+    number of reads that must support the alternate nucleotide).
+
+    r-mutations (na\u00efve read-count-based mutation calling)
+    -----------------------------------------------------
+
+    This takes as input some integer r > 0. We classify pos as an
+    r-mutation if N2 \u2265 r.
+    """
+    pass
+
+
+# Use of add_command() based on https://stackoverflow.com/a/61353240.
+strainflye.add_command(call)
+
+
+@call.command(**cmd_params)
 @click.option(
     "-c",
     "--contigs",
@@ -233,23 +269,30 @@ def align(reads, contigs, graph, output_dir, verbose):
     help="BAM file representing an alignment of reads to contigs.",
 )
 @click.option(
-    "-p",
+    "--min-p",
     required=False,
-    default=None,
+    show_default=True,
+    default=0.5,
     type=click.FloatRange(min=0, max=50, min_open=True),
-    help=(
-        "Main parameter used in p-mutation (percentage-based) calling. "
-        "If this is specified, r cannot be specified."
-    ),
+    help="Minimum value of p for which to call p-mutations.",
 )
 @click.option(
-    "-r",
+    "--max-p",
     required=False,
-    default=None,
-    type=click.IntRange(min=0, min_open=True),
+    show_default=True,
+    default=2,
+    type=click.FloatRange(min=0, max=50, min_open=True),
+    help="Maximum value of p for which to call p-mutations.",
+)
+@click.option(
+    "--delta-p",
+    required=False,
+    show_default=True,
+    default=0.01,
+    type=click.FloatRange(min=0, max=50, min_open=True, max_open=True),
     help=(
-        "Main parameter used in r-mutation (read-count-based) calling. "
-        "If this is specified, p cannot be specified."
+        "We'll consider all values of p between --min-p and --max-p, "
+        "increasing in increments of --delta-p."
     ),
 )
 @click.option(
@@ -259,7 +302,7 @@ def align(reads, contigs, graph, output_dir, verbose):
     show_default=True,
     type=click.IntRange(min=0),
     help=(
-        "Additional parameter for p-mutation calling: the alternate "
+        "Additional parameter: the alternate "
         "nucleotide for a p-mutation must be supported by at least this many "
         "reads. If you want to completely disable this check, you can set "
         "this to zero (but this is not recommended)."
@@ -282,57 +325,121 @@ def align(reads, contigs, graph, output_dir, verbose):
     show_default=True,
     help="Display extra details for each contig.",
 )
-def call(contigs, bam, p, r, min_alt_pos, output_vcf, verbose):
-    """Performs na\u00efve mutation calling.
+def p_mutation(
+    contigs, bam, min_p, max_p, delta_p, min_alt_pos, output_vcf, verbose
+):
+    """Performs na\u00efve percentage-based mutation (p-mutation) calling.
 
-    Consider a position "pos" in a contig. A given read with a (mis)match
-    operation at "pos" must have one of four nucleotides (A, C, G, T) aligned
-    to pos. We represent these nucleotides' counts at pos as follows:
-
-    \b
-        N1 = # reads of the most-common aligned nucleotide at pos,
-        N2 = # reads of the second-most-common aligned nucleotide at pos,
-        N3 = # reads of the third-most-common aligned nucleotide at pos,
-        N4 = # reads of the fourth-most-common aligned nucleotide at pos.
-
-    (We break ties arbitrarily.)
-
-    This command supports two types of na\u00efve mutation calling based on
-    these counts: p-mutations and r-mutations. These are described below.
-    You can specify either p or r to trigger p- or r-mutation calling,
-    respectively; however, you can't specify both at once here.
-
-    p-mutations (na\u00efve percentage-based mutation calling)
-    -----------------------------------------------------
-
-    This takes as input some percentage p in the range (0%, 50%].
-    Define freq(pos) = N2 / (N1 + N2 + N3 + N4). This value, constrained to
-    the range [0%, 50%], is an estimate of the mutation frequency of this
-    position. We classify pos as a p-mutation if freq(pos) \u2265 p, AND if
-    N2 \u2265 the --min-alt-pos parameter (an integer representing a minimum
-    number of reads that must support the alternate nucleotide).
-
-    r-mutations (na\u00efve read-count-based mutation calling)
-    -----------------------------------------------------
-
-    This takes as input some integer r > 0. We classify pos as an
-    r-mutation if N2 \u2265 r.
+    We consider multiple values of the p parameter (defined by the min, max,
+    and delta p options), and our output VCF file represents each of the
+    resulting values of p tested as a separate FILTER.
     """
     fancylog = cli_utils.fancystart(
         "strainFlye call",
         (
             ("contig file", contigs),
             ("BAM file", bam),
-            ("p-mutation parameter p", p),
-            ("r-mutation parameter r", r),
+            ("minimum p", min_p),
+            ("maximum p", max_p),
+            ("delta p", delta_p),
             ("--min-alt-pos", min_alt_pos),
         ),
         (("VCF file", output_vcf),),
     )
-    call_str = call_utils.run(
-        contigs, bam, output_vcf, min_alt_pos, fancylog, verbose, p=p, r=r
+    p_vals = call_utils.get_p_increments(min_p, max_p, delta_p, fancylog)
+    call_utils.run(
+        contigs,
+        bam,
+        output_vcf,
+        fancylog,
+        verbose,
+        p_vals=p_vals,
+        min_alt_pos=min_alt_pos,
     )
-    fancylog(f"Done with {call_str}.")
+    fancylog(f"Done with p-mutation calling.")
+
+
+@call.command(**cmd_params)
+@click.option(
+    "-c",
+    "--contigs",
+    required=True,
+    type=click.Path(exists=True),
+    help="FASTA file of contigs in which to na\u00efvely call mutations.",
+)
+@click.option(
+    "-b",
+    "--bam",
+    required=True,
+    type=click.Path(exists=True),
+    help="BAM file representing an alignment of reads to contigs.",
+)
+@click.option(
+    "--min-r",
+    required=False,
+    default=5,
+    show_default=True,
+    type=click.IntRange(min=1),
+    help="Minimum value of r for which to call r-mutations.",
+)
+@click.option(
+    "--max-r",
+    required=False,
+    default=100,
+    show_default=True,
+    type=click.IntRange(min=1),
+    help="Maximum value of r for which to call r-mutations.",
+)
+@click.option(
+    "--delta-r",
+    required=False,
+    default=1,
+    show_default=True,
+    type=click.IntRange(min=1),
+    help=(
+        "We'll consider all values of r between --min-r and --max-r, "
+        "increasing in increments of --delta-r. This should probably be "
+        "kept as 1."
+    ),
+)
+@click.option(
+    "-o",
+    "--output-vcf",
+    required=True,
+    type=click.Path(dir_okay=False),
+    help=(
+        "Filepath to which an output VCF file (describing the called "
+        "mutations) will be written."
+    ),
+)
+@click.option(
+    "--verbose/--no-verbose",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Display extra details for each contig.",
+)
+def r_mutation(contigs, bam, min_r, max_r, delta_r, output_vcf, verbose):
+    """Performs na\u00efve read-count-based mutation (r-mutation) calling.
+
+    We consider multiple values of the r parameter (defined by the min, max,
+    and delta r options), and our output VCF file represents each of the
+    resulting values of r tested as a separate FILTER.
+    """
+    fancylog = cli_utils.fancystart(
+        "strainFlye call r-mutation",
+        (
+            ("contig file", contigs),
+            ("BAM file", bam),
+            ("minimum r", min_r),
+            ("maximum r", max_r),
+            ("delta r", delta_r),
+        ),
+        (("VCF file", output_vcf),),
+    )
+    r_vals = call_utils.get_r_increments(min_r, max_r, delta_r, fancylog)
+    call_utils.run(contigs, bam, output_vcf, fancylog, verbose, r_vals=r_vals)
+    fancylog(f"Done with r-mutation calling.")
 
 
 @strainflye.command(**cmd_params)
@@ -405,6 +512,12 @@ def smooth():
     # input: contigs, reads, vcf of mutations
     # output: contigs / graph / etc. assembled by LJA
     print("SMOOTH")
+
+
+@click.group(name="utils", **grp_params, **cmd_params)
+def utils():
+    """Various utility commands provided with strainFlye."""
+    pass
 
 
 # Nest command groups -- so we can, for example, put our "utility" commands
