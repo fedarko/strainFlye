@@ -162,29 +162,26 @@ def test_get_alt_pos_info():
 
 def test_call_r_mutations():
     # paranoia
-    assert call_r_mutations(5, [1, 2, 3, 4, 5, 6, 7, 8]) == (
-        [True, True, True, True, True, False, False, False],
-        True,
-    )
-    assert call_r_mutations(5, [4]) == ([True], True)
-    assert call_r_mutations(5, [6]) == ([False], False)
-    assert call_r_mutations(5, [100, 101]) == ([False, False], False)
-    assert call_r_mutations(100, [5, 6]) == ([True, True], True)
-    assert call_r_mutations(1, [1]) == ([True], True)
+    assert call_r_mutations(5, [1, 2, 3, 4, 5, 6, 7, 8]) == ("r6;r7;r8", True)
+    assert call_r_mutations(5, [4]) == ("PASS", True)
+    assert call_r_mutations(5, [6]) == ("", False)
+    assert call_r_mutations(5, [100, 101]) == ("", False)
+    assert call_r_mutations(100, [5, 6]) == ("PASS", True)
+    assert call_r_mutations(1, [1]) == ("PASS", True)
 
 
 def test_call_p_mutations():
     # TODO add more stuff here -- e.g. more detailed floating-point tests
-    assert call_p_mutations(5, 10, [50], 2) == ([True], True)
-    assert call_p_mutations(2, 10, [50], 2) == ([False], False)
+    assert call_p_mutations(5, 10, [50], 2) == ("PASS", True)
+    assert call_p_mutations(2, 10, [50], 2) == ("", False)
     assert call_p_mutations(2, 10, [1, 2, 3, 5, 10, 15, 18, 20, 25], 2) == (
-        [True, True, True, True, True, True, True, True, False],
+        "p25.00",
         True,
     )
     assert call_p_mutations(
         5, 1000, [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 1, 2, 3], 2
     ) == (
-        [True, True, True, True, True, False, False, False, False],
+        "p0.60;p1.00;p2.00;p3.00",
         True,
     )
 
