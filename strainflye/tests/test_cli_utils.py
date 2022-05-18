@@ -1,8 +1,8 @@
 from strainflye.cli_utils import fancystart
 
 
-def test_fancylogging_verbose(capsys):
-    # Tests fancystart() and fancylog() with verbose on.
+def test_fancylogging(capsys):
+    # Tests fancystart() and fancylog() with quiet off, as is the default.
     # Uses pytest's capsys functionality to capture output -- see
     # https://docs.pytest.org/en/6.2.x/capture.html
     test_params = (
@@ -23,14 +23,14 @@ def test_fancylogging_verbose(capsys):
     assert captured.out == "strainFlye testing @ 0.00 sec: howdy\n"
 
 
-def test_fancylogging_not_verbose(capsys):
-    # Tests fancystart() and fancylog() with verbose off.
+def test_fancylogging_quiet(capsys):
+    # Tests fancystart() and fancylog() with quiet on.
     test_params = (
         "strainFlye testing",
         (("in1", "Input #1"), ("in2", "Input #2")),
         (("out1", "Output #1"),),
     )
-    fancystart(*test_params, verbose=False, prefix="PREFIX ")
+    fancystart(*test_params, quiet=True, prefix="PREFIX ")
     captured = capsys.readouterr()
-    # Changing verbose to False means that nothing should be logged by us
+    # Changing quiet to True means that nothing should be logged by us
     assert captured.out == ""
