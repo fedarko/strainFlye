@@ -194,11 +194,23 @@ def align(reads, contigs, graph, output_dir, verbose):
     )
     align_utils.index_bam(osa_filter_bam, "OSA-filtered BAM", fancylog)
 
+    # Now that we've finished the OSA filter step, we can remove its input BAM
+    # -- the first one we generated -- to save space. These files are big
+    # enough (e.g. upwards of 70 GB for the SheepGut dataset) that keeping all
+    # three around at the same time might exceed the space limit on a user's
+    # system.
+    os.remove(first_output_bam)
+    os.remove(first_output_bam + ".bai")
+
     pm_filter_bam = os.path.join(output_dir, "final.bam")
     align_utils.filter_pm_reads(
         graph, osa_filter_bam, pm_filter_bam, fancylog, verbose
     )
     align_utils.index_bam(pm_filter_bam, "final BAM", fancylog)
+
+    # Similarly, we can remove the OSA-filtered (but not PM-filtered) BAM now.
+    os.remove(osa_filter_bam)
+    os.remove(osa_filter_bam + ".bai")
 
     fancylog("Done.")
 
