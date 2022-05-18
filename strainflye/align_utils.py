@@ -192,6 +192,11 @@ def filter_osa_reads(in_bam, out_bam, fancylog, verbose):
             prefix="",
         )
 
+    fancylog(
+        "Done with pass 1 of the OSA filter; moving on to pass 2...",
+        prefix="",
+    )
+
     # Now that we've made note of all reads with OSAs across *all* sequences in
     # the alignments, we can make another pass through and output all reads
     # without OSAs into a new BAM file.
