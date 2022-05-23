@@ -83,19 +83,17 @@ Usage: strainflye [OPTIONS] COMMAND [ARGS]...
 
   Pipeline for the analysis of rare mutations in metagenomes.
 
+  Please consult https://github.com/fedarko/strainFlye if you have any
+  questions, comments, etc. about strainFlye. Thank you for using this tool!
+
 Options:
   -h, --help  Show this message and exit.
 
 Commands:
-  align       Aligns reads to contigs, then filters this alignment.
-  call        Methods for naïve mutation calling.
-  diversity   Computes the diversity index for MAGs.
-  spots       Identifies hot- and/or cold-spots in MAGs.
-  covskew     Visualizes MAG coverage and GC skew.
-  matrix      Computes mutation matrices of a MAG.
-  link-graph  Constructs the link graph structure for a MAG.
-  smooth      Generates smoothed haplotypes.
-  utils       Various utility commands provided with strainFlye.
+  align  Aligns reads to contigs, then filters this alignment.
+  call   [+] Naïve mutation calling and diversity index computation.
+  fdr    [+] FDR estimation and fixing using the target-decoy approach.
+  utils  [+] Various utility commands provided with strainFlye.
 ```
 
 ## Acknowledgements

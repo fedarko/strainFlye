@@ -35,7 +35,12 @@ cmd_params = {
 
 @click.group(**grp_params, **cmd_params)
 def strainflye():
-    """Pipeline for the analysis of rare mutations in metagenomes."""
+    """Pipeline for the analysis of rare mutations in metagenomes.
+
+    Please consult https://github.com/fedarko/strainFlye
+    if you have any questions, comments, etc. about strainFlye.
+    Thank you for using this tool!
+    """
     pass
 
 
@@ -213,7 +218,7 @@ def align(reads, contigs, graph, output_dir, verbose):
 
 @click.group(name="call", **grp_params, **cmd_params)
 def call():
-    """Na\u00efve mutation calling and diversity index computation.
+    """[+] Na\u00efve mutation calling and diversity index computation.
 
     Consider a position "pos" in a contig. A given read with a (mis)match
     operation at "pos" must have one of four nucleotides (A, C, G, T) aligned
@@ -534,7 +539,7 @@ def r_mutation(
 
 @click.group(name="fdr", **grp_params, **cmd_params)
 def fdr():
-    """FDR estimation and fixing using the target-decoy approach."""
+    """[+] FDR estimation and fixing using the target-decoy approach."""
 
 
 strainflye.add_command(fdr)
@@ -688,7 +693,7 @@ def estimate(
 
 @click.group(name="utils", **grp_params, **cmd_params)
 def utils():
-    """Various utility commands provided with strainFlye."""
+    """[+] Various utility commands provided with strainFlye."""
     pass
 
 
