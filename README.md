@@ -16,18 +16,21 @@ please feel free to open an issue.
 
 ## Installation
 
-We offer two sets of instructions for installing strainFlye. For most users,
-"Scenario 1" is probably a better choice.
+Long story short, strainFlye is an ordinary Python package. However, it
+dependends on a few external non-Python tools (e.g. minimap2, Prodigal,
+SAMtools) which it is probably easiest to install via
+[conda](https://conda.io).
+
+We offer two sets of instructions for installing strainFlye, depending on
+if you want to just use the tool (Scenario 1) or if you would like to also
+develop its code (Scenario 2). For most users, Scenario 1 is probably the
+easiest option. (You can always install strainFlye from source later, if you'd
+like!)
 
 Both sets of installation steps below should work for most Linux or macOS
 systems, but please let me know if you encounter any problems.
 
 ### Scenario 1: I just want to use strainFlye on my data!
-
-Long story short, strainFlye is an ordinary Python package. However, it
-dependends on a
-few external non-Python tools (e.g. minimap2, Prodigal, SAMtools) which it is
-probably easiest to install via [conda](https://conda.io).
 
 ```bash
 # Download the YAML file describing the conda packages we'll install
@@ -47,8 +50,6 @@ pip install git+https://github.com/fedarko/strainFlye.git
 ### Scenario 2: I'm interested in developing strainFlye's source code
 
 This is mostly the same as Scenario 1 up until the last few steps.
-Following these instructions will make it easier to edit the tool's source
-code.
 
 ```bash
 # Download the YAML file describing the conda packages we'll install
