@@ -149,7 +149,7 @@ def filter_osa_reads(in_bam, out_bam, fancylog, verbose):
         n_reads_in_seq = len(readname2Coords)
         if n_reads_in_seq == 0:
             seq2isempty[seq] = True
-            verbose(
+            verboselog(
                 f"Nothing is aligned to contig {seq}! Ignoring this contig."
             )
             continue
