@@ -16,17 +16,56 @@ please feel free to open an issue.
 
 ## Installation
 
-Long story short, this is a normal Python package. However, it dependends on a
-few external non-Python tools (e.g. minimap2, Prodigal, SAMtools) which should
-be installed via Conda. The steps below should work for most systems, but
-please let me know if you encounter any problems.
+We offer two sets of instructions for installing strainFlye. For most users,
+"Scenario 1" is probably a better choice.
+
+Both sets of installation steps below should work for most Linux or macOS
+systems, but please let me know if you encounter any problems.
+
+### Scenario 1: I just want to use strainFlye on my data!
+
+Long story short, strainFlye is an ordinary Python package. However, it
+dependends on a
+few external non-Python tools (e.g. minimap2, Prodigal, SAMtools) which it is
+probably easiest to install via [conda](https://conda.io).
 
 ```bash
+# Download the YAML file describing the conda packages we'll install
 wget https://raw.githubusercontent.com/fedarko/strainFlye/main/environment.yml
+
+# Create a new conda environment based on this YAML file
+# (by default, it'll be named "strainflye")
 conda env create -f environment.yml
+
+# Activate this conda environment
 conda activate strainflye
+
+# Install the actual strainFlye package
 pip install git+https://github.com/fedarko/strainFlye.git
 ```
+
+### Scenario 2: I'm interested in developing strainFlye's source code
+
+```bash
+# Download the YAML file describing the conda packages we'll install
+wget https://raw.githubusercontent.com/fedarko/strainFlye/main/environment.yml
+
+# Create a new conda environment based on this YAML file
+# (by default, it'll be named "strainflye")
+conda env create -f environment.yml
+
+# Activate this conda environment
+conda activate strainflye
+
+# Clone strainFlye's source code
+# (You may want to fork the repo first, and then clone your fork)
+git clone https://github.com/fedarko/strainFlye.git
+
+# Install strainFlye from the cloned source in "editable mode"
+cd strainFlye
+pip install -e .[dev]
+```
+
 
 ## Documentation
 
