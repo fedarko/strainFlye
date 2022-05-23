@@ -46,6 +46,10 @@ pip install git+https://github.com/fedarko/strainFlye.git
 
 ### Scenario 2: I'm interested in developing strainFlye's source code
 
+This is mostly the same as Scenario 1 up until the last few steps.
+Following these instructions will make it easier to edit the tool's source
+code.
+
 ```bash
 # Download the YAML file describing the conda packages we'll install
 wget https://raw.githubusercontent.com/fedarko/strainFlye/main/environment.yml
@@ -57,15 +61,14 @@ conda env create -f environment.yml
 # Activate this conda environment
 conda activate strainflye
 
-# Clone strainFlye's source code
-# (You may want to fork the repo first, and then clone your fork)
+# DIFFERENT: Clone strainFlye's source code
+# (It's probably best to fork the repository first, and then clone your fork)
 git clone https://github.com/fedarko/strainFlye.git
 
-# Install strainFlye from the cloned source in "editable mode"
+# DIFFERENT: Install strainFlye from the cloned source in "editable mode"
 cd strainFlye
 pip install -e .[dev]
 ```
-
 
 ## Documentation
 
