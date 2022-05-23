@@ -79,7 +79,7 @@ def get_alt_pos_info(rec):
 
 
 def parse_di_list(di_list_str, param):
-    """Parses and checks a list of p or r parameters.
+    """Parses, checks, and sorts a list of p or r parameters.
 
     Useful when taking in a list of these for diversity index computation.
     Probably there's a more elegant way of handling this than having the user
@@ -140,7 +140,9 @@ def parse_di_list(di_list_str, param):
         raise ParameterError(
             "The list of diversity index threshold values isn't unique."
         )
-    return di_list
+
+    # sort these ints in ascending order
+    return sorted(di_list)
 
 
 def get_min_sufficient_coverages(p_vals, min_read_number):
@@ -331,6 +333,13 @@ def run(
             f"{filter_header}\n"
             "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
         )
+
+    # TODO
+    # di_headers = [
+
+    # with open(output_diversity_indices, "w") as di_file:
+    #     di_file.write(
+    #         "contig\t
 
     bf = pysam.AlignmentFile(bam, "rb")
     for si, seq in enumerate(bf.references, 1):

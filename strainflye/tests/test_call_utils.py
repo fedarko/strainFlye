@@ -125,6 +125,12 @@ def test_parse_di_list_non_int():
         "We couldn't parse \"burger\". Doesn't seem to be an integer?"
     ) == str(errorinfo.value)
 
+    with pytest.raises(ParameterError) as errorinfo:
+        parse_di_list("1,2,1.5,3", "p")
+    assert (
+        "We couldn't parse \"1.5\". Doesn't seem to be an integer?"
+    ) == str(errorinfo.value)
+
     # check that surrounding whitespace is ignored in the error message
     with pytest.raises(ParameterError) as errorinfo:
         parse_di_list("1,2, 5\n9 ,3", "p")
@@ -205,7 +211,21 @@ def test_parse_di_list_badparam():
 
 def test_parse_di_list_few_entries():
     assert parse_di_list("  1  ", "r") == [1]
-    assert parse_di_list("  10, 3  ", "r") == [10, 3]
+
+
+def test_parse_di_list_sorts_results():
+    assert parse_di_list("  10, 3  ", "r") == [3, 10]
+    assert parse_di_list("1, 20, 5, 10, 100, 3, 15, 1000, 39", "r") == [
+        1,
+        3,
+        5,
+        10,
+        15,
+        20,
+        39,
+        100,
+        1000,
+    ]
 
 
 def test_get_min_sufficient_coverages():
