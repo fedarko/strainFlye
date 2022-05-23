@@ -303,7 +303,7 @@ def run(
     # of that.
     if using_p:
         param_name = "p"
-        min_str = "--min-p = {min_p / 100:.2f}%"
+        min_str = f"--min-p = {min_p / 100:.2f}%"
         filter_header = (
             f'##FILTER=<ID=strainflye_minp_{min_p}, Description="min p '
             'threshold (scaled up by 100)">'
@@ -546,7 +546,7 @@ def run(
             )
             fancylog(
                 (
-                    f"Also, {num_defined_di:,} / {len(di_list):,} diversity "
+                    f"{num_defined_di:,} / {len(di_list):,} diversity "
                     f"indices were defined for contig {seq}."
                 ),
                 prefix="",
