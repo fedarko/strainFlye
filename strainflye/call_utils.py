@@ -327,7 +327,7 @@ def run(
             di_header += f"\tDivIdx(r={r},minSuffCov={msc})"
 
     call_str = f"{param_name}-mutation calling ({min_str})"
-    fancylog(f"Running {call_str}.", prefix="")
+    fancylog(f"Running {call_str}.")
 
     # Write out DI file header
     with open(output_diversity_indices, "w") as di_file:
