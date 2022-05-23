@@ -23,12 +23,6 @@ description = (
 with open("README.md", "r") as f:
     long_description = f.read()
 
-setup_reqs = []
-with open("pip_requirements.txt", "r") as f:
-    for line in f:
-        if not line.startswith("#"):
-            setup_reqs.append(line.strip())
-
 setup(
     name="strainFlye",
     version=__version__,
@@ -50,7 +44,12 @@ setup(
         # call to black on GitHub Actions failing with this error)
         "click >= 8.0",
     ],
-    setup_requires=setup_reqs,
+    setup_requires=[
+        "cython",
+        "numpy",
+        "pysam",
+        "pysamstats",
+    ],
     # Based on how Altair splits up its requirements:
     # https://github.com/altair-viz/altair/blob/master/setup.py
     extras_require={
