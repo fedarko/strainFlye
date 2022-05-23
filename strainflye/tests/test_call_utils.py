@@ -6,6 +6,8 @@ from strainflye.call_utils import (
     call_r_mutation,
     call_p_mutation,
     parse_di_list,
+    get_min_sufficient_coverages,
+    run,
 )
 
 
@@ -204,3 +206,35 @@ def test_parse_di_list_badparam():
 def test_parse_di_list_few_entries():
     assert parse_di_list("  1  ", "r") == [1]
     assert parse_di_list("  10, 3  ", "r") == [10, 3]
+
+
+def test_get_min_sufficient_coverages():
+    assert get_min_sufficient_coverages(
+        [100, 200, 300, 2000, 5000, 1, 50], 5
+    ) == [500, 250, (500 / 3), 25, 10, 50000, 1000]
+
+
+def test_run_p_r_conflict():
+    with pytest.raises(ParameterError) as errorinfo:
+        run(
+            "c",
+            "b",
+            "ov",
+            "od",
+            print,
+            True,
+            min_p=5,
+            min_r=6,
+            min_alt_pos=2,
+            div_index_p_list=[1, 2, 3],
+            div_index_r_list=[1, 2, 3],
+            min_read_number=5,
+        )
+    assert (
+        "p and r can't be specified at the same time. Please choose one."
+        == str(errorinfo.value)
+    )
+
+    with pytest.raises(ParameterError) as errorinfo:
+        run("c", "b", "ov", "od", print, True)
+    assert "Either p or r needs to be specified." == str(errorinfo.value)

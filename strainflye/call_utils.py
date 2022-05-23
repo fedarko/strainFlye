@@ -143,15 +143,41 @@ def parse_di_list(di_list_str, param):
     return di_list
 
 
+def get_min_sufficient_coverages(p_vals, min_read_number):
+    """Computes the "minimum sufficient coverage" for value(s) of p.
+
+    Parameters
+    ----------
+    p_vals: list of int in the range (0, 5000]
+        Values of p.
+
+    min_read_number: int >= 1
+        Parameter of this computation.
+
+    Returns
+    -------
+    list of float
+        This has the exact same dimensions as p_vals. The i-th entry in this
+        list corresponds to the minimum sufficient coverage for the i-th value
+        of p in p_vals.
+    """
+    num = 10000 * min_read_number
+    return [num / p for p in p_vals]
+
+
 def run(
     contigs,
     bam,
     output_vcf,
+    output_diversity_indices,
     fancylog,
     verbose,
     min_p=None,
     min_r=None,
     min_alt_pos=None,
+    div_index_p_list=None,
+    div_index_r_list=None,
+    min_read_number=None,
 ):
     """Launches the process of naive p- or r-mutation calling.
 
@@ -176,6 +202,10 @@ def run(
         Filepath to which a VCF file describing called mutations will be
         written.
 
+    output_diversity_indices: str
+        Filepath to which a TSV file describing diversity indices will be
+        written.
+
     fancylog: function
         Logging function.
 
@@ -195,8 +225,14 @@ def run(
         frequency must be at least this. Not used when calling r-mutations.
 
     div_index_p_list: list of int, or None
+        List of values of p for which we'll compute the diversity index.
 
     div_index_r_list: list of int, or None
+        List of values of r for which we'll compute the diversity index.
+
+    min_read_number: int >= 1 or None
+        Parameter used in determining "minimum sufficient coverage" when
+        computing diversity indices based on p-mutations.
 
     Returns
     -------
@@ -205,12 +241,12 @@ def run(
     Raises
     ------
     ParameterError
-        If something went wrong with the parameters. We don't check (at least
-        within this function) that they fall into their respective allowed
-        ranges (since Click should have already enforced that thanks to the
-        range parameter settings), but we do check that only one of
-        (min_p, min_r) is specified -- exactly one of these parameters must be
-        given.
+        If something went wrong with the parameters. We don't check here
+        that they fall into their respective allowed ranges (since Click
+        should have already enforced that thanks to its range parameter
+        settings for min_p, min_r, and min_alt_pos, and parse_di_list()
+        should've taken care of that for the div index lists). However, we do
+        check here that only one of (min_p, min_r) is specified.
     """
     using_p = min_p is not None
     using_r = min_r is not None
@@ -226,6 +262,8 @@ def run(
     # div_index_p_list is specified, and same for using_r and div_index_r_list
     # ... not high priority tho
 
+    min_suff_coverages = None
+
     # The filter_header is important, since we will parse its ID later on to
     # determine what the minimum p or r value was. I'm not sure if there's
     # a better way to encode arbitrary file-level metadata in VCF files -- I
@@ -237,6 +275,9 @@ def run(
         filter_header = (
             f'##FILTER=<ID=strainflye_minp_{min_p}, Description="min p '
             'threshold (scaled up by 100)">'
+        )
+        min_suff_coverages = get_min_sufficient_coverages(
+            div_index_p_list, min_read_number=min_read_number
         )
     else:
         param_name = "r"

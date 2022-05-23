@@ -392,11 +392,13 @@ def p_mutation(
         contigs,
         bam,
         output_vcf,
+        output_diversity_indices,
         fancylog,
         verbose,
         min_p=min_p,
         min_alt_pos=min_alt_pos,
         div_index_p_list=di_list,
+        min_read_number=min_read_number,
     )
     fancylog("Done with p-mutation calling and diversity index computation.")
 
@@ -498,6 +500,7 @@ def r_mutation(
         contigs,
         bam,
         output_vcf,
+        output_diversity_indices,
         fancylog,
         verbose,
         min_r=min_r,
