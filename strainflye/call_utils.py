@@ -98,13 +98,15 @@ def parse_di_list(di_list_str, param):
     Returns
     -------
     di_list: list of int
-        A sorted and cleaned-up list of parameters.
+        A sorted (in ascending order) and cleaned-up list of parameters.
 
     Raises
     ------
     ParameterError
-        - If any of the values are invalid.
         - If param is not "p" or "r" (come on, don't do this to me...)
+        - If any of the values are invalid (we do different checks depending
+          on if param is "p" or "r")
+        - If any of the values are repeated
     """
     # "trust nobody. not even yourself." -- guido van rossum probably idk
     if param != "p" and param != "r":
@@ -145,7 +147,7 @@ def parse_di_list(di_list_str, param):
     return sorted(di_list)
 
 
-def get_min_sufficient_coverages(p_vals, min_read_number):
+def get_min_sufficient_coverages_p(p_vals, min_read_number):
     """Computes the "minimum sufficient coverage" for value(s) of p.
 
     Parameters
@@ -163,8 +165,29 @@ def get_min_sufficient_coverages(p_vals, min_read_number):
         list corresponds to the minimum sufficient coverage for the i-th value
         of p in p_vals.
     """
-    num = 10000 * min_read_number
-    return [num / p for p in p_vals]
+    numerator = 10000 * min_read_number
+    return [numerator / p for p in p_vals]
+
+
+def get_min_sufficient_coverages_r(r_vals, factor=2):
+    """Computes the "minimum sufficient coverage" for value(s) of r.
+
+    Parameters
+    ----------
+    r_vals: list of int >= 1
+        Values of r.
+
+    factor: float
+        Parameter of this computation.
+
+    Returns
+    -------
+    list of float
+        This has the exact same dimensions as r_vals. The i-th entry in this
+        list corresponds to the minimum sufficient coverage for the i-th value
+        of r in r_vals.
+    """
+    return [factor * r for r in r_vals]
 
 
 def run(
@@ -264,8 +287,10 @@ def run(
     # div_index_p_list is specified, and same for using_r and div_index_r_list
     # ... not high priority tho
 
-    min_suff_coverages = None
+    # Set up the header for the diversity index TSV file
+    di_header = "Contig\tAverageCoverage\tLength"
 
+    # ... And the header for the mutation calls' VCF file, at the same time.
     # The filter_header is important, since we will parse its ID later on to
     # determine what the minimum p or r value was. I'm not sure if there's
     # a better way to encode arbitrary file-level metadata in VCF files -- I
@@ -278,19 +303,30 @@ def run(
             f'##FILTER=<ID=strainflye_minp_{min_p}, Description="min p '
             'threshold (scaled up by 100)">'
         )
-        min_suff_coverages = get_min_sufficient_coverages(
+        min_suff_coverages = get_min_sufficient_coverages_p(
             div_index_p_list, min_read_number=min_read_number
         )
+        for p, msc in zip(div_index_p_list, min_suff_coverages):
+            di_header += "\tDivIdx(p={p},minSuffCov={msc})"
+
     else:
         param_name = "r"
         min_str = "--min-r = {min_r:,}"
         filter_header = (
             f'##FILTER=<ID=minr_{min_r}, Description="min r threshold">'
         )
+        min_suff_coverages = get_min_sufficient_coverages_r(div_index_r_list)
+        for r, msc in zip(div_index_r_list, min_suff_coverages):
+            di_header += "\tDivIdx(r={r},minSuffCov={msc})"
 
     call_str = f"{param_name}-mutation calling ({min_str})"
     fancylog(f"Running {call_str}.", prefix="")
 
+    # Write out DI file header
+    with open(output_diversity_indices, "w") as di_file:
+        di_file.write(f"{di_header}\n")
+
+    # Write out VCF file header
     # See the VCF 4.3 docs for details about the Number meanings:
     # - The 1 indicates that we only include one version of this Number per
     #   position (because it doesn't really make sense to, for example,
@@ -334,12 +370,9 @@ def run(
             "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
         )
 
-    # TODO
-    # di_headers = [
-
-    # with open(output_diversity_indices, "w") as di_file:
-    #     di_file.write(
-    #         "contig\t
+    # Finally, we can get to the meat (and the most computationally expensive
+    # part) of this -- go through each position in each contig and call
+    # mutations, as well as observe coverages / etc.
 
     bf = pysam.AlignmentFile(bam, "rb")
     for si, seq in enumerate(bf.references, 1):
@@ -349,8 +382,26 @@ def run(
                 f"On contig {seq} ({si:,} / {bf.nreferences:,}) ({pct:.2f}%).",
                 prefix="",
             )
+
+        # keep a running sum of coverages, so we can get the average coverage
+        # for each contig. ideally i guess we'd use a fancy algorithm for
+        # computing a running average (e.g.
+        # https://stackoverflow.com/a/1934266), but that's hard and i don't
+        # think this will be a problem (esp since Python supports arbitrarily
+        # large numbers).
+        coverage_sum = 0
+
         num_any_muts = 0
         vcf_text = ""
+
+        # For each DI threshold, keep track of how many positions are
+        # sufficiently covered for it
+        msc_pos_ct = [0] * len(min_suff_coverages)
+        # ... and keep track of how many mutations we observe in these
+        # positions
+        msc_mut_ct = [0] * len(min_suff_coverages)
+
+        # pad=True forces us to observe uncovered positions, also
         for pos, rec in enumerate(
             pysamstats.stat_variation(
                 bf,
@@ -377,6 +428,7 @@ def run(
 
             cov, alt_freq, alt_nt, ref_freq, ref_nt = get_alt_pos_info(rec)
 
+            # Call a mutation naively
             if using_p:
                 is_mut = call_p_mutation(alt_freq, cov, min_p, min_alt_pos)
             else:
@@ -422,15 +474,73 @@ def run(
                 )
                 num_any_muts += 1
 
+            # Compute diversity index info, also
+            coverage_sum += cov
+            # You might say "can't we break early if we notice early on that a
+            # position isn't a p- or r-mutation, since we've already sorted the
+            # threshold values?" but we still wanna keep track of the positions
+            # seen with some minimum sufficient coverage, so we've gotta keep
+            # going through. (Although it's still probs possible to speed this
+            # up somehow.)
+            if using_p:
+                for pi, p in enumerate(div_index_p_list):
+                    if cov >= min_suff_coverages[pi]:
+                        msc_pos_ct[pi] += 1
+                        if call_p_mutation(alt_freq, cov, p, min_alt_pos):
+                            msc_mut_ct[pi] += 1
+            else:
+                for ri, r in enumerate(div_index_r_list):
+                    if cov >= min_suff_coverages[ri]:
+                        msc_pos_ct[ri] += 1
+                        if call_r_mutation(alt_freq, r):
+                            msc_mut_ct[ri] += 1
+
+        # Now that we've examined all positions in this contig...
+
+        # Output VCF info, if we called any mutations
         if num_any_muts > 0:
             with open(output_vcf, "a") as vcf_file:
                 vcf_file.write(vcf_text)
+
+        # Output diversity index info
+        avg_cov = coverage_sum / si
+        di_line = f"{seq}\t{avg_cov}\t{si}"
+
+        # For each threshold value, did we observe enough sufficiently-covered
+        # positions in order to compute the diversity index for this threshold
+        # for this contig? If so, compute and report this diversity index.
+        num_defined_di = 0
+        half_contig_len = si / 2
+        if using_p:
+            di_list = div_index_p_list
+        else:
+            di_list = div_index_r_list
+        for di in range(len(di_list)):
+            if msc_pos_ct[di] >= half_contig_len:
+                # Note that we don't apply any formatting to this ratio -- we
+                # just export it as is. If desired we could limit the precision
+                # to 6 (?) digits or something, but I don't see a strong need
+                # for that right now.
+                di_line += f"\t{msc_mut_ct[di] / msc_pos_ct[di]}"
+                num_defined_di += 1
+            else:
+                di_line += "NA"
+
+        with open(output_diversity_indices, "a") as di_file:
+            di_file.write(di_line)
 
         if verbose:
             fancylog(
                 (
                     f"Called {num_any_muts:,} {param_name}-mutation(s) "
                     f"(using {min_str}) in contig {seq}."
+                ),
+                prefix="",
+            )
+            fancylog(
+                (
+                    f"Also, {num_defined_di:,} / {len(di_list):,} diversity "
+                    f"indices were defined for contig {seq}."
                 ),
                 prefix="",
             )
