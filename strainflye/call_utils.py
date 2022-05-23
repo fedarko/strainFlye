@@ -510,14 +510,14 @@ def run(
                 vcf_file.write(vcf_text)
 
         # Output diversity index info
-        avg_cov = coverage_sum / si
-        di_line = f"{seq}\t{avg_cov}\t{si}"
+        avg_cov = coverage_sum / pos
+        di_line = f"{seq}\t{avg_cov}\t{pos}"
 
         # For each threshold value, did we observe enough sufficiently-covered
         # positions in order to compute the diversity index for this threshold
         # for this contig? If so, compute and report this diversity index.
         num_defined_di = 0
-        half_contig_len = si / 2
+        half_contig_len = pos / 2
         if using_p:
             di_list = div_index_p_list
         else:
