@@ -394,7 +394,7 @@ def p_mutation(
         ),
         (
             ("VCF file", output_vcf),
-            ("Diversity indices file", output_diversity_indices),
+            ("diversity indices file", output_diversity_indices),
         ),
     )
     di_list = call_utils.parse_di_list(div_index_p_list, param="p")
@@ -519,7 +519,7 @@ def r_mutation(
         ),
         (
             ("VCF file", output_vcf),
-            ("Diversity indices file", output_diversity_indices),
+            ("diversity indices file", output_diversity_indices),
         ),
     )
     di_list = call_utils.parse_di_list(div_index_r_list, param="r")
