@@ -325,7 +325,7 @@ strainflye.add_command(call)
         'order to consider "counting" a position / mutation towards the '
         "diversity index. Given a value of p (converted to the range "
         "[0, 0.5)), a position must have a coverage of at least "
-        " (--min-read-number / p) in order to be sufficiently covered and "
+        ' (--min-read-number / p) in order to be "sufficiently covered" and '
         "thus counted towards the diversity index."
     ),
 )
@@ -452,8 +452,8 @@ def p_mutation(
         "Parameter that impacts the minimum (mis)match coverage needed in "
         'order to consider "counting" a position / mutation towards the '
         "diversity index. Given a value of r, a position must have a "
-        "coverage of at least (--min-coverage-factor × r) in order to be "
-        "sufficiently covered and thus counted towards the diversity index."
+        "coverage of at least (--min-coverage-factor \u00d7 r) in order to be "
+        '"sufficiently covered" and thus counted towards the diversity index.'
     ),
 )
 @click.option(
