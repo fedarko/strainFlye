@@ -258,6 +258,8 @@ def call():
     pass
 
 
+# Nest command groups -- so we can, for example, put our "utility" commands
+# under a single group, to un-clutter the top-level strainFlye CLI.
 # Use of add_command() based on https://stackoverflow.com/a/61353240.
 strainflye.add_command(call)
 
@@ -530,44 +532,126 @@ def r_mutation(
     fancylog("Done with r-mutation calling.")
 
 
-# @strainflye.command(**cmd_params)
-# @click.option(
-#     "-c",
-#     "--contigs",
-#     required=True,
-#     type=click.Path(exists=True),
-#     help="FASTA file of contigs to compute diversity indices for.",
-# )
-# @click.option(
-#     "-v",
-#     "--vcf",
-#     required=True,
-#     type=click.Path(exists=True),
-#     help="VCF file describing called mutations in the contigs.",
-# )
-# @click.option(
-#     "-mc",
-#     "--min-cov",
-#     required=False,
-#     default=10,
-#     type=click.INT,
-#     help=(
-#         "Minimum coverage: positions with coverage less than this will not "
-#         "be included in the diversity index calculation. If you don't want "
-#         "to impose a minimum coverage, you can set this to 0."
-#     ),
-# )
-# def diversity(contigs, vcf):
-#     """Computes the diversity index for MAGs.
-#
-#     For an arbitrary MAG, let's define C as the number of (well-covered)
-#     positions at which a mutation is called, and let's define T as the total
-#     number of (well-covered) positions in this MAG. The diversity index is
-#     then defined as the percentage C / T.
-#     """
-#     print("DI")
-#
-#
+@click.group(name="fdr", **grp_params, **cmd_params)
+def fdr():
+    """FDR estimation and fixing using the target-decoy approach."""
+
+
+strainflye.add_command(fdr)
+
+
+@fdr.command(**cmd_params)
+@click.option(
+    "-v",
+    "--vcf",
+    required=True,
+    type=click.Path(exists=True),
+    help="VCF file describing na\u00efvely called p- or r-mutations.",
+)
+@click.option(
+    "-di",
+    "--diversity-indices",
+    required=False,
+    type=click.Path(exists=True),
+    help=(
+        "TSV file describing the diversity indices of a set of contigs. "
+        "Used to automatically select a decoy contig. "
+        "If this is specified, a decoy contig cannot be specified."
+    ),
+)
+@click.option(
+    "-dc",
+    "--decoy-contig",
+    required=False,
+    type=click.STRING,
+    help=(
+        "Name of a contig to use as the decoy for FDR estimation. "
+        "If this is specified, a file of diversity indices cannot be "
+        "specified."
+    ),
+)
+@click.option(
+    "--decoy-context",
+    required=False,
+    default="CP2",
+    show_default=True,
+    type=click.STRING,
+    help=(
+        'List of "context-dependent" types of mutations to limit the '
+        "computation of mutation rates in the decoy to."
+        "This should be a comma-separated list: valid entries "
+        '(case insensitive) are "CP2", "Nonsyn", and "Nonsense". You can '
+        "include multiple types in the list to combine them."
+        "You can also not specify anything in order to not apply any "
+        "context-dependent limits, and consider the entire decoy contig at "
+        "once."
+    ),
+)
+@click.option(
+    "--fdr",
+    required=False,
+    default=1,
+    show_default=True,
+    type=click.FloatRange(min=0, min_open=True),
+    help="False discovery rate at which identified mutations will be fixed.",
+)
+@click.option(
+    "-hp",
+    "--highfreq-threshold-p",
+    required=False,
+    default=500,
+    show_default=True,
+    type=click.IntRange(min=0, max=5000, min_open=True),
+    help=(
+        "highFrequency threshold: p-mutations with a mutation rate "
+        "(freq(pos)) greater than or equal to this are considered "
+        '"indisputable," and will not '
+        "be included in FDR estimation. Like the values of p used as "
+        'parameters to "strainFlye call p-mutation", this is in the range '
+        "(0, 5000], such that h = N corresponds to (N / 100)%."
+    ),
+)
+@click.option(
+    "-hr",
+    "--highfreq-threshold-r",
+    required=False,
+    default=100,
+    show_default=True,
+    type=click.IntRange(min=0, min_open=True),
+    help=(
+        "highFrequency threshold: r-mutations with an alternate allele read "
+        "coverage greater than or equal to this are considered "
+        "indisputable, and will not be included in FDR estimation."
+    ),
+)
+@click.option(
+    "-of",
+    "--output-fdr-info",
+    required=True,
+    type=click.Path(dir_okay=False),
+    help=(
+        "Filepath to which an output tab-separated values (TSV) file "
+        "describing estimated FDRs will be written. Each row corresponds "
+        "to a different (non-decoy) contig; "
+        "each column but the last corresponds to a value of p or r. This "
+        'rightmost column lists the "optimal" value of p or r for this contig '
+        "at the fixed FDR."
+    ),
+)
+def estimate(
+    vcf,
+    diversity_indices,
+    decoy_contig,
+    decoy_context,
+    fdr,
+    highfreq_threshold_p,
+    highfreq_threshold_r,
+    output_fdr_info,
+):
+    """Estimates identified mutations' FDRs using the target-decoy approach."""
+    pass
+
+
 # @strainflye.command(**cmd_params)
 # def spots():
 #     """Identifies hot- and/or cold-spots in MAGs."""
@@ -608,9 +692,6 @@ def utils():
     pass
 
 
-# Nest command groups -- so we can, for example, put our "utility" commands
-# under a single group, to un-clutter the top-level strainFlye CLI.
-# Use of add_command() based on https://stackoverflow.com/a/61353240.
 strainflye.add_command(utils)
 
 
