@@ -282,7 +282,7 @@ strainflye.add_command(call)
     required=False,
     show_default=True,
     default=50,
-    type=click.IntRange(min=0, max=5000, min_open=True, max_open=True),
+    type=click.IntRange(min=0, max=5000, min_open=True),
     help=(
         "Minimum value of p for which to call p-mutations. This is scaled "
         "up by 100 (i.e. the default of 50 corresponds to 50 / 100 = 0.5%) "
@@ -309,7 +309,8 @@ strainflye.add_command(call)
     help=(
         "List of values of p for which we'll compute diversity indices. "
         "These should all be separated by commas; and, as with --min-p, "
-        "these are scaled up by 100."
+        "these are scaled up by 100. Please don't use commas as thousands "
+        "separators."
     ),
 )
 @click.option(
@@ -386,6 +387,7 @@ def p_mutation(
             ("Diversity indices file", output_diversity_indices),
         ),
     )
+    di_list = call_utils.parse_di_list(div_index_p_list, param="p")
     call_utils.run(
         contigs,
         bam,
@@ -394,6 +396,7 @@ def p_mutation(
         verbose,
         min_p=min_p,
         min_alt_pos=min_alt_pos,
+        div_index_p_list=di_list,
     )
     fancylog("Done with p-mutation calling and diversity index computation.")
 
@@ -429,7 +432,8 @@ def p_mutation(
     type=click.STRING,
     help=(
         "List of values of r for which we'll compute diversity indices. "
-        "These should all be separated by commas."
+        "These should all be separated by commas. Please don't use commas "
+        "as thousands separators."
     ),
 )
 @click.option(
@@ -482,10 +486,23 @@ def r_mutation(
             ("contig file", contigs),
             ("BAM file", bam),
             ("minimum r", min_r),
+            ("--div-index-r-list", div_index_r_list),
         ),
-        (("VCF file", output_vcf),),
+        (
+            ("VCF file", output_vcf),
+            ("Diversity indices file", output_diversity_indices),
+        ),
     )
-    call_utils.run(contigs, bam, output_vcf, fancylog, verbose, min_r=min_r)
+    di_list = call_utils.parse_di_list(div_index_r_list, param="r")
+    call_utils.run(
+        contigs,
+        bam,
+        output_vcf,
+        fancylog,
+        verbose,
+        min_r=min_r,
+        div_index_r_list=di_list,
+    )
     fancylog("Done with r-mutation calling.")
 
 

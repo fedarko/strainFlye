@@ -5,7 +5,7 @@ import os
 import time
 import pysam
 import pysamstats
-from . import cli_utils, config
+from . import config
 from .errors import SequencingDataError, ParameterError
 from strainflye import __version__
 
@@ -78,6 +78,71 @@ def get_alt_pos_info(rec):
     return (cov, alt_freq, alt_nt, ref_nt_freq, ref_nt)
 
 
+def parse_di_list(di_list_str, param):
+    """Parses and checks a list of p or r parameters.
+
+    Useful when taking in a list of these for diversity index computation.
+    Probably there's a more elegant way of handling this than having the user
+    just give us a string, but... whatevs.
+
+    Parameters
+    ----------
+    di_list_str: str
+        Ideally, a comma-separated list of valid p or r parameters.
+        In practice, people are going to throw a lot of stuff at this, so we'll
+        want to do some thorough error checking.
+
+    param: str
+        Either "p" or "r", indicating how exactly to check these parameters.
+
+    Returns
+    -------
+    di_list: list of int
+        A sorted and cleaned-up list of parameters.
+
+    Raises
+    ------
+    ParameterError
+        - If any of the values are invalid.
+        - If param is not "p" or "r" (come on, don't do this to me...)
+    """
+    # "trust nobody. not even yourself." -- guido van rossum probably idk
+    if param != "p" and param != "r":
+        raise ParameterError('param must be either "p" or "r".')
+    split = di_list_str.split(",")
+    di_list = []
+    for s in split:
+        # We proooobably don't need to do this because int() is ok with
+        # surrounding whitespace, but I'm paranoid
+        stripped_s = s.strip()
+        try:
+            val = int(stripped_s)
+        except ValueError:
+            raise ParameterError(
+                f"We couldn't parse \"{stripped_s}\". Doesn't seem to be an "
+                "integer?"
+            )
+        if param == "p":
+            if val <= 0 or val > 5000:
+                raise ParameterError(
+                    f"{val} is not in the range (0, 5000], and is thus not a "
+                    "valid value of p."
+                )
+        else:
+            if val <= 0:
+                raise ParameterError(
+                    f"{val} is not >= 1, and is thus not a valid value of r."
+                )
+
+        di_list.append(val)
+
+    if len(set(di_list)) != len(di_list):
+        raise ParameterError(
+            "The list of diversity index threshold values isn't unique."
+        )
+    return di_list
+
+
 def run(
     contigs,
     bam,
@@ -89,6 +154,9 @@ def run(
     min_alt_pos=None,
 ):
     """Launches the process of naive p- or r-mutation calling.
+
+    Also computes diversity index information -- we're already looping through
+    each position in each contig, so it's not a huge extra cost.
 
     In the user-facing code in the CLI, I try to consistently say "naive" with
     the two dots, but here I don't bother because users don't see this part of
@@ -126,13 +194,17 @@ def run(
         During p-mutation calling, the second-most-common aligned nucleotide's
         frequency must be at least this. Not used when calling r-mutations.
 
+    div_index_p_list: list of int, or None
+
+    div_index_r_list: list of int, or None
+
     Returns
     -------
     None
 
     Raises
     ------
-    cli_utils.ParameterError
+    ParameterError
         If something went wrong with the parameters. We don't check (at least
         within this function) that they fall into their respective allowed
         ranges (since Click should have already enforced that thanks to the
@@ -144,11 +216,15 @@ def run(
     using_r = min_r is not None
 
     if using_p and using_r:
-        raise cli_utils.ParameterError(
+        raise ParameterError(
             "p and r can't be specified at the same time. Please choose one."
         )
     elif not using_p and not using_r:
-        raise cli_utils.ParameterError("Either p or r needs to be specified.")
+        raise ParameterError("Either p or r needs to be specified.")
+
+    # TODO? Add some checking to make sure that using_p implies that only
+    # div_index_p_list is specified, and same for using_r and div_index_r_list
+    # ... not high priority tho
 
     # The filter_header is important, since we will parse its ID later on to
     # determine what the minimum p or r value was. I'm not sure if there's

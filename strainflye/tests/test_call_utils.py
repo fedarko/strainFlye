@@ -1,8 +1,11 @@
+import pytest
+from strainflye.errors import ParameterError
 from strainflye.call_utils import (
     get_alt_pos_info,
     get_pos_info_str,
     call_r_mutation,
     call_p_mutation,
+    parse_di_list,
 )
 
 
@@ -85,3 +88,119 @@ def test_get_pos_info_str():
     assert get_pos_info_str(5, 1000) == "MDP=1000;AAD=5"
     assert get_pos_info_str(1000, 10000) == "MDP=10000;AAD=1000"
     assert get_pos_info_str(1, 1) == "MDP=1;AAD=1"
+
+
+def test_parse_di_list_whitespace_ok():
+    assert parse_di_list("1\n, 2,  \t  3,\n5", "p") == [1, 2, 3, 5]
+
+
+def test_parse_di_list_normal_ok():
+    # These are the defaults, at least of writing
+    assert parse_di_list("50,100,200,500,1000,2500,5000", "p") == [
+        50,
+        100,
+        200,
+        500,
+        1000,
+        2500,
+        5000,
+    ]
+    assert parse_di_list("5,10,20,50,100,250,500", "r") == [
+        5,
+        10,
+        20,
+        50,
+        100,
+        250,
+        500,
+    ]
+
+
+def test_parse_di_list_non_int():
+    with pytest.raises(ParameterError) as errorinfo:
+        parse_di_list("1,2,burger,3", "p")
+    assert (
+        "We couldn't parse \"burger\". Doesn't seem to be an integer?"
+    ) == str(errorinfo.value)
+
+    # check that surrounding whitespace is ignored in the error message
+    with pytest.raises(ParameterError) as errorinfo:
+        parse_di_list("1,2, 5\n9 ,3", "p")
+    assert (
+        "We couldn't parse \"5\n9\". Doesn't seem to be an integer?"
+    ) == str(errorinfo.value)
+
+    # check that empty entries are flagged -- this also
+    # implicitly handles empty lists
+    for bad_str in ("1, 2,    , 3", "", "1, ", "1,"):
+        for param in ("p", "r"):
+            with pytest.raises(ParameterError) as errorinfo:
+                parse_di_list(bad_str, param)
+            assert (
+                "We couldn't parse \"\". Doesn't seem to be an integer?"
+            ) == str(errorinfo.value)
+
+    # when the r-value has the drip :O
+    with pytest.raises(ParameterError) as errorinfo:
+        parse_di_list("3, 4, \u1f4af, 5", "r")
+    assert (
+        "We couldn't parse \"\u1f4af\". Doesn't seem to be an integer?"
+    ) == str(errorinfo.value)
+
+
+def test_parse_di_list_p_out_of_range():
+    with pytest.raises(ParameterError) as errorinfo:
+        parse_di_list("0,1,2,3", "p")
+    assert (
+        "0 is not in the range (0, 5000], and is thus not a valid value "
+        "of p."
+    ) == str(errorinfo.value)
+
+    with pytest.raises(ParameterError) as errorinfo:
+        parse_di_list("100, 200, 300, 400, -20", "p")
+    assert (
+        "-20 is not in the range (0, 5000], and is thus not a valid value "
+        "of p."
+    ) == str(errorinfo.value)
+
+    # The first problematic value we see should trigger the error
+    with pytest.raises(ParameterError) as errorinfo:
+        parse_di_list("100, 200, 300, 400, 666666, -20", "p")
+    assert (
+        "666666 is not in the range (0, 5000], and is thus not a valid value "
+        "of p."
+    ) == str(errorinfo.value)
+
+
+def test_parse_di_list_r_out_of_range():
+    with pytest.raises(ParameterError) as errorinfo:
+        parse_di_list("0,1,2,3", "r")
+    assert "0 is not >= 1, and is thus not a valid value of r." == str(
+        errorinfo.value
+    )
+
+    with pytest.raises(ParameterError) as errorinfo:
+        parse_di_list("100, 200, 300, 400, -20", "r")
+    assert ("-20 is not >= 1, and is thus not a valid value of r.") == str(
+        errorinfo.value
+    )
+
+
+def test_parse_di_list_nonunique():
+    with pytest.raises(ParameterError) as errorinfo:
+        parse_di_list("10,1,2,3, 1", "r")
+    assert "The list of diversity index threshold values isn't unique." == str(
+        errorinfo.value
+    )
+
+
+def test_parse_di_list_badparam():
+    for bad_param in ("R", "P", "asdf", "hamborgar", 1, "2", None, ""):
+        with pytest.raises(ParameterError) as errorinfo:
+            parse_di_list("10,1,2,3", bad_param)
+        assert 'param must be either "p" or "r".' == str(errorinfo.value)
+
+
+def test_parse_di_list_few_entries():
+    assert parse_di_list("  1  ", "r") == [1]
+    assert parse_di_list("  10, 3  ", "r") == [10, 3]
