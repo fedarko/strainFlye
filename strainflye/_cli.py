@@ -460,7 +460,15 @@ def p_mutation(
     show_default=True,
     help="Display extra details for each contig while running.",
 )
-def r_mutation(contigs, bam, min_r, div_index_r_list, output_vcf, output_diversity_indices, verbose):
+def r_mutation(
+    contigs,
+    bam,
+    min_r,
+    div_index_r_list,
+    output_vcf,
+    output_diversity_indices,
+    verbose,
+):
     """Calls r-mutations and computes diversity indices.
 
     The primary parameter for this command is the lower bound of r, defined by
