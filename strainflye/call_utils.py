@@ -169,7 +169,7 @@ def get_min_sufficient_coverages_p(p_vals, min_read_number):
     return [numerator / p for p in p_vals]
 
 
-def get_min_sufficient_coverages_r(r_vals, factor=2):
+def get_min_sufficient_coverages_r(r_vals, min_cov_factor):
     """Computes the "minimum sufficient coverage" for value(s) of r.
 
     Parameters
@@ -177,7 +177,7 @@ def get_min_sufficient_coverages_r(r_vals, factor=2):
     r_vals: list of int >= 1
         Values of r.
 
-    factor: float
+    min_cov_factor: float
         Parameter of this computation.
 
     Returns
@@ -187,7 +187,7 @@ def get_min_sufficient_coverages_r(r_vals, factor=2):
         list corresponds to the minimum sufficient coverage for the i-th value
         of r in r_vals.
     """
-    return [factor * r for r in r_vals]
+    return [min_cov_factor * r for r in r_vals]
 
 
 def run(
@@ -203,6 +203,7 @@ def run(
     div_index_p_list=None,
     div_index_r_list=None,
     min_read_number=None,
+    min_cov_factor=None,
 ):
     """Launches the process of naive p- or r-mutation calling.
 
@@ -258,6 +259,10 @@ def run(
     min_read_number: int >= 1 or None
         Parameter used in determining "minimum sufficient coverage" when
         computing diversity indices based on p-mutations.
+
+    min_cov_factor: float >= 1 or None
+        Parameter used in determining "minimum sufficient coverage" when
+        computing diversity indices based on r-mutations.
 
     Returns
     -------
@@ -315,7 +320,9 @@ def run(
         filter_header = (
             f'##FILTER=<ID=minr_{min_r}, Description="min r threshold">'
         )
-        min_suff_coverages = get_min_sufficient_coverages_r(div_index_r_list)
+        min_suff_coverages = get_min_sufficient_coverages_r(
+            div_index_r_list, min_cov_factor=min_cov_factor
+        )
         for r, msc in zip(div_index_r_list, min_suff_coverages):
             di_header += "\tDivIdx(r={r},minSuffCov={msc})"
 

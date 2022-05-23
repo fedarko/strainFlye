@@ -6,7 +6,8 @@ from strainflye.call_utils import (
     call_r_mutation,
     call_p_mutation,
     parse_di_list,
-    get_min_sufficient_coverages,
+    get_min_sufficient_coverages_p,
+    get_min_sufficient_coverages_r,
     run,
 )
 
@@ -228,10 +229,16 @@ def test_parse_di_list_sorts_results():
     ]
 
 
-def test_get_min_sufficient_coverages():
-    assert get_min_sufficient_coverages(
+def test_get_min_sufficient_coverages_p():
+    assert get_min_sufficient_coverages_p(
         [100, 200, 300, 2000, 5000, 1, 50], 5
     ) == [500, 250, (500 / 3), 25, 10, 50000, 1000]
+
+
+def test_get_min_sufficient_coverages_r():
+    r_vals = [100, 200, 300, 2000, 5000, 1, 50]
+    assert get_min_sufficient_coverages_r(r_vals, 2) == [r * 2 for r in r_vals]
+    assert get_min_sufficient_coverages_r(r_vals, 1) == r_vals
 
 
 def test_run_p_r_conflict():

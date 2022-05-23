@@ -321,9 +321,12 @@ strainflye.add_command(call)
     show_default=True,
     type=click.IntRange(min=1),
     help=(
-        "Parameter that impacts the minimum coverage needed in order "
-        'to consider "counting" a position / mutation towards the diversity '
-        "index. Larger values increase the minimum coverage."
+        "Parameter that impacts the minimum (mis)match coverage needed in "
+        'order to consider "counting" a position / mutation towards the '
+        "diversity index. Given a value of p (converted to the range "
+        "[0, 0.5)), a position must have a coverage of at least "
+        " (--min-read-number / p) in order to be sufficiently covered and "
+        "thus counted towards the diversity index."
     ),
 )
 @click.option(
@@ -439,6 +442,21 @@ def p_mutation(
     ),
 )
 @click.option(
+    "-f",
+    "--min-coverage-factor",
+    default=2,
+    required=False,
+    show_default=True,
+    type=click.FloatRange(min=1),
+    help=(
+        "Parameter that impacts the minimum (mis)match coverage needed in "
+        'order to consider "counting" a position / mutation towards the '
+        "diversity index. Given a value of r, a position must have a "
+        "coverage of at least (--min-coverage-factor × r) in order to be "
+        "sufficiently covered and thus counted towards the diversity index."
+    ),
+)
+@click.option(
     "-ov",
     "--output-vcf",
     required=True,
@@ -471,6 +489,7 @@ def r_mutation(
     bam,
     min_r,
     div_index_r_list,
+    min_coverage_factor,
     output_vcf,
     output_diversity_indices,
     verbose,
@@ -489,6 +508,7 @@ def r_mutation(
             ("BAM file", bam),
             ("minimum r", min_r),
             ("--div-index-r-list", div_index_r_list),
+            ("minimum coverage factor", min_coverage_factor),
         ),
         (
             ("VCF file", output_vcf),
@@ -505,6 +525,7 @@ def r_mutation(
         verbose,
         min_r=min_r,
         div_index_r_list=di_list,
+        min_cov_factor=min_coverage_factor,
     )
     fancylog("Done with r-mutation calling.")
 
