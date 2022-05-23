@@ -281,37 +281,15 @@ strainflye.add_command(call)
     ),
 )
 @click.option(
-    "--max-p",
-    required=False,
-    show_default=True,
-    default=200,
-    type=click.IntRange(min=0, max=5000, min_open=True),
-    help=(
-        "Maximum value of p for which to call p-mutations. Scaled up by "
-        "100 (the default, 200, corresponds to 200 / 100 = 2%)."
-    ),
-)
-@click.option(
-    "--delta-p",
-    required=False,
-    show_default=True,
-    default=1,
-    type=click.IntRange(min=0, max=5000, min_open=True, max_open=True),
-    help=(
-        "We'll consider all values of p between --min-p and --max-p, "
-        "increasing in increments of --delta-p. Scaled up by 100 (the "
-        "default, 1, corresponds to 1 / 100 = 0.01%)."
-    ),
-)
-@click.option(
     "--min-alt-pos",
     default=2,
     required=False,
     show_default=True,
     type=click.IntRange(min=1),
     help=(
-        "Additional parameter: the alternate nucleotide for a p-mutation must "
-        "be supported by at least this many reads."
+        "Additional parameter: in order for us to call a p-mutation at a "
+        "position, the alternate nucleotide must be supported by at least "
+        "this many reads."
     ),
 )
 @click.option(
@@ -331,18 +309,13 @@ strainflye.add_command(call)
     show_default=True,
     help="Display extra details for each contig.",
 )
-def p_mutation(
-    contigs, bam, min_p, max_p, delta_p, min_alt_pos, output_vcf, verbose
-):
+def p_mutation(contigs, bam, min_p, min_alt_pos, output_vcf, verbose):
     """Performs na\u00efve percentage-based mutation (p-mutation) calling.
 
-    We consider multiple values of the p parameter (defined by the min, max,
-    and delta p options), and our output VCF file represents each of the
-    resulting values of p tested as a separate FILTER.
-
-    Note that --min-p, --max-p, and --delta-p must all be integers -- these
-    will be converted to floating-point percentages later, but for now keeping
-    them as integers makes the computation of ranges of values of p simpler.
+    The primary parameter for this command is the lower bound of p, defined by
+    --min-p. The VCF output will include "mutations" for all positions that
+    pass this (likely very low) threshold, but this VCF should be adjusted
+    using the utilities contained in the "strainFlye fdr" module.
     """
     fancylog = cli_utils.fancystart(
         "strainFlye call",
@@ -350,20 +323,17 @@ def p_mutation(
             ("contig file", contigs),
             ("BAM file", bam),
             ("minimum p", min_p),
-            ("maximum p", max_p),
-            ("delta p", delta_p),
             ("--min-alt-pos", min_alt_pos),
         ),
         (("VCF file", output_vcf),),
     )
-    p_vals = call_utils.get_p_increments(min_p, max_p, delta_p, fancylog)
     call_utils.run(
         contigs,
         bam,
         output_vcf,
         fancylog,
         verbose,
-        p_vals=p_vals,
+        min_p=min_p,
         min_alt_pos=min_alt_pos,
     )
     fancylog("Done with p-mutation calling.")
@@ -393,26 +363,6 @@ def p_mutation(
     help="Minimum value of r for which to call r-mutations.",
 )
 @click.option(
-    "--max-r",
-    required=False,
-    default=100,
-    show_default=True,
-    type=click.IntRange(min=1),
-    help="Maximum value of r for which to call r-mutations.",
-)
-@click.option(
-    "--delta-r",
-    required=False,
-    default=1,
-    show_default=True,
-    type=click.IntRange(min=1),
-    help=(
-        "We'll consider all values of r between --min-r and --max-r, "
-        "increasing in increments of --delta-r. This should probably be "
-        "kept as 1."
-    ),
-)
-@click.option(
     "-o",
     "--output-vcf",
     required=True,
@@ -429,12 +379,13 @@ def p_mutation(
     show_default=True,
     help="Display extra details for each contig.",
 )
-def r_mutation(contigs, bam, min_r, max_r, delta_r, output_vcf, verbose):
+def r_mutation(contigs, bam, min_r, output_vcf, verbose):
     """Performs na\u00efve read-count-based mutation (r-mutation) calling.
 
-    We consider multiple values of the r parameter (defined by the min, max,
-    and delta r options), and our output VCF file represents each of the
-    resulting values of r tested as a separate FILTER.
+    The primary parameter for this command is the lower bound of r, defined by
+    --min-r. The VCF output will include "mutations" for all positions that
+    pass this (likely very low) threshold, but this VCF should be adjusted
+    using the utilities contained in the "strainFlye fdr" module.
     """
     fancylog = cli_utils.fancystart(
         "strainFlye call r-mutation",
@@ -442,13 +393,10 @@ def r_mutation(contigs, bam, min_r, max_r, delta_r, output_vcf, verbose):
             ("contig file", contigs),
             ("BAM file", bam),
             ("minimum r", min_r),
-            ("maximum r", max_r),
-            ("delta r", delta_r),
         ),
         (("VCF file", output_vcf),),
     )
-    r_vals = call_utils.get_r_increments(min_r, max_r, delta_r, fancylog)
-    call_utils.run(contigs, bam, output_vcf, fancylog, verbose, r_vals=r_vals)
+    call_utils.run(contigs, bam, output_vcf, fancylog, verbose, min_r=min_r)
     fancylog("Done with r-mutation calling.")
 
 
