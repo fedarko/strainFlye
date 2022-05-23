@@ -1,12 +1,9 @@
-import pytest
 from strainflye.call_utils import (
     get_alt_pos_info,
     get_pos_info_str,
     call_r_mutation,
     call_p_mutation,
 )
-from strainflye.errors import ParameterError
-from pytest import approx
 
 
 def test_get_alt_pos_info():

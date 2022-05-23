@@ -213,7 +213,7 @@ def align(reads, contigs, graph, output_dir, verbose):
 
 @click.group(name="call", **grp_params, **cmd_params)
 def call():
-    """Methods for na\u00efve mutation calling.
+    """Na\u00efve mutation calling and diversity index computation.
 
     Consider a position "pos" in a contig. A given read with a (mis)match
     operation at "pos" must have one of four nucleotides (A, C, G, T) aligned
@@ -245,6 +245,15 @@ def call():
 
     This takes as input some integer r > 0. We classify pos as an
     r-mutation if N2 \u2265 r.
+
+    \b
+    Diversity indices
+    -----------------
+
+    Later on in the pipeline, we'll need to select a decoy contig in order
+    to perform FDR estimation for our called mutations. Contigs with low
+    diversity indices may indicate promising decoy contigs; so, for the sake of
+    convenience, both commands output this information.
     """
     pass
 
@@ -287,13 +296,37 @@ strainflye.add_command(call)
     show_default=True,
     type=click.IntRange(min=1),
     help=(
-        "Additional parameter: in order for us to call a p-mutation at a "
-        "position, the alternate nucleotide must be supported by at least "
-        "this many reads."
+        "In order for us to call a p-mutation at a position, this position's "
+        "alternate nucleotide must be supported by at least this many reads."
     ),
 )
 @click.option(
-    "-o",
+    "--div-index-p-list",
+    default="50,100,200,500,1000,2500,5000",
+    required=False,
+    show_default=True,
+    type=click.STRING,
+    help=(
+        "List of values of p for which we'll compute diversity indices. "
+        "These should all be separated by commas; and, as with --min-p, "
+        "these are scaled up by 100."
+    ),
+)
+@click.option(
+    "-m",
+    "--min-read-number",
+    default=5,
+    required=False,
+    show_default=True,
+    type=click.IntRange(min=1),
+    help=(
+        "Parameter that impacts the minimum coverage needed in order "
+        'to consider "counting" a position / mutation towards the diversity '
+        "index. Larger values increase the minimum coverage."
+    ),
+)
+@click.option(
+    "-ov",
     "--output-vcf",
     required=True,
     type=click.Path(dir_okay=False),
@@ -303,14 +336,35 @@ strainflye.add_command(call)
     ),
 )
 @click.option(
+    "-od",
+    "--output-diversity-indices",
+    required=True,
+    type=click.Path(dir_okay=False),
+    help=(
+        "Filepath to which an output tab-separated values (TSV) file "
+        "describing diversity indices for the values of p given in "
+        "--div-index-p-list will be written."
+    ),
+)
+@click.option(
     "--verbose/--no-verbose",
     is_flag=True,
     default=False,
     show_default=True,
-    help="Display extra details for each contig.",
+    help="Display extra details for each contig while running.",
 )
-def p_mutation(contigs, bam, min_p, min_alt_pos, output_vcf, verbose):
-    """Performs na\u00efve percentage-based mutation (p-mutation) calling.
+def p_mutation(
+    contigs,
+    bam,
+    min_p,
+    min_alt_pos,
+    div_index_p_list,
+    min_read_number,
+    output_vcf,
+    output_diversity_indices,
+    verbose,
+):
+    """Calls p-mutations and computes diversity indices.
 
     The primary parameter for this command is the lower bound of p, defined by
     --min-p. The VCF output will include "mutations" for all positions that
@@ -324,8 +378,13 @@ def p_mutation(contigs, bam, min_p, min_alt_pos, output_vcf, verbose):
             ("BAM file", bam),
             ("minimum p", min_p),
             ("--min-alt-pos", min_alt_pos),
+            ("--div-index-p-list", div_index_p_list),
+            ("minimum read number", min_read_number),
         ),
-        (("VCF file", output_vcf),),
+        (
+            ("VCF file", output_vcf),
+            ("Diversity indices file", output_diversity_indices),
+        ),
     )
     call_utils.run(
         contigs,
@@ -336,7 +395,7 @@ def p_mutation(contigs, bam, min_p, min_alt_pos, output_vcf, verbose):
         min_p=min_p,
         min_alt_pos=min_alt_pos,
     )
-    fancylog("Done with p-mutation calling.")
+    fancylog("Done with p-mutation calling and diversity index computation.")
 
 
 @call.command(**cmd_params)
@@ -363,7 +422,18 @@ def p_mutation(contigs, bam, min_p, min_alt_pos, output_vcf, verbose):
     help="Minimum value of r for which to call r-mutations.",
 )
 @click.option(
-    "-o",
+    "--div-index-r-list",
+    default="5,10,20,50,100,250,500",
+    required=False,
+    show_default=True,
+    type=click.STRING,
+    help=(
+        "List of values of r for which we'll compute diversity indices. "
+        "These should all be separated by commas."
+    ),
+)
+@click.option(
+    "-ov",
     "--output-vcf",
     required=True,
     type=click.Path(dir_okay=False),
@@ -373,14 +443,25 @@ def p_mutation(contigs, bam, min_p, min_alt_pos, output_vcf, verbose):
     ),
 )
 @click.option(
+    "-od",
+    "--output-diversity-indices",
+    required=True,
+    type=click.Path(dir_okay=False),
+    help=(
+        "Filepath to which an output tab-separated values (TSV) file "
+        "describing diversity indices for the values of r given in "
+        "--div-index-r-list will be written."
+    ),
+)
+@click.option(
     "--verbose/--no-verbose",
     is_flag=True,
     default=False,
     show_default=True,
-    help="Display extra details for each contig.",
+    help="Display extra details for each contig while running.",
 )
-def r_mutation(contigs, bam, min_r, output_vcf, verbose):
-    """Performs na\u00efve read-count-based mutation (r-mutation) calling.
+def r_mutation(contigs, bam, min_r, div_index_r_list, output_vcf, output_diversity_indices, verbose):
+    """Calls r-mutations and computes diversity indices.
 
     The primary parameter for this command is the lower bound of r, defined by
     --min-r. The VCF output will include "mutations" for all positions that
@@ -400,76 +481,76 @@ def r_mutation(contigs, bam, min_r, output_vcf, verbose):
     fancylog("Done with r-mutation calling.")
 
 
-@strainflye.command(**cmd_params)
-@click.option(
-    "-c",
-    "--contigs",
-    required=True,
-    type=click.Path(exists=True),
-    help="FASTA file of contigs for which diversity indices will be computed.",
-)
-@click.option(
-    "-v",
-    "--vcf",
-    required=True,
-    type=click.Path(exists=True),
-    help="VCF file describing called mutations in the contigs.",
-)
-@click.option(
-    "-mc",
-    "--min-cov",
-    required=False,
-    default=10,
-    type=click.INT,
-    help=(
-        "Minimum coverage: positions with coverage less than this will not be "
-        "included in the diversity index calculation. If you don't want to "
-        "impose a minimum coverage, you can set this to 0."
-    ),
-)
-def diversity(contigs, vcf):
-    """Computes the diversity index for MAGs.
-
-    For an arbitrary MAG, let's define C as the number of (well-covered)
-    positions at which a mutation is called, and let's define T as the total
-    number of (well-covered) positions in this MAG. The diversity index is then
-    defined as the percentage C / T.
-    """
-    print("DI")
-
-
-@strainflye.command(**cmd_params)
-def spots():
-    """Identifies hot- and/or cold-spots in MAGs."""
-    print("H")
-
-
-@strainflye.command(**cmd_params)
-def covskew():
-    """Visualizes MAG coverage and GC skew."""
-    # input: FASTA of contigs, BAM file mapping reads to contigs
-    # output: cov / skew plots; PTR estimates, if requested?
-    print("SMOOTH")
-
-
-@strainflye.command(**cmd_params)
-def matrix():
-    """Computes mutation matrices of a MAG."""
-    print("MM")
-
-
-@strainflye.command(**cmd_params)
-def link_graph():
-    """Constructs the link graph structure for a MAG."""
-    print("LG")
-
-
-@strainflye.command(**cmd_params)
-def smooth():
-    """Generates smoothed haplotypes."""
-    # input: contigs, reads, vcf of mutations
-    # output: contigs / graph / etc. assembled by LJA
-    print("SMOOTH")
+# @strainflye.command(**cmd_params)
+# @click.option(
+#     "-c",
+#     "--contigs",
+#     required=True,
+#     type=click.Path(exists=True),
+#     help="FASTA file of contigs to compute diversity indices for.",
+# )
+# @click.option(
+#     "-v",
+#     "--vcf",
+#     required=True,
+#     type=click.Path(exists=True),
+#     help="VCF file describing called mutations in the contigs.",
+# )
+# @click.option(
+#     "-mc",
+#     "--min-cov",
+#     required=False,
+#     default=10,
+#     type=click.INT,
+#     help=(
+#         "Minimum coverage: positions with coverage less than this will not "
+#         "be included in the diversity index calculation. If you don't want "
+#         "to impose a minimum coverage, you can set this to 0."
+#     ),
+# )
+# def diversity(contigs, vcf):
+#     """Computes the diversity index for MAGs.
+#
+#     For an arbitrary MAG, let's define C as the number of (well-covered)
+#     positions at which a mutation is called, and let's define T as the total
+#     number of (well-covered) positions in this MAG. The diversity index is
+#     then defined as the percentage C / T.
+#     """
+#     print("DI")
+#
+#
+# @strainflye.command(**cmd_params)
+# def spots():
+#     """Identifies hot- and/or cold-spots in MAGs."""
+#     print("H")
+#
+#
+# @strainflye.command(**cmd_params)
+# def covskew():
+#     """Visualizes MAG coverage and GC skew."""
+#     # input: FASTA of contigs, BAM file mapping reads to contigs
+#     # output: cov / skew plots; PTR estimates, if requested?
+#     print("SMOOTH")
+#
+#
+# @strainflye.command(**cmd_params)
+# def matrix():
+#     """Computes mutation matrices of a MAG."""
+#     print("MM")
+#
+#
+# @strainflye.command(**cmd_params)
+# def link_graph():
+#     """Constructs the link graph structure for a MAG."""
+#     print("LG")
+#
+#
+# @strainflye.command(**cmd_params)
+# def smooth():
+#     """Generates smoothed haplotypes."""
+#     # input: contigs, reads, vcf of mutations
+#     # output: contigs / graph / etc. assembled by LJA
+#     print("SMOOTH")
 
 
 @click.group(name="utils", **grp_params, **cmd_params)
