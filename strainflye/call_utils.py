@@ -312,11 +312,11 @@ def run(
             div_index_p_list, min_read_number=min_read_number
         )
         for p, msc in zip(div_index_p_list, min_suff_coverages):
-            di_header += "\tDivIdx(p={p},minSuffCov={msc})"
+            di_header += f"\tDivIdx(p={p},minSuffCov={msc})"
 
     else:
         param_name = "r"
-        min_str = "--min-r = {min_r:,}"
+        min_str = f"--min-r = {min_r:,}"
         filter_header = (
             f'##FILTER=<ID=minr_{min_r}, Description="min r threshold">'
         )
@@ -324,7 +324,7 @@ def run(
             div_index_r_list, min_cov_factor=min_cov_factor
         )
         for r, msc in zip(div_index_r_list, min_suff_coverages):
-            di_header += "\tDivIdx(r={r},minSuffCov={msc})"
+            di_header += f"\tDivIdx(r={r},minSuffCov={msc})"
 
     call_str = f"{param_name}-mutation calling ({min_str})"
     fancylog(f"Running {call_str}.", prefix="")
@@ -531,10 +531,10 @@ def run(
                 di_line += f"\t{msc_mut_ct[di] / msc_pos_ct[di]}"
                 num_defined_di += 1
             else:
-                di_line += "NA"
+                di_line += "\tNA"
 
         with open(output_diversity_indices, "a") as di_file:
-            di_file.write(di_line)
+            di_file.write(f"{di_line}\n")
 
         if verbose:
             fancylog(
