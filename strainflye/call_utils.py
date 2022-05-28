@@ -483,12 +483,12 @@ def run(
 
             # Compute diversity index info, also
             coverage_sum += cov
-            # You might say "can't we break early if we notice early on that a
-            # position isn't a p- or r-mutation, since we've already sorted the
-            # threshold values?" but we still wanna keep track of the positions
-            # seen with some minimum sufficient coverage, so we've gotta keep
-            # going through. (Although it's still probs possible to speed this
-            # up somehow.)
+            # You might say "can't we break from the loops below early if
+            # we notice early on that a position isn't a p- or r-mutation for
+            # some value of p or r, since we've already sorted the threshold
+            # values?" but we still wanna keep track of the positions seen with
+            # some minimum sufficient coverage, so we've gotta keep going
+            # through. (Although it's still probs possible to speed this up.)
             if using_p:
                 for pi, p in enumerate(div_index_p_list):
                     if cov >= min_suff_coverages[pi]:
