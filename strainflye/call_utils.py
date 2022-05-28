@@ -439,7 +439,7 @@ def run(
             if using_p:
                 is_mut = call_p_mutation(alt_freq, cov, min_p, min_alt_pos)
             else:
-                is_mut = call_r_mutation(alt_freq, cov, min_r)
+                is_mut = call_r_mutation(alt_freq, min_r)
 
             if is_mut:
                 info = get_pos_info_str(alt_freq, cov)
