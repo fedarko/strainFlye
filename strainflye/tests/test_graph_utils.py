@@ -1,3 +1,4 @@
+import tempfile
 import pytest
 import networkx as nx
 import strainflye.graph_utils as gu
@@ -48,8 +49,26 @@ def test_load_gfa_nolen():
     assert "No length given for segment 4" == str(errorinfo.value)
 
 
-def check_sample1_fasta(fasta_text, num_seqs):
+def test_load_gfa_nonunique_seq():
+    # Based loosely on
+    # https://github.com/marbl/MetagenomeScope/blob/master/metagenomescope/tests/assembly_graph_parser/utils.py
+    fh = tempfile.NamedTemporaryFile(suffix=".gfa")
+    # There is probably a way to write directly to the filehandler, but idk
+    # how and this is easiest
+    with open(fh.name, "w") as f:
+        f.write(
+            "H\tVN:Z:1.0\n"
+            "S\t1\t*\tLN:i:8\n"
+            "S\t2\t*\tLN:i:10\n"
+            "S\t1\t*\tLN:i:9\n"
+        )
 
+    with pytest.raises(GraphParsingError) as errorinfo:
+        gu.load_gfa(fh.name)
+    assert "Segment 1 is defined multiple times" == str(errorinfo.value)
+
+
+def check_sample1_fasta(fasta_text, num_seqs):
     assert fasta_text == (
         ">1\nCGATGCAA\n"
         ">2\nTGCAAAGTAC\n"

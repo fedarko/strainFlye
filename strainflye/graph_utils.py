@@ -69,6 +69,11 @@ def load_gfa(gfa_fp):
                         f"No length given for segment {node_name}"
                     )
 
+                if node_name in graph.nodes:
+                    raise GraphParsingError(
+                        f"Segment {node_name} is defined multiple times"
+                    )
+
                 graph.add_node(node_name, length=node_len)
 
             # Parse links between sequences.
