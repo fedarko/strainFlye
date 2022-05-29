@@ -92,7 +92,7 @@ Options:
 Commands:
   align  Aligns reads to contigs, then filters this alignment.
   call   [+] Naïve mutation calling and diversity index computation.
-  fdr    [+] FDR estimation and fixing using the target-decoy approach.
+  fdr    FDR estimation and fixing for contigs' mutation calls.
   utils  [+] Various utility commands provided with strainFlye.
 ```
 
