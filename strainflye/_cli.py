@@ -563,15 +563,7 @@ def r_mutation(
     fancylog("Done with r-mutation calling.")
 
 
-@click.group(name="fdr", **grp_params, **cmd_params)
-def fdr():
-    """[+] FDR estimation and fixing for contigs' mutation calls."""
-
-
-strainflye.add_command(fdr)
-
-
-@fdr.command(**cmd_params)
+@strainflye.command(**cmd_params)
 @click.option(
     "-v",
     "--vcf",
@@ -621,10 +613,16 @@ strainflye.add_command(fdr)
 @click.option(
     "--fdr",
     required=False,
-    default=1,
+    default=100,
     show_default=True,
-    type=click.FloatRange(min=0, min_open=True),
-    help="False discovery rate at which identified mutations will be fixed.",
+    type=click.IntRange(min=0, min_open=True),
+    help=(
+        "False discovery rate at which identified mutations will be fixed. "
+        "This is interpreted as a scaled-up percentage, such that f = N "
+        "corresponds to (N / 100)% (i.e. the default of f = 100 is 1%). No "
+        "upper limit is imposed since estimated FDRs can technically exceed "
+        "(10000 / 100)% = 100% in uncommon cases."
+    ),
 )
 @click.option(
     "-hp",
@@ -669,7 +667,19 @@ strainflye.add_command(fdr)
         "at the fixed FDR."
     ),
 )
-def estimate(
+@click.option(
+    "-ov",
+    "--output-vcf",
+    required=True,
+    type=click.Path(dir_okay=False),
+    help=(
+        "Filepath to which an output VCF file (describing the called "
+        "mutations at the optimal p or r value for each contig) will be "
+        "written. These mutations will be a subset of those described in the "
+        "input VCF file."
+    ),
+)
+def fdr(
     vcf,
     diversity_indices,
     decoy_contig,
@@ -678,8 +688,20 @@ def estimate(
     highfreq_threshold_p,
     highfreq_threshold_r,
     output_fdr_info,
+    output_vcf,
 ):
-    """Estimates FDRs using the target-decoy approach."""
+    """FDR estimation and fixing for contigs' mutation calls.
+
+    Does this using the target-decoy approach (TDA). Given a set of C contigs,
+    we select a "decoy contig" with relatively few called mutations. We then
+    compute a mutation rate for this decoy contig, and use this mutation rate
+    (along with the mutation rates of the other C - 1 contigs) to estimate the
+    FDRs of all of the other contigs.
+
+    By varying p or r, we can plot a FDR curve for each of the C - 1 non-decoy
+    (target) contigs; and, given a fixed FDR, we can choose the "optimal" p or
+    r parameter for each contig that results in a FDR \u2264 this FDR.
+    """
     pass
 
 
