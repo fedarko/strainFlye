@@ -10,14 +10,22 @@ from strainflye.errors import SequencingDataError
 SIO_REPR = "<_io.StringIO object at [a-zA-Z0-9]*>"
 
 
-def test_get_fasta_name2len_good():
+def test_get_fasta_name2len_basic():
     sio = StringIO(">asdf\nAACCCAAATGA\n>ghij\nC\n")
     n2l = iu.get_fasta_name2len(sio)
     assert n2l == {"asdf": 11, "ghij": 1}
 
+
+def test_get_fasta_name2len_oneseq():
     sio = StringIO(">lonely\nGTAC\n")
     n2l = iu.get_fasta_name2len(sio)
     assert n2l == {"lonely": 4}
+
+
+def test_get_fasta_name2len_multiline():
+    sio = StringIO(">longboi\nGTAC\nCCT\nTA\n>hi\nCAAT")
+    n2l = iu.get_fasta_name2len(sio)
+    assert n2l == {"longboi": 9, "hi": 4}
 
 
 def test_get_fasta_name2len_dups():
