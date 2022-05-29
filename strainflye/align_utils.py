@@ -692,7 +692,7 @@ def run(reads, contigs, graph, output_dir, fancylog, verbose):
         more information.
 
     output_dir: str
-        Output directory path. Will be created here if it doesn't already exist.
+        Output directory path. Will be created if it doesn't already exist.
 
     fancylog: function
         Logging function
