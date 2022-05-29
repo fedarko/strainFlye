@@ -565,7 +565,7 @@ def r_mutation(
 
 @click.group(name="fdr", **grp_params, **cmd_params)
 def fdr():
-    """[+] FDR estimation and fixing using the target-decoy approach."""
+    """[+] FDR estimation and fixing for contigs' mutation calls."""
 
 
 strainflye.add_command(fdr)
@@ -679,7 +679,7 @@ def estimate(
     highfreq_threshold_r,
     output_fdr_info,
 ):
-    """Estimates identified mutations' FDRs using the target-decoy approach."""
+    """Estimates FDRs using the target-decoy approach."""
     pass
 
 
