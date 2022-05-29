@@ -9,6 +9,30 @@ APOLOGY = "This isn't supported at the moment, sorry."
 
 
 def get_name2len(fasta_fp):
+    """Based on a FASTA file, creates a dict mapping sequence name to length.
+
+    Parameters
+    ----------
+    fasta_fp: str
+        Filepath to a FASTA file.
+
+    Returns
+    -------
+    name2len: dict
+        Maps sequence name to length.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the file doesn't exist (skbio handles this).
+
+    SequencingDataError
+        If various things are wrong with the FASTA file, as determined by us:
+          - Duplicate sequence names
+          - Blank sequence name
+          - Degenerate nucleotides in sequences
+          - Gaps in sequences
+    """
     name2len = {}
     # Fails nicely with a FileNotFoundError if this file doesn't exist
     # (... although that shouldn't happen much b/c we generally specify

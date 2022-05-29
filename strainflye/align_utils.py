@@ -675,6 +675,48 @@ def filter_pm_reads(
 
 
 def run(reads, contigs, graph, output_dir, fancylog, verbose):
+    """Runs the entire alignment-and-filtering process.
+
+    Parameters
+    ----------
+    reads: tuple
+        Collection of paths to FASTA / FASTQ files describing sequencing reads.
+
+    contigs: str
+        Filepath to a FASTA file containing contigs.
+
+    graph: str or None
+        If str, should be a filepath to a GFA file describing an assembly
+        graph. This is only used in the partially-mapped read filter; if this
+        is None, this just won't be used there. See filter_pm_reads()' docs for
+        more information.
+
+    output_dir: str
+        Output directory path. Will be created here if it doesn't already exist.
+
+    fancylog: function
+        Logging function
+
+    verbose: bool
+        Whether or not to log extra info about individual contigs during
+        filtering.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    ParameterError
+        If "reads" isn't a tuple, and click betrayed me :(
+
+    SequencingDataError
+        If the set of segment names in the "graph" GFA file is different from
+        the set of sequence names in the "contigs" FASTA file.
+
+        If something is wrong with the "contigs" FASTA file -- see
+        fasta_utils.get_name2len().
+    """
 
     # reads will be a tuple
     if type(reads) != tuple:
@@ -701,6 +743,7 @@ def run(reads, contigs, graph, output_dir, fancylog, verbose):
         # (I'm not keeping the graph in memory once we parse it, since it'll be
         # quite a while until we get to the PM read filter.)
         graph = graph_utils.load_gfa(graph)
+        # Note that get_name2len() does its own sanity checking on the FASTA
         fasta_name2len = fasta_utils.get_name2len(contigs)
         graph_nodes = set(graph.nodes())
         fasta_nodes = set(fasta_name2len.keys())
