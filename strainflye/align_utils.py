@@ -354,16 +354,9 @@ def filter_pm_reads(
         fancylog("Loading assembly graph...", prefix="")
         graph = graph_utils.load_gfa(gfa)
 
-        # Another sanity check!
-        gfa_nodes = set(graph.nodes())
-        if bam_contigs != gfa_nodes:
-            raise ValueError(
-                f"Contigs in the BAM file ({in_bam}) and segments in the "
-                f"graph ({gfa}) do not match.\nThe BAM file has "
-                f"{bf.nreferences:,} contigs and the GFA has "
-                f"{len(gfa_nodes):,} segments, for reference."
-            )
-
+        # We already sanity-checked that the GFA and FASTA describe the exact
+        # same sequences (at least, going by their names), so no need to do
+        # that checking here.
         fancylog("Loaded assembly graph.", prefix="")
     else:
         fancylog("No assembly graph given.", prefix="")

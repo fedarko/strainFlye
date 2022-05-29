@@ -8,7 +8,7 @@ from strainflye.errors import SequencingDataError
 APOLOGY = "This isn't supported at the moment, sorry."
 
 
-def get_fasta_name2len(fasta_fp):
+def get_name2len(fasta_fp):
     name2len = {}
     # Fails nicely with a FileNotFoundError if this file doesn't exist
     # (... although that shouldn't happen much b/c we generally specify

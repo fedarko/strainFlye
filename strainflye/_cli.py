@@ -4,8 +4,8 @@
 import os
 import subprocess
 import click
-from . import cli_utils, align_utils, graph_utils, call_utils
-from .errors import ParameterError
+from . import cli_utils, align_utils, graph_utils, call_utils, fasta_utils
+from .errors import ParameterError, SequencingDataError
 
 
 # By default, Click's help info (shown when running e.g. "strainFlye -h")
@@ -127,6 +127,40 @@ def align(reads, contigs, graph, output_dir, verbose):
         (("directory", output_dir),),
     )
 
+    # reads will be a tuple
+    if type(reads) != tuple:
+        # if we just have a single string (e.g. click changes something in the
+        # future about how variadic arguments work) then we can fix this, but
+        # for now let's be defensive. (If you encounter this error, go yell at
+        # marcus)
+        raise ParameterError("Collection of input reads should be a tuple.")
+
+    # Sanity-check that the GFA segments are identical to the FASTA contigs. If
+    # not, we've got problems (in this case, it's probably easiest to just not
+    # consider the GFA in the PM read filter).
+    # We purposefully perform this check early so we can fail early, if needed.
+    # See https://github.com/fedarko/strainFlye/issues/20
+    if graph is not None:
+        fancylog(
+            "Sanity-checking that the assembly graph and contigs describe the "
+            "same sequences..."
+        )
+        # TODO: Loading the entire graph topology is more work than we need to
+        # do here; it'd be sufficient to just scan the segment names in the GFA
+        # file into a list. Might result in a slight speedup, although we will
+        # have to eventually parse this graph again anyway soooo...
+        # (I'm not keeping the graph in memory once we parse it, since it'll be
+        # quite a while until we get to the PM read filter.)
+        graph = graph_utils.load_gfa(graph)
+        fasta_name2len = fasta_utils.get_name2len(contigs)
+        graph_nodes = set(graph.nodes())
+        fasta_nodes = set(fasta_name2len.keys())
+        if graph_nodes != fasta_nodes:
+            raise SequencingDataError(
+                "GFA segment names don't match contig names in the FASTA."
+            )
+        fancylog("Everything looks good so far.", prefix="")
+
     # Make the output dir if it doesn't already exist
     os.makedirs(output_dir, exist_ok=True)
     first_output_bam = os.path.join(output_dir, "sorted-unfiltered.bam")
@@ -137,14 +171,6 @@ def align(reads, contigs, graph, output_dir, verbose):
     # https://davetang.org/wiki/tiki-index.php?page=SAMTools#Converting_SAM_directly_to_a_sorted_BAM_file # noqa
     # Python stuff based on https://stackoverflow.com/a/4846923 and
     # https://stackoverflow.com/a/9655939
-
-    # reads will be a tuple
-    if type(reads) != tuple:
-        # if we just have a single string (e.g. click changes something in the
-        # future about how variadic arguments work) then we can fix this, but
-        # for now let's be defensive. (If you encounter this error, go yell at
-        # marcus)
-        raise ParameterError("Collection of input reads should be a tuple.")
 
     # There's probably a way to print stuff after each individual command in
     # the chain finishes, but I don't think that sorta granularity is super
@@ -731,7 +757,6 @@ def gfa_to_fasta(graph, output_fasta):
         (("GFA file", graph),),
         (("FASTA file", output_fasta),),
     )
-    # graph_utils.gfa_to_fasta() assum
     with open(output_fasta, "w") as output_fasta_file:
         num_seqs = graph_utils.gfa_to_fasta(graph, output_fasta_file)
     fancylog(f"Done.\nOutput FASTA file contains {num_seqs:,} sequences.")
