@@ -1,11 +1,8 @@
 # We define multiple commands in the strainFlye "group" using Click.
 # This lets the user do things like "strainFlye align", "strainFlye call",
 # etc. See https://click.palletsprojects.com/en/8.0.x/commands/ for details.
-import os
-import subprocess
 import click
-from . import cli_utils, align_utils, graph_utils, call_utils, fasta_utils
-from .errors import ParameterError, SequencingDataError
+from . import cli_utils, align_utils, graph_utils, call_utils
 
 
 # By default, Click's help info (shown when running e.g. "strainFlye -h")
@@ -126,119 +123,7 @@ def align(reads, contigs, graph, output_dir, verbose):
         ),
         (("directory", output_dir),),
     )
-
-    # reads will be a tuple
-    if type(reads) != tuple:
-        # if we just have a single string (e.g. click changes something in the
-        # future about how variadic arguments work) then we can fix this, but
-        # for now let's be defensive. (If you encounter this error, go yell at
-        # marcus)
-        raise ParameterError("Collection of input reads should be a tuple.")
-
-    # Sanity-check that the GFA segments are identical to the FASTA contigs. If
-    # not, we've got problems (in this case, it's probably easiest to just not
-    # consider the GFA in the PM read filter).
-    # We purposefully perform this check early so we can fail early, if needed.
-    # See https://github.com/fedarko/strainFlye/issues/20
-    if graph is not None:
-        fancylog(
-            "Sanity-checking that the assembly graph and contigs describe the "
-            "same sequences..."
-        )
-        # TODO: Loading the entire graph topology is more work than we need to
-        # do here; it'd be sufficient to just scan the segment names in the GFA
-        # file into a list. Might result in a slight speedup, although we will
-        # have to eventually parse this graph again anyway soooo...
-        # (I'm not keeping the graph in memory once we parse it, since it'll be
-        # quite a while until we get to the PM read filter.)
-        graph = graph_utils.load_gfa(graph)
-        fasta_name2len = fasta_utils.get_name2len(contigs)
-        graph_nodes = set(graph.nodes())
-        fasta_nodes = set(fasta_name2len.keys())
-        if graph_nodes != fasta_nodes:
-            raise SequencingDataError(
-                "GFA segment names don't match contig names in the FASTA."
-            )
-        fancylog("Everything looks good so far.", prefix="")
-
-    # Make the output dir if it doesn't already exist
-    os.makedirs(output_dir, exist_ok=True)
-    first_output_bam = os.path.join(output_dir, "sorted-unfiltered.bam")
-
-    # There isn't really a need to store the SAM file from minimap2, or the
-    # unsorted BAM file from "samtools view". So we use piping.
-    # SAMtools stuff based on:
-    # https://davetang.org/wiki/tiki-index.php?page=SAMTools#Converting_SAM_directly_to_a_sorted_BAM_file # noqa
-    # Python stuff based on https://stackoverflow.com/a/4846923 and
-    # https://stackoverflow.com/a/9655939
-
-    # There's probably a way to print stuff after each individual command in
-    # the chain finishes, but I don't think that sorta granularity is super
-    # necessary right now tbh
-
-    threesteps = "minimap2 --> samtools view --> samtools sort"
-    fancylog(f"Running {threesteps}...")
-
-    # NOTE: the -ax asm20 preset is what we use in the paper, but later
-    # versions of minimap2 have added in "-ax map-hifi" which is probs a better
-    # option in most cases. Shouldn't make too much of a difference; for
-    # simplicity's sake we just stick with asm20 here, but we could definitely
-    # change this (or add the option to configure it) if desired
-    minimap2_run = subprocess.Popen(
-        [
-            "minimap2",
-            "-ax",
-            "asm20",
-            "--secondary=no",
-            "--MD",
-            contigs,
-            *reads,
-        ],
-        stdout=subprocess.PIPE,
-    )
-    sam_to_bam_run = subprocess.Popen(
-        ["samtools", "view", "-b", "-"],
-        stdin=minimap2_run.stdout,
-        stdout=subprocess.PIPE,
-    )
-    minimap2_run.stdout.close()
-    bam_to_sorted_bam_run = subprocess.Popen(
-        ["samtools", "sort", "-", "-o", first_output_bam],
-        stdin=sam_to_bam_run.stdout,
-    )
-    sam_to_bam_run.stdout.close()
-    bam_to_sorted_bam_run.communicate()
-
-    fancylog(f"Done running {threesteps}.", prefix="")
-
-    align_utils.index_bam(first_output_bam, "sorted BAM", fancylog)
-
-    osa_filter_bam = os.path.join(output_dir, "sorted-osa-filtered.bam")
-    align_utils.filter_osa_reads(
-        first_output_bam, osa_filter_bam, fancylog, verbose
-    )
-    align_utils.index_bam(osa_filter_bam, "OSA-filtered BAM", fancylog)
-
-    # Now that we've finished the OSA filter step, we can remove its input BAM
-    # -- the first one we generated -- to save space. These files are big
-    # enough (e.g. upwards of 70 GB for the SheepGut dataset) that keeping all
-    # three around at the same time might exceed the space limit on a user's
-    # system.
-    os.remove(first_output_bam)
-    os.remove(first_output_bam + ".bai")
-
-    pm_filter_bam = os.path.join(output_dir, "final.bam")
-    align_utils.filter_pm_reads(
-        graph, osa_filter_bam, pm_filter_bam, fancylog, verbose
-    )
-    align_utils.index_bam(pm_filter_bam, "final BAM", fancylog)
-
-    # Similarly, we can remove the OSA-filtered (but not PM-filtered) BAM now.
-    # The PM-filtered BAM represents the "final" BAM produced by the alignment
-    # step, and is the one that should be used in downstream analyses.
-    os.remove(osa_filter_bam)
-    os.remove(osa_filter_bam + ".bai")
-
+    align_utils.run(reads, contigs, graph, output_dir, fancylog, verbose)
     fancylog("Done.")
 
 
@@ -436,7 +321,7 @@ def p_mutation(
         div_index_p_list=di_list,
         min_read_number=min_read_number,
     )
-    fancylog("Done with p-mutation calling and diversity index computation.")
+    fancylog("Done.")
 
 
 @call.command(**cmd_params)
@@ -560,7 +445,7 @@ def r_mutation(
         div_index_r_list=di_list,
         min_cov_factor=min_coverage_factor,
     )
-    fancylog("Done with r-mutation calling.")
+    fancylog("Done.")
 
 
 @strainflye.command(**cmd_params)
