@@ -43,6 +43,8 @@ setup(
         # absolute minimum version is (maybe lower, probably not higher).
         # This should be good enough.
         "matplotlib >= 3.0",
+        # Also not a hard requirement.
+        "pandas >= 1.0",
         # Needed by recent versions of black, apparently:
         # https://pythonissues.com/issues/2903160 (click 7.0 results in the
         # call to black on GitHub Actions failing with this error)
