@@ -39,6 +39,10 @@ setup(
     install_requires=[
         "scikit-bio",
         "networkx",
+        # This isn't a hard version requirement -- I'm not sure what the
+        # absolute minimum version is (maybe lower, probably not higher).
+        # This should be good enough.
+        "matplotlib >= 3.0",
         # Needed by recent versions of black, apparently:
         # https://pythonissues.com/issues/2903160 (click 7.0 results in the
         # call to black on GitHub Actions failing with this error)
