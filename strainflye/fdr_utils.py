@@ -88,6 +88,16 @@ def parse_vcf(vcf):
             "filter headers."
         )
 
+    # Let's be extra paranoid and verify that this VCF has MDP (coverage based
+    # on (mis)matches) and AAD (alternate nucleotide coverage) fields. (It
+    # should, because we know at this point that strainFlye generated it, but
+    # you never know...)
+    info_ids = f.header.info.keys()
+    if "MDP" not in info_ids or "AAD" not in info_ids:
+        raise ParameterError(
+            f"VCF file {vcf} needs to have MDP and AAD info fields."
+        )
+
     return f, thresh_type, thresh_min
 
 
