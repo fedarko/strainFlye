@@ -57,9 +57,10 @@ def strainflye():
 @click.option(
     "-g",
     "--graph",
+    default=None,
+    show_default="no graph",
     required=False,
     type=click.Path(exists=True),
-    show_default="no graph",
     help=(
         "GFA 1-formatted file describing an assembly graph of the contigs. "
         'This is used in the "filter partially-mapped reads" step to make the '
@@ -467,23 +468,26 @@ strainflye.add_command(fdr)
 @click.option(
     "-di",
     "--diversity-indices",
+    default=None,
+    show_default="nothing",
     required=False,
     type=click.Path(exists=True),
     help=(
         "TSV file describing the diversity indices of a set of contigs. "
         "Used to automatically select a decoy contig. "
-        "If this is specified, a decoy contig cannot be specified."
+        "Mutually exclusive with --decoy-contig."
     ),
 )
 @click.option(
     "-dc",
     "--decoy-contig",
+    default=None,
+    show_default="nothing",
     required=False,
     type=click.STRING,
     help=(
-        "Name of a contig to use as the decoy for FDR estimation. "
-        "If this is specified, a file of diversity indices cannot be "
-        "specified."
+        "Name of the decoy contig to use for FDR estimation. Mutually "
+        "exclusive with --diversity-indices."
     ),
 )
 @click.option(
@@ -540,11 +544,8 @@ strainflye.add_command(fdr)
     type=click.Path(dir_okay=False),
     help=(
         "Filepath to which an output tab-separated values (TSV) file "
-        "describing estimated FDRs will be written. Each row corresponds "
-        "to a different (non-decoy) contig; "
-        "each column but the last corresponds to a value of p or r. This "
-        'rightmost column lists the "optimal" value of p or r for this contig '
-        "at the fixed FDR."
+        "describing estimated FDRs will be written. Rows correspond to "
+        "target contigs, and columns correspond to p or r values."
     ),
 )
 def estimate(
@@ -570,9 +571,44 @@ def estimate(
     threshold given here). Using this information, we can plot an FDR curve for
     a given target contig's mutation calls.
     """
-    # 1. Figure out range of p or r to use
+    fancylog = cli_utils.fancystart(
+        "strainFlye fdr estimate",
+        (
+            ("VCF file", vcf),
+            ("diversity indices file", diversity_indices),
+            ("manually-set decoy contig", decoy_contig),
+            (
+                (
+                    "high p threshold (only used if the VCF describes "
+                    "p-mutations)"
+                ),
+                high_p,
+            ),
+            (
+                (
+                    "high r threshold (only used if the VCF describes "
+                    "r-mutations)"
+                ),
+                high_r,
+            ),
+        ),
+        (("FDR estimate file", output_fdr_info),),
+    )
+    # 1. Figure out range of p or r to use. Create a list, threshold_vals.
     # 2. Identify decoy genome
-    pass
+    # 3. For each value in threshold_vals, compute the decoy genome's mutation
+    #    rate. Save this to a list, decoy_mut_rates -- this will have the same
+    #    dimensions as threshold_vals.
+    # 4. For each target genome...
+    #    - For each value in threshold_vals...
+    #      - Compute the mutation rate for this target genome at this
+    #        threshold value.
+    #      - Compute the FDR estimate for this pair of (target, threshold).
+    #        Save to a list of target_fdr_ests, which has the same dimensions
+    #        as threshold_vals.
+    #    - Write out a new row to the FDR estimate file describing
+    #      target_fdr_ests.
+    fancylog("Done.")
 
 
 @fdr.command(**cmd_params)
@@ -617,12 +653,7 @@ def estimate(
     ),
 )
 def fix(vcf, fdr_info, fdr, output_vcf):
-    """Fixes contigs' mutation calls' FDRs to some upper limit.
-
-    By varying p or r, we can plot a FDR curve for each of the C - 1 non-decoy
-    (target) contigs; and, given a fixed FDR, we can choose the "optimal" p or
-    r parameter for each contig that results in a FDR \u2264 this FDR.
-    """
+    """Fixes contigs' mutation calls' FDRs to an upper limit."""
 
 
 # @strainflye.command(**cmd_params)
