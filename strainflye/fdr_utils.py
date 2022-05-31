@@ -6,8 +6,8 @@ import pysam
 from .errors import ParameterError
 
 
-def sniff_vcf(vcf):
-    """Does sanity checking and p vs. r sniffing on a VCF file.
+def parse_vcf(vcf):
+    """Opens a VCF file, and does sanity checking and p vs. r sniffing on it.
 
     Thankfully, pysam has the ability to read VCF files, so the main thing
     we do here is checking that the meta-information of the VCF file seems
@@ -78,7 +78,7 @@ def sniff_vcf(vcf):
                     "headers."
                 )
             thresh_type = filter_match.group(1)
-            thresh_min = filter_match.group(2)
+            thresh_min = int(filter_match.group(2))
 
     # If we never updated these variables, we never saw a strainFlye filter
     # header -- probably this VCF isn't from strainFlye.
@@ -101,7 +101,7 @@ def run_estimate(
     output_fdr_info,
 ):
     # Are we using p or r? And what's the minimum p or r that was used?
-    vcf_obj, thresh_type, thresh_min = sniff_vcf(vcf)
+    vcf_obj, thresh_type, thresh_min = parse_vcf(vcf)
 
     # 1. Figure out range of p or r to use. Create a list, threshold_vals.
     # 2. Identify decoy genome
