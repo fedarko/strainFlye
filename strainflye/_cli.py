@@ -602,6 +602,7 @@ def estimate(
         high_p,
         high_r,
         output_fdr_info,
+        fancylog,
     )
     fancylog("Done.")
 
@@ -658,7 +659,7 @@ def fix(vcf, fdr_info, fdr, output_vcf):
         ),
         (("VCF file with fixed FDR", output_vcf),),
     )
-    fdr_utils.run_fix(vcf, fdr_info, fdr, output_vcf)
+    fdr_utils.run_fix(vcf, fdr_info, fdr, output_vcf, fancylog)
     fancylog("Done.")
 
 

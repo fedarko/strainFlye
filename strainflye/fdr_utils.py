@@ -109,9 +109,15 @@ def run_estimate(
     high_p,
     high_r,
     output_fdr_info,
+    fancylog,
 ):
     # Are we using p or r? And what's the minimum p or r that was used?
     vcf_obj, thresh_type, thresh_min = parse_vcf(vcf)
+
+    fancylog(
+        f"Input VCF file contains {thresh_type}-mutations (minimum "
+        f"{thresh_type} = {thresh_min:,})."
+    )
 
     # 1. Figure out range of p or r to use. Create a list, threshold_vals.
     # 2. Identify decoy genome
@@ -130,5 +136,5 @@ def run_estimate(
     pass
 
 
-def run_fix(vcf, fdr_info, fdr, output_vcf):
+def run_fix(vcf, fdr_info, fdr, output_vcf, fancylog):
     pass
