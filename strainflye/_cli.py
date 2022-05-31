@@ -448,7 +448,15 @@ def r_mutation(
     fancylog("Done.")
 
 
-@strainflye.command(**cmd_params)
+@click.group(name="fdr", **grp_params, **cmd_params)
+def fdr():
+    """[+] FDR estimation and fixing for contigs' mutation calls."""
+
+
+strainflye.add_command(fdr)
+
+
+@fdr.command(**cmd_params)
 @click.option(
     "-v",
     "--vcf",
@@ -489,57 +497,44 @@ def r_mutation(
         "computation of mutation rates in the decoy to."
         "This should be a comma-separated list: valid entries "
         '(case insensitive) are "CP2", "Nonsyn", and "Nonsense". You can '
-        "include multiple types in the list to combine them."
-        "You can also not specify anything in order to not apply any "
-        "context-dependent limits, and consider the entire decoy contig at "
-        "once."
-    ),
-)
-@click.option(
-    "--fdr",
-    required=False,
-    default=100,
-    show_default=True,
-    type=click.IntRange(min=0, min_open=True),
-    help=(
-        "False discovery rate at which identified mutations will be fixed. "
-        "This is interpreted as a scaled-up percentage, such that f = N "
-        "corresponds to (N / 100)% (i.e. the default of f = 100 is 1%). No "
-        "upper limit is imposed since estimated FDRs can technically exceed "
-        "(10000 / 100)% = 100% in uncommon cases."
+        "include multiple types in the list to combine them. "
+        'You can also specify an empty string (i.e. "") in order to not apply '
+        "any context-dependent limits, and consider the entire decoy contig "
+        "at once."
     ),
 )
 @click.option(
     "-hp",
-    "--highfreq-threshold-p",
+    "--high-p",
     required=False,
     default=500,
     show_default=True,
     type=click.IntRange(min=0, max=5000, min_open=True),
     help=(
-        "highFrequency threshold: p-mutations with a mutation rate "
+        "p-mutations with a mutation rate "
         "(freq(pos)) greater than or equal to this are considered "
         '"indisputable," and will not '
         "be included in FDR estimation. Like the values of p used as "
         'parameters to "strainFlye call p-mutation", this is in the range '
-        "(0, 5000], such that h = N corresponds to (N / 100)%."
+        "(0, 5000], such that h = N corresponds to (N / 100)%. Corresponds "
+        'to the "highFrequency" threshold mentioned in the paper.'
     ),
 )
 @click.option(
     "-hr",
-    "--highfreq-threshold-r",
+    "--high-r",
     required=False,
     default=100,
     show_default=True,
     type=click.IntRange(min=0, min_open=True),
     help=(
-        "highFrequency threshold: r-mutations with an alternate allele read "
+        "r-mutations with an alternate nucleotide read "
         "coverage greater than or equal to this are considered "
         "indisputable, and will not be included in FDR estimation."
     ),
 )
 @click.option(
-    "-of",
+    "-o",
     "--output-fdr-info",
     required=True,
     type=click.Path(dir_okay=False),
@@ -550,6 +545,63 @@ def r_mutation(
         "each column but the last corresponds to a value of p or r. This "
         'rightmost column lists the "optimal" value of p or r for this contig '
         "at the fixed FDR."
+    ),
+)
+def estimate(
+    vcf,
+    diversity_indices,
+    decoy_contig,
+    decoy_context,
+    high_p,
+    high_r,
+    output_fdr_info,
+):
+    """Estimates contigs' mutation calls' FDRs.
+
+    We do this using the target-decoy approach (TDA). Given a set of C contigs,
+    we select a "decoy contig" with relatively few called mutations. We then
+    compute a mutation rate for this decoy contig, and use this mutation rate
+    (along with the mutation rates of the other C - 1 "target" contigs) to
+    estimate the FDRs of all of these target contigs' mutation calls.
+
+    We can produce multiple FDR estimates for a single target contig's calls by
+    varying the p or r threshold used (from the --min-p or --min-r threshold
+    used to generate the input VCF file, up to the --high-p or --high-r
+    threshold given here). Using this information, we can plot an FDR curve for
+    a given target contig's mutation calls.
+    """
+    # 1. Figure out range of p or r to use
+    # 2. Identify decoy genome
+    pass
+
+
+@fdr.command(**cmd_params)
+@click.option(
+    "-v",
+    "--vcf",
+    required=True,
+    type=click.Path(exists=True),
+    help="VCF file describing na\u00efvely called p- or r-mutations.",
+)
+@click.option(
+    "-fi",
+    "--fdr-info",
+    required=True,
+    type=click.Path(dir_okay=False),
+    help='Estimated FDR TSV file produced by "strainFlye fdr estimate".',
+)
+@click.option(
+    "--fdr",
+    required=False,
+    default=100,
+    show_default=True,
+    type=click.IntRange(min=0, min_open=True),
+    help=(
+        "False discovery rate at which identified mutations will be fixed. "
+        "This is interpreted as a scaled-up percentage, such that f = N "
+        "corresponds to (N / 100)% (i.e. the default of f = 100 corresponds "
+        "to an FDR of 1%). No upper limit is imposed, since estimated FDRs "
+        "can technically exceed (10000 / 100)% = 100% in uncommon cases."
     ),
 )
 @click.option(
@@ -564,30 +616,13 @@ def r_mutation(
         "input VCF file."
     ),
 )
-def fdr(
-    vcf,
-    diversity_indices,
-    decoy_contig,
-    decoy_context,
-    fdr,
-    highfreq_threshold_p,
-    highfreq_threshold_r,
-    output_fdr_info,
-    output_vcf,
-):
-    """FDR estimation and fixing for contigs' mutation calls.
-
-    Does this using the target-decoy approach (TDA). Given a set of C contigs,
-    we select a "decoy contig" with relatively few called mutations. We then
-    compute a mutation rate for this decoy contig, and use this mutation rate
-    (along with the mutation rates of the other C - 1 contigs) to estimate the
-    FDRs of all of the other contigs.
+def fix(vcf, fdr_info, fdr, output_vcf):
+    """Fixes contigs' mutation calls' FDRs to some upper limit.
 
     By varying p or r, we can plot a FDR curve for each of the C - 1 non-decoy
     (target) contigs; and, given a fixed FDR, we can choose the "optimal" p or
     r parameter for each contig that results in a FDR \u2264 this FDR.
     """
-    pass
 
 
 # @strainflye.command(**cmd_params)
