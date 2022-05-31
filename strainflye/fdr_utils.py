@@ -1,6 +1,19 @@
 # Utilities for strainFlye fdr.
 
 
+from .errors import ParameterError
+
+
+def sniff_vcf(vcf):
+    """Does sanity checking and p vs. r sniffing on a VCF file."""
+    with open(vcf, "r") as vcf_file:
+        for li, line in enumerate(vcf_file, 1):
+            if li == 1 and line.strip() != "###fileformat=VCFv4.3":
+                raise ParameterError(
+                    "VCF file {vcf} doesn't look like a VCF v4.3 file."
+                )
+
+
 def run_estimate(
     vcf,
     diversity_indices,
@@ -10,6 +23,7 @@ def run_estimate(
     high_r,
     output_fdr_info,
 ):
+
     # 1. Figure out range of p or r to use. Create a list, threshold_vals.
     # 2. Identify decoy genome
     # 3. For each value in threshold_vals, compute the decoy genome's mutation

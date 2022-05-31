@@ -318,7 +318,8 @@ def run(
         param_name = "r"
         min_str = f"--min-r = {min_r:,}"
         filter_header = (
-            f'##FILTER=<ID=minr_{min_r}, Description="min r threshold">'
+            f'##FILTER=<ID=strainflye_minr_{min_r}, Description="min r '
+            'threshold">'
         )
         min_suff_coverages = get_min_sufficient_coverages_r(
             div_index_r_list, min_cov_factor=min_cov_factor
