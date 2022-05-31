@@ -641,7 +641,7 @@ def estimate(
     ),
 )
 @click.option(
-    "-ov",
+    "-o",
     "--output-vcf",
     required=True,
     type=click.Path(dir_okay=False),
@@ -654,6 +654,16 @@ def estimate(
 )
 def fix(vcf, fdr_info, fdr, output_vcf):
     """Fixes contigs' mutation calls' FDRs to an upper limit."""
+    fancylog = cli_utils.fancystart(
+        "strainFlye fdr fix",
+        (
+            ("VCF file", vcf),
+            ("FDR estimate file", fdr_info),
+            ("FDR to fix mutation calls at", fdr),
+        ),
+        (("VCF file with fixed FDR", output_vcf),),
+    )
+    fancylog("Done.")
 
 
 # @strainflye.command(**cmd_params)
