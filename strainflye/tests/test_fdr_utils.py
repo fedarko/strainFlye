@@ -2,19 +2,20 @@ import tempfile
 import strainflye.fdr_utils as fu
 
 # Header + first four mutations called on SheepGut using p = 0.15%
-P_VCF = """##fileformat=VCFv4.3
-##fileDate=20220526
-##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"
-##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta
-##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">
-##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">
-##FILTER=<ID=strainflye_minp_15, Description="min p threshold (scaled up by 100)">
-#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
-edge_1	43	.	A	T	.	.	MDP=380;AAD=2
-edge_1	255	.	T	C	.	.	MDP=385;AAD=2
-edge_1	356	.	A	T	.	.	MDP=403;AAD=2
-edge_1	387	.	T	C	.	.	MDP=395;AAD=2
-"""
+P_VCF = (
+    "##fileformat=VCFv4.3\n"
+    "##fileDate=20220526\n"
+    '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
+    "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+    '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
+    '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
+    '##FILTER=<ID=strainflye_minp_15, Description="min p threshold (scaled up by 100)">\n'  # noqa: E501
+    "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+    "edge_1\t43\t.\tA\tT\t.\t.\tMDP=380;AAD=2\n"
+    "edge_1\t255\t.\tT\tC\t.\t.\tMDP=385;AAD=2\n"
+    "edge_1\t356\t.\tA\tT\t.\t.\tMDP=403;AAD=2\n"
+    "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
+)
 
 
 def test_parse_vcf_good():
