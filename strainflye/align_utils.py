@@ -776,12 +776,18 @@ def run(reads, contigs, graph, output_dir, fancylog, verbose):
     # option in most cases. Shouldn't make too much of a difference; for
     # simplicity's sake we just stick with asm20 here, but we could definitely
     # change this (or add the option to configure it) if desired
+    #
+    # TODO TODO TODO the I8g thing is gonna cause problems for other computers
+    # -- see https://github.com/lh3/minimap2/blob/master/FAQ.md, #3.
+    # The way to handle this is make minimap2 CLI params configurable by the
+    # user (they can pass a string with params I guess?)
     minimap2_run = subprocess.Popen(
         [
             "minimap2",
             "-ax",
             "asm20",
             "--secondary=no",
+            "-I8g",
             "--MD",
             contigs,
             *reads,
