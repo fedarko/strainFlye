@@ -742,10 +742,10 @@ def run(reads, contigs, graph, output_dir, fancylog, verbose):
         # have to eventually parse this graph again anyway soooo...
         # (I'm not keeping the graph in memory once we parse it, since it'll be
         # quite a while until we get to the PM read filter.)
-        graph = graph_utils.load_gfa(graph)
+        graph_obj = graph_utils.load_gfa(graph)
         # Note that get_name2len() does its own sanity checking on the FASTA
         fasta_name2len = fasta_utils.get_name2len(contigs)
-        graph_nodes = set(graph.nodes())
+        graph_nodes = set(graph_obj.nodes())
         fasta_nodes = set(fasta_name2len.keys())
         if graph_nodes != fasta_nodes:
             raise SequencingDataError(
