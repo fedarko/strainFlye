@@ -18,11 +18,16 @@ P_VCF = (
 )
 
 
-def test_parse_vcf_good():
+def write_tempfile(text):
     fh = tempfile.NamedTemporaryFile(suffix=".vcf")
     with open(fh.name, "w") as f:
-        f.write(P_VCF)
+        f.write(text)
+    return fh
 
+
+def test_parse_vcf_good():
+
+    fh = write_tempfile(P_VCF)
     vcf_obj, thresh_type, thresh_min = fu.parse_vcf(fh.name)
 
     # Let's get the easy checks out of the way first...
