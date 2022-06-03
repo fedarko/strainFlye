@@ -158,6 +158,7 @@ def test_parse_vcf_missing_info_fields():
     fh = write_tempfile("\n".join(split_text))
     fu.parse_vcf(fh.name)
 
+
 def test_check_decoy_selection():
     # "Good" cases
     assert fu.check_decoy_selection(None, "contig_name") == "DC"

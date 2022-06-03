@@ -209,10 +209,13 @@ def run_estimate(
     # Identify decoy contig
     decoy_selection = check_decoy_selection(diversity_indices, decoy_contig)
     if decoy_selection == "DI":
+        fancylog("Selecting a decoy contig based on the diversity indices...")
         # Automatically select a decoy contig from the diversity indices
         used_decoy_contig = autoselect_decoy_from_div(diversity_indices)
+        fancylog(f"Using {used_decoy_contig} as the decoy contig.", prefix="")
     else:
         used_decoy_contig = decoy_contig
+        fancylog(f"The specified decoy contig is {used_decoy_contig}.")
 
     # Verify that the decoy contig is actually contained in the VCF. (If not,
     # it could still be in the contigs, but it could just not have any called
