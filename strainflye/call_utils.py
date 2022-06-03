@@ -290,7 +290,8 @@ def run(
 
     # TODO? Add some checking to make sure that using_p implies that only
     # div_index_p_list is specified, and same for using_r and div_index_r_list
-    # ... not high priority tho
+    # ... not high priority tho, since the user can't cause these problems from
+    # the command line
 
     # Set up the header for the diversity index TSV file
     di_header = "Contig\tAverageCoverage\tLength"
