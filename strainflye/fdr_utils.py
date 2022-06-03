@@ -101,6 +101,52 @@ def parse_vcf(vcf):
     return f, thresh_type, thresh_min
 
 
+def check_decoy_selection(diversity_indices, decoy_contig):
+    """Checks that only one of (diversity index file, decoy contig) is given.
+
+    Parameters
+    ----------
+    diversity_indices: str or None
+        If a str, this should be a filepath to a TSV file representing
+        diversity index info.
+
+    decoy_contig: str or None
+        If a str, this should be the name of a contig described in the
+        VCF file.
+
+    Returns
+    -------
+    str
+        Will be "DI" if only diversity_indices is not None, and will be "DC" if
+        only decoy_contig is not None.
+
+    Raises
+    ------
+    ParameterError
+        - If diversity_indices and decoy_contig are both not None
+        - If diversity_indices and decoy_contig are both None
+    """
+    di = diversity_indices is not None
+    dc = decoy_contig is not None
+
+    if di:
+        if dc:
+            raise ParameterError(
+                "Both the diversity indices file and a decoy contig are "
+                "specified. These options are mutually exclusive."
+            )
+        else:
+            return "DI"
+    else:
+        if dc:
+            return "DC"
+        else:
+            raise ParameterError(
+                "Either the diversity indices file or a decoy contig must be "
+                "specified."
+            )
+
+
 def run_estimate(
     vcf,
     diversity_indices,
@@ -155,33 +201,39 @@ def run_estimate(
     """
     # Are we using p or r? And what's the minimum p or r that was used?
     vcf_obj, thresh_type, thresh_min = parse_vcf(vcf)
-
-    if decoy_contig is not None and diversity_indices is not None:
-        raise ParameterError(
-            "Both the diversity indices file and a decoy contig are "
-            "specified. These options are mutually exclusive."
-        )
-
     fancylog(
         f"Input VCF file contains {thresh_type}-mutations (minimum "
         f"{thresh_type} = {thresh_min:,})."
     )
 
-    # 1. Figure out range of p or r to use. Create a list, threshold_vals.
-    # 2. Identify decoy genome
-    # 3. For each value in threshold_vals, compute the decoy genome's mutation
-    #    rate. Save this to a list, decoy_mut_rates -- this will have the same
-    #    dimensions as threshold_vals.
-    # 4. For each target genome...
-    #    - For each value in threshold_vals...
-    #      - Compute the mutation rate for this target genome at this
-    #        threshold value.
-    #      - Compute the FDR estimate for this pair of (target, threshold).
-    #        Save to a list of target_fdr_ests, which has the same dimensions
-    #        as threshold_vals.
-    #    - Write out a new row to the FDR estimate file describing
-    #      target_fdr_ests.
-    pass
+    # Identify decoy contig
+    decoy_selection = check_decoy_selection(diversity_indices, decoy_contig)
+    if decoy_selection == "DI":
+        # Automatically select a decoy contig from the diversity indices
+        used_decoy_contig = autoselect_decoy_from_div(diversity_indices)
+    else:
+        used_decoy_contig = decoy_contig
+
+    # Verify that the decoy contig is actually contained in the VCF. (If not,
+    # it could still be in the contigs, but it could just not have any called
+    # mutations -- but that is problematic, because then we'd estimate the FDR
+    # as zero for every target contig. That shouldn't happen most of the time,
+    # anyway.)
+
+    # Figure out range of p or r to use. Create a list, threshold_vals.
+    # For each value in threshold_vals, compute the decoy genome's mutation
+    # rate. Save this to a list, decoy_mut_rates -- this will have the same
+    # dimensions as threshold_vals.
+
+    # For each target genome...
+    # - For each value in threshold_vals...
+    #   - Compute the mutation rate for this target genome at this
+    #     threshold value.
+    #   - Compute the FDR estimate for this pair of (target, threshold).
+    #     Save to a list of target_fdr_ests, which has the same dimensions
+    #     as threshold_vals.
+    # - Write out a new row to the FDR estimate file describing
+    #   target_fdr_ests.
 
 
 def run_fix(vcf, fdr_info, fdr, output_vcf, fancylog):

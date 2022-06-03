@@ -157,3 +157,23 @@ def test_parse_vcf_missing_info_fields():
     # do that again here
     fh = write_tempfile("\n".join(split_text))
     fu.parse_vcf(fh.name)
+
+def test_check_decoy_selection():
+    # "Good" cases
+    assert fu.check_decoy_selection(None, "contig_name") == "DC"
+    assert fu.check_decoy_selection("totally_real_file.tsv", None) == "DI"
+
+    # terrible no good very bad cases
+    with pytest.raises(ParameterError) as ei:
+        fu.check_decoy_selection("file.tsv", "contig")
+    assert str(ei.value) == (
+        "Both the diversity indices file and a decoy contig are specified. "
+        "These options are mutually exclusive."
+    )
+
+    with pytest.raises(ParameterError) as ei:
+        fu.check_decoy_selection(None, None)
+    assert str(ei.value) == (
+        "Either the diversity indices file or a decoy contig must be "
+        "specified."
+    )
