@@ -495,16 +495,16 @@ strainflye.add_command(fdr)
     required=False,
     default="CP2",
     show_default=True,
-    type=click.STRING,
+    type=click.Choice(
+        ["Full", "CP2", "Nonsyn", "Nonsense", "CP2Nonsyn", "CP2Nonsense"],
+        case_sensitive=False,
+    ),
     help=(
-        'List of "context-dependent" types of mutations to limit the '
-        "computation of mutation rates in the decoy to."
-        "This should be a comma-separated list: valid entries "
-        '(case insensitive) are "CP2", "Nonsyn", and "Nonsense". You can '
-        "include multiple types in the list to combine them. "
-        'You can also specify an empty string (i.e. "") in order to not apply '
-        "any context-dependent limits, and consider the entire decoy contig "
-        "at once."
+        '"Context-dependent" types of mutations to which the '
+        "computation of mutation rates in the decoy contig will be limited. "
+        'The "Full" option will consider the entire decoy contig, and all '
+        "other options will limit the computation to certain types of "
+        "positions and/or potential mutations."
     ),
 )
 @click.option(
