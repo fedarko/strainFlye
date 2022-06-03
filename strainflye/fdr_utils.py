@@ -4,7 +4,7 @@
 import re
 import pysam
 import pandas as pd
-from .errors import ParameterError
+from .errors import ParameterError, SequencingDataError
 
 
 def parse_vcf(vcf):
@@ -148,8 +148,18 @@ def check_decoy_selection(diversity_indices, decoy_contig):
             )
 
 
-def autoselect_decoy(diversity_indices):
+def autoselect_decoy(diversity_indices, min_len=500000, min_avg_cov=500):
     """Attempts to select a good decoy contig based on diversity index data.
+
+    There are lots of ways to implement this, so here we just stick with
+    something simple. Filter to all contigs whose lengths and average coverages
+    meet some thresholds, then determine the five lowest-diversity-index
+    contigs across all diversity index columns provided in the file. Select as
+    the decoy the contig that appears most frequently in these lists of five
+    contigs, breaking ties based on lowest diversity index.
+
+    TODO: add min_len and min_avg_cov as CLI parameters, since these could
+    cause problems if contigs are generally low-coverage and low-length?
 
     Parameters
     ----------
@@ -161,6 +171,14 @@ def autoselect_decoy(diversity_indices):
         these values if we don't already have them is time-consuming or at
         the very least annoying).
 
+    min_len: int
+        In order for a contig to be selected as the decoy, its length must be
+        at least this.
+
+    min_avg_cov: int
+        In order for a contig to be selected as the decoy, its average coverage
+        must be at least this.
+
     Returns
     -------
     decoy_contig: str
@@ -168,12 +186,38 @@ def autoselect_decoy(diversity_indices):
 
     Raises
     ------
+    ParameterError
+        If the diversity index file:
+        - Describes < 2 contigs (should have already been caught during align,
+          but you never know)
+        - Doesn't have Length or AverageCoverage columns
+
+    SequencingDataError
+        - If none of the contigs in the diversity index file pass the length
+          and average coverage thresholds.
+        - If none of the "passing" contigs in the diversity index file have
+          defined diversity indices (should never happen unless the
+          diversity index values used to generate this file are weird).
     """
     di = pd.read_csv(diversity_indices, sep="\t", index_col=0)
     if len(di.index) < 2:
         raise ParameterError(
             "Diversity indices file describes less than two contigs."
         )
+    if "Length" not in di.columns and "AverageCoverage" not in di.columns:
+        raise ParameterError(
+            "Length and AverageCoverage columns are not contained in the "
+            "diversity indices file."
+        )
+    valid_di = di[
+        (di["Length"] >= min_len) & (di["AverageCoverage"] >= min_avg_cov)
+    ]
+    if len(valid_di.index) == 0:
+        raise SequencingDataError(
+            f"No contigs pass the min length \u2265 {min_len} and min "
+            f"average cov \u2265 {min_avg_cov}x checks."
+        )
+    # TODO actually do stuff
 
 
 def run_estimate(
