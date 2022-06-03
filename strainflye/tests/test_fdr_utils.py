@@ -1,21 +1,7 @@
 import tempfile
+import pytest
 import strainflye.fdr_utils as fu
-
-# Header + first four mutations called on SheepGut using p = 0.15%
-P_VCF = (
-    "##fileformat=VCFv4.3\n"
-    "##fileDate=20220526\n"
-    '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
-    "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
-    '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
-    '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
-    '##FILTER=<ID=strainflye_minp_15, Description="min p threshold (scaled up by 100)">\n'  # noqa: E501
-    "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
-    "edge_1\t43\t.\tA\tT\t.\t.\tMDP=380;AAD=2\n"
-    "edge_1\t255\t.\tT\tC\t.\t.\tMDP=385;AAD=2\n"
-    "edge_1\t356\t.\tA\tT\t.\t.\tMDP=403;AAD=2\n"
-    "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
-)
+from strainflye.errors import ParameterError
 
 
 def write_tempfile(text):
@@ -27,7 +13,21 @@ def write_tempfile(text):
 
 def test_parse_vcf_good():
 
-    fh = write_tempfile(P_VCF)
+    # Header + first four mutations called on SheepGut using p = 0.15%
+    fh = write_tempfile(
+        "##fileformat=VCFv4.3\n"
+        "##fileDate=20220526\n"
+        '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
+        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
+        '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
+        '##FILTER=<ID=strainflye_minp_15, Description="min p threshold (scaled up by 100)">\n'  # noqa: E501
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "edge_1\t43\t.\tA\tT\t.\t.\tMDP=380;AAD=2\n"
+        "edge_1\t255\t.\tT\tC\t.\t.\tMDP=385;AAD=2\n"
+        "edge_1\t356\t.\tA\tT\t.\t.\tMDP=403;AAD=2\n"
+        "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
+    )
     vcf_obj, thresh_type, thresh_min = fu.parse_vcf(fh.name)
 
     # Let's get the easy checks out of the way first...
@@ -59,3 +59,101 @@ def test_parse_vcf_good():
         rec_aad = rec.info.get("AAD")
         assert len(rec_aad) == 1
         assert rec_aad[0] == correct_aad[ri]
+
+
+def test_parse_vcf_multi_sf_header():
+    # Header + first four mutations called on SheepGut using p = 0.15%
+    fh = write_tempfile(
+        "##fileformat=VCFv4.3\n"
+        "##fileDate=20220526\n"
+        '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
+        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
+        '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
+        '##FILTER=<ID=strainflye_minp_15, Description="min p threshold (scaled up by 100)">\n'  # noqa: E501
+        '##FILTER=<ID=strainflye_minp_20, Description="min p threshold (scaled up by 100)">\n'  # noqa: E501
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "edge_1\t43\t.\tA\tT\t.\t.\tMDP=380;AAD=2\n"
+        "edge_1\t255\t.\tT\tC\t.\t.\tMDP=385;AAD=2\n"
+        "edge_1\t356\t.\tA\tT\t.\t.\tMDP=403;AAD=2\n"
+        "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
+    )
+    with pytest.raises(ParameterError) as ei:
+        fu.parse_vcf(fh.name)
+    exp_patt = (
+        f"VCF file {fh.name} has multiple strainFlye threshold filter headers."
+    )
+    assert str(ei.value) == exp_patt
+
+
+def test_parse_vcf_no_sf_header():
+    # Header + first four mutations called on SheepGut using p = 0.15%
+    fh = write_tempfile(
+        "##fileformat=VCFv4.3\n"
+        "##fileDate=20220526\n"
+        '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
+        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
+        '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "edge_1\t43\t.\tA\tT\t.\t.\tMDP=380;AAD=2\n"
+        "edge_1\t255\t.\tT\tC\t.\t.\tMDP=385;AAD=2\n"
+        "edge_1\t356\t.\tA\tT\t.\t.\tMDP=403;AAD=2\n"
+        "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
+    )
+    with pytest.raises(ParameterError) as ei:
+        fu.parse_vcf(fh.name)
+    exp_patt = (
+        f"VCF file {fh.name} doesn't seem to be from strainFlye: no threshold "
+        "filter headers."
+    )
+    assert str(ei.value) == exp_patt
+
+
+def test_parse_vcf_missing_info_fields():
+    # Header + first four mutations called on SheepGut using p = 0.15%
+    # kind of a gross way of doing this -- should ideally set this up as a list
+    # from the start, theeen join it up, rather than going from string to list
+    # to string again. but whatevs
+    text = (
+        "##fileformat=VCFv4.3\n"
+        "##fileDate=20220526\n"
+        '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
+        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
+        '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
+        '##FILTER=<ID=strainflye_minp_15, Description="min p threshold (scaled up by 100)">\n'  # noqa: E501
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "edge_1\t43\t.\tA\tT\t.\t.\tMDP=380;AAD=2\n"
+        "edge_1\t255\t.\tT\tC\t.\t.\tMDP=385;AAD=2\n"
+        "edge_1\t356\t.\tA\tT\t.\t.\tMDP=403;AAD=2\n"
+        "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
+    )
+    split_text = text.splitlines()
+
+    # remove just the MDP line
+    fh = write_tempfile("\n".join(split_text[:4] + split_text[5:]))
+    with pytest.raises(ParameterError) as ei:
+        fu.parse_vcf(fh.name)
+    exp_patt = f"VCF file {fh.name} needs to have MDP and AAD info fields."
+    assert str(ei.value) == exp_patt
+
+    # remove just the AAD line
+    fh = write_tempfile("\n".join(split_text[:5] + split_text[6:]))
+    with pytest.raises(ParameterError) as ei:
+        fu.parse_vcf(fh.name)
+    exp_patt = f"VCF file {fh.name} needs to have MDP and AAD info fields."
+    assert str(ei.value) == exp_patt
+
+    # remove both the MDP and AAD lines
+    fh = write_tempfile("\n".join(split_text[:4] + split_text[6:]))
+    with pytest.raises(ParameterError) as ei:
+        fu.parse_vcf(fh.name)
+    exp_patt = f"VCF file {fh.name} needs to have MDP and AAD info fields."
+    assert str(ei.value) == exp_patt
+
+    # finally, sanity check that putting back in all the lines works (doesn't
+    # throw an error) -- we check this dataset in detail above, so no need to
+    # do that again here
+    fh = write_tempfile("\n".join(split_text))
+    fu.parse_vcf(fh.name)
