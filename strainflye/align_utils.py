@@ -726,6 +726,9 @@ def run(reads, contigs, graph, output_dir, fancylog, verbose):
         # marcus)
         raise ParameterError("Collection of input reads should be a tuple.")
 
+    # Note that get_name2len() does some sanity checking on the FASTA
+    fasta_name2len = fasta_utils.get_name2len(contigs)
+
     # Sanity-check that the GFA segments are identical to the FASTA contigs. If
     # not, we've got problems (in this case, it's probably easiest to just not
     # consider the GFA in the PM read filter).
@@ -743,8 +746,6 @@ def run(reads, contigs, graph, output_dir, fancylog, verbose):
         # (I'm not keeping the graph in memory once we parse it, since it'll be
         # quite a while until we get to the PM read filter.)
         graph_obj = graph_utils.load_gfa(graph)
-        # Note that get_name2len() does its own sanity checking on the FASTA
-        fasta_name2len = fasta_utils.get_name2len(contigs)
         graph_nodes = set(graph_obj.nodes())
         fasta_nodes = set(fasta_name2len.keys())
         if graph_nodes != fasta_nodes:

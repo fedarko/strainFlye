@@ -18,7 +18,7 @@ def test_get_name2len_basic():
 
 def test_get_name2len_oneseq():
     sio = StringIO(">lonely\nGTAC\n")
-    n2l = utils.get_name2len(sio)
+    n2l = utils.get_name2len(sio, min_num_contigs=1)
     assert n2l == {"lonely": 4}
 
 
@@ -77,4 +77,23 @@ def test_get_name2len_gap():
         f"Sequence seq0 in {SIO_REPR} has at least one gap. "
         "This isn't supported at the moment, sorry."
     )
+    assert re.match(exp_pattern, str(ei.value)) is not None
+
+
+def test_get_name2len_min_num_contigs():
+    sio = StringIO(">lonely\nGTAC\n")
+    with pytest.raises(SequencingDataError) as ei:
+        utils.get_name2len(sio)
+    exp_pattern = f"Less than 2 contigs are given in {SIO_REPR}."
+    assert re.match(exp_pattern, str(ei.value)) is not None
+
+
+def test_get_name2len_min_num_contigs_zero():
+    # I assumed that this case would cause skbio to raise an error, but it just
+    # raises a warning. Fortunately, the min_num_contigs check automatically
+    # accounts for this case.
+    sio = StringIO("")
+    with pytest.raises(SequencingDataError) as ei:
+        utils.get_name2len(sio)
+    exp_pattern = f"Less than 2 contigs are given in {SIO_REPR}."
     assert re.match(exp_pattern, str(ei.value)) is not None
