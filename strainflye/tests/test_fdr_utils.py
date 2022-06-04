@@ -264,3 +264,27 @@ def test_autoselect_decoy_only_one_passing(capsys):
         "MockLog: Warning: Only one contig passes the min length \u2265 "
         "10,000,000 and min average cov \u2265 202.53x checks. Selecting it.\n"
     )
+
+
+def test_autoselect_decoy_all_passing_undefined_di(capsys):
+    def run_check(tsv_text):
+        with pytest.raises(SequencingDataError) as ei:
+            fu.autoselect_decoy(StringIO(tsv_text), int(1e7), 202.53, mock_log)
+        assert str(ei.value) == (
+            "No diversity index column has at least two contigs that (1) pass "
+            "the min length \u2265 10,000,000 and min average cov \u2265 "
+            "202.53x checks and (2) have defined diversity indices in this "
+            "column."
+        )
+    # Check 1: One NA in both columns
+    run_check(
+        f"Contig\tAverageCoverage\tLength\t{DI_PREF}1\t{DI_PREF}2\n"
+        "edge_1\t35000\t100000000000\tNA\t0.2\n"
+        "edge_2\t202.53\t10000000\t0.6\tNA\n"
+    )
+    # Check 2: All NAs
+    run_check(
+        f"Contig\tAverageCoverage\tLength\t{DI_PREF}1\t{DI_PREF}2\n"
+        "edge_1\t35000\t100000000000\tNA\tNA\n"
+        "edge_2\t202.53\t10000000\tNA\tNA\n"
+    )

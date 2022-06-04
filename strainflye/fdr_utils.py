@@ -211,8 +211,8 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
     SequencingDataError
         - If none of the contigs in the diversity index file pass the length
           and average coverage thresholds.
-        - If none of the diversity index columns have at least two "passing"
-          contigs with defined diversity indices.
+        - If none of the diversity index columns has at least two "passing"
+          contigs with defined diversity indices in this column.
     """
     di = pd.read_csv(diversity_indices, sep="\t", index_col=0)
 
@@ -291,8 +291,9 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
 
     if len(good_di_cols) == 0:
         raise SequencingDataError(
-            "No diversity index columns have at least two contigs that pass "
-            f"{check_str} and also have defined diversity indices."
+            "No diversity index column has at least two contigs that (1) pass "
+            f"{check_str} and (2) have defined diversity indices in this "
+            "column."
         )
     lowest_score_contig = min(passing_contigs, key=contig2score.get)
     return lowest_score_contig
