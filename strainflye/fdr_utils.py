@@ -220,9 +220,7 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
     # although we could select that contig as a decoy, we wouldn't have any
     # target contigs left!
     if len(di.index) < 2:
-        raise ParameterError(
-            "Diversity indices file describes < 2 contigs."
-        )
+        raise ParameterError("Diversity indices file describes < 2 contigs.")
 
     if "Length" not in di.columns or "AverageCoverage" not in di.columns:
         raise ParameterError(
