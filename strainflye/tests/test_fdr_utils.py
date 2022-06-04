@@ -4,6 +4,7 @@ import strainflye.fdr_utils as fu
 from io import StringIO
 from strainflye.errors import ParameterError, SequencingDataError
 from strainflye.config import DI_PREF
+from .utils_for_testing import mock_log
 
 
 def write_tempfile(text):
@@ -191,14 +192,14 @@ def test_autoselect_decoy_not_enough_contigs():
         "edge_1\t35.2\t100\t0.5\t0.2\n"
     )
     with pytest.raises(ParameterError) as ei:
-        fu.autoselect_decoy(tsv, 1e6, 1e2, print)
+        fu.autoselect_decoy(tsv, 1e6, 1e2, mock_log)
     assert str(ei.value) == "Diversity indices file describes < 2 contigs."
 
 
 def test_autoselect_decoy_missing_required_cols():
     def run_check(tsv_text):
         with pytest.raises(ParameterError) as ei:
-            fu.autoselect_decoy(StringIO(tsv_text), 1e6, 1e2, print)
+            fu.autoselect_decoy(StringIO(tsv_text), 1e6, 1e2, mock_log)
         assert str(ei.value) == (
             "Diversity indices file must include the Length and "
             "AverageCoverage columns."
@@ -227,10 +228,9 @@ def test_autoselect_decoy_missing_required_cols():
 
 
 def test_autoselect_decoy_no_passing():
-
     def run_check(tsv_text):
         with pytest.raises(SequencingDataError) as ei:
-            fu.autoselect_decoy(StringIO(tsv_text), int(1e6), 100.5, print)
+            fu.autoselect_decoy(StringIO(tsv_text), int(1e6), 100.5, mock_log)
         assert str(ei.value) == (
             "No contigs pass the min length \u2265 1,000,000 and min average cov "
             "\u2265 100.5x checks."
@@ -248,4 +248,19 @@ def test_autoselect_decoy_no_passing():
         f"Contig\tAverageCoverage\tLength\t{DI_PREF}1\t{DI_PREF}2\n"
         "edge_1\t3500\t100\t0.5\t0.2\n"
         "edge_2\t36\t100000000000\t0.6\t0.1\n"
+    )
+
+
+def test_autoselect_decoy_only_one_passing(capsys):
+    tsv_text = (
+        f"Contig\tAverageCoverage\tLength\t{DI_PREF}1\t{DI_PREF}2\n"
+        "edge_1\t35\t1000\t0.5\t0.2\n"
+        "edge_2\t202.53\t10000000\t0.6\t0.1\n"
+    )
+    dc = fu.autoselect_decoy(StringIO(tsv_text), int(1e7), 202.53, mock_log)
+    assert dc == "edge_2"
+    captured = capsys.readouterr()
+    assert captured.out == (
+        "MockLog: Warning: Only one contig passes the min length \u2265 "
+        "10,000,000 and min average cov \u2265 202.53x checks. Selecting it.\n"
     )

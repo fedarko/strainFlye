@@ -10,6 +10,7 @@ from strainflye.call_utils import (
     get_min_sufficient_coverages_r,
     run,
 )
+from .utils_for_testing import mock_log
 
 
 def test_get_alt_pos_info():
@@ -248,7 +249,7 @@ def test_run_p_r_conflict():
             "b",
             "ov",
             "od",
-            print,
+            mock_log,
             True,
             min_p=5,
             min_r=6,
@@ -263,5 +264,5 @@ def test_run_p_r_conflict():
     )
 
     with pytest.raises(ParameterError) as errorinfo:
-        run("c", "b", "ov", "od", print, True)
+        run("c", "b", "ov", "od", mock_log, True)
     assert "Either p or r needs to be specified." == str(errorinfo.value)
