@@ -233,8 +233,8 @@ def test_autoselect_decoy_no_passing():
         with pytest.raises(SequencingDataError) as ei:
             fu.autoselect_decoy(StringIO(tsv_text), int(1e6), 100.5, mock_log)
         assert str(ei.value) == (
-            "No contigs pass the min length \u2265 1,000,000 and min average cov "
-            "\u2265 100.5x checks."
+            "No contigs pass the min length \u2265 1,000,000 and min average "
+            "cov \u2265 100.5x checks."
         )
 
     # Check 1: neither contig passes either the length or coverage check
@@ -277,6 +277,7 @@ def test_autoselect_decoy_all_passing_undefined_di(capsys):
             "202.53x checks and (2) have defined and distinct diversity "
             "indices in this column."
         )
+
     # Check 1: One NA in both columns
     run_check(
         f"Contig\tAverageCoverage\tLength\t{DI_PREF}1\t{DI_PREF}2\n"
@@ -292,7 +293,12 @@ def test_autoselect_decoy_all_passing_undefined_di(capsys):
 
 
 def test_normalize_series_identical():
-    assert fu.normalize_series(pd.Series([3, 3, 3], index=["a", "b", "c"], name="DI")) is None
+    assert (
+        fu.normalize_series(
+            pd.Series([3, 3, 3], index=["a", "b", "c"], name="DI")
+        )
+        is None
+    )
 
     # in practice the decoy autoselection should never pass a series with < 2
     # elements but you never know, may as well be safe
