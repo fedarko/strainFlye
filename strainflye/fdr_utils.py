@@ -442,13 +442,12 @@ def run_estimate(
             f"Selected decoy contig {used_decoy_contig} is not present in "
             f"{contigs}."
         )
+    # if someone chuckles at this, the project is successful
+    # that's how it works
     fancylog(
-        (
-            "Verified that the decoy contig is present in this file. (Sorry "
-            "for doubting you.)"
-        ),
-        prefix="",
+        "Verified that the decoy contig is present in this file.", prefix=""
     )
+    fancylog("(Sorry for doubting you.)", prefix="")
 
     # TODO: verify that all contigs in the VCF are also present in the contigs
     # file (maaaybe will change later if contigs can be a subset of total, but
