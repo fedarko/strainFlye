@@ -1,5 +1,6 @@
 import tempfile
 import pytest
+import pandas as pd
 import strainflye.fdr_utils as fu
 from io import StringIO
 from strainflye.errors import ParameterError, SequencingDataError
@@ -273,8 +274,8 @@ def test_autoselect_decoy_all_passing_undefined_di(capsys):
         assert str(ei.value) == (
             "No diversity index column has at least two contigs that (1) pass "
             "the min length \u2265 10,000,000 and min average cov \u2265 "
-            "202.53x checks and (2) have defined diversity indices in this "
-            "column."
+            "202.53x checks and (2) have defined and distinct diversity "
+            "indices in this column."
         )
     # Check 1: One NA in both columns
     run_check(
@@ -288,3 +289,11 @@ def test_autoselect_decoy_all_passing_undefined_di(capsys):
         "edge_1\t35000\t100000000000\tNA\tNA\n"
         "edge_2\t202.53\t10000000\tNA\tNA\n"
     )
+
+
+def test_normalize_series_identical():
+    assert fu.normalize_series(pd.Series([3, 3, 3], index=["a", "b", "c"], name="DI")) is None
+
+    # in practice the decoy autoselection should never pass a series with < 2
+    # elements but you never know, may as well be safe
+    assert fu.normalize_series(pd.Series([3], index=["a"], name="DI")) is None

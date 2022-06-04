@@ -150,6 +150,42 @@ def check_decoy_selection(diversity_indices, decoy_contig):
             )
 
 
+def normalize_series(in_series):
+    """Converts a series to values in the range [0, 1].
+
+    Parameters
+    ----------
+    in_series: pd.Series
+        We assume that this does not contain any nan values.
+
+    Returns
+    -------
+    None or pd.Series
+        If the minimum and maximum of in_series are identical, this will just
+        return None. (In this case, we can't scale values, because the
+        denominator we use when converting a value (max - min) is zero.)
+
+        If the minimum and maximum are not identical (which should usually
+        be the case with diversity indices, hopefully...) then this will return
+        a pd.Series with the same index as in_series, but with each entry
+        scaled to within the range [0, 1] (such that the min value in in_series
+        is set to 0, the max is set to 1, and everything else is in between).
+    """
+    # Small TODO: in theory, it'd be faster to combine the
+    # computation of min and max into a single pass over the values
+    # (see e.g. https://stackoverflow.com/q/12200580) but this
+    # probably won't be a performance bottleneck so I'm not gonna
+    # bother for now
+    min_val = min(in_series)
+    max_val = max(in_series)
+    if min_val == max_val:
+        return None
+    else:
+        # Use pandas' vectorization to apply linear interpolation
+        # across all diversity indices in this Series
+        return (in_series - min_val) / (max_val - min_val)
+
+
 def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
     """Attempts to select a good decoy contig based on diversity index data.
 
@@ -212,7 +248,7 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
         - If none of the contigs in the diversity index file pass the length
           and average coverage thresholds.
         - If none of the diversity index columns has at least two "passing"
-          contigs with defined diversity indices in this column.
+          contigs with defined and distinct diversity indices in this column.
     """
     di = pd.read_csv(diversity_indices, sep="\t", index_col=0)
 
@@ -264,36 +300,35 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
         # ignore non-diversity-index columns
         if di_col.startswith(DI_PREF):
             di_vals = passing_di[di_col]
+            # Ignore diversity index columns where less than two contigs have
+            # defined diversity indices, since these don't mean much for our
+            # score computation (at least as currently defined)
             finite_di_vals = di_vals[~di_vals.isna()]
             if len(finite_di_vals.index) >= 2:
                 good_di_cols.append(di_col)
 
-                # Small TODO: in theory, it'd be faster to combine the
-                # computation of min and max into a single pass over the values
-                # (see e.g. https://stackoverflow.com/q/12200580) but this
-                # probably won't be a performance bottleneck so I'm not gonna
-                # bother for now
-                min_di = min(finite_di_vals)
-                max_di = max(finite_di_vals)
-
-                # Use pandas' vectorization to apply linear interpolation
-                # across all diversity indices in this Series
-                scores = (finite_di_vals - min_di) / (max_di - min_di)
-                # Update scores.
-                for passing_contig in passing_di.index:
-                    if passing_contig in scores:
-                        contig2score[passing_contig] += scores[passing_contig]
-                    else:
-                        # Penalize this contig for not having a defined
-                        # diversity index in this column: give it the maximum
-                        # possible score
-                        contig2score[passing_contig] += 1
+                scores = normalize_series(finite_di_vals)
+                # normalize_series() will return None if the min and max value
+                # in finite_di_vals are identical. In this case, we can't
+                # generate meaningful scores, so we just move on.
+                if scores is not None:
+                    # Update scores.
+                    for passing_contig in passing_di.index:
+                        if passing_contig in scores:
+                            contig2score[passing_contig] += scores[
+                                passing_contig
+                            ]
+                        else:
+                            # Penalize this contig for not having a defined
+                            # diversity index in this column: give it the max
+                            # possible score
+                            contig2score[passing_contig] += 1
 
     if len(good_di_cols) == 0:
         raise SequencingDataError(
             "No diversity index column has at least two contigs that (1) pass "
-            f"{check_str} and (2) have defined diversity indices in this "
-            "column."
+            f"{check_str} and (2) have defined and distinct diversity indices "
+            "in this column."
         )
     lowest_score_contig = min(passing_contigs, key=contig2score.get)
     return lowest_score_contig
