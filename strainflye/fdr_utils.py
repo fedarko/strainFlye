@@ -297,21 +297,24 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
     # that have defined (non-NA) diversity indices
     good_di_cols = []
     for di_col in passing_di.columns:
+
         # ignore non-diversity-index columns
         if di_col.startswith(DI_PREF):
             di_vals = passing_di[di_col]
+
             # Ignore diversity index columns where less than two contigs have
             # defined diversity indices, since these don't mean much for our
             # score computation (at least as currently defined)
             finite_di_vals = di_vals[~di_vals.isna()]
             if len(finite_di_vals.index) >= 2:
-                good_di_cols.append(di_col)
 
                 scores = normalize_series(finite_di_vals)
                 # normalize_series() will return None if the min and max value
                 # in finite_di_vals are identical. In this case, we can't
                 # generate meaningful scores, so we just move on.
                 if scores is not None:
+                    good_di_cols.append(di_col)
+
                     # Update scores.
                     for passing_contig in passing_di.index:
                         if passing_contig in scores:

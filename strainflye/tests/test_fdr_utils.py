@@ -267,7 +267,7 @@ def test_autoselect_decoy_only_one_passing(capsys):
     )
 
 
-def test_autoselect_decoy_all_passing_undefined_di(capsys):
+def test_autoselect_decoy_all_passing_undefined_di():
     def run_check(tsv_text):
         with pytest.raises(SequencingDataError) as ei:
             fu.autoselect_decoy(StringIO(tsv_text), int(1e7), 202.53, mock_log)
@@ -289,6 +289,35 @@ def test_autoselect_decoy_all_passing_undefined_di(capsys):
         f"Contig\tAverageCoverage\tLength\t{DI_PREF}1\t{DI_PREF}2\n"
         "edge_1\t35000\t100000000000\tNA\tNA\n"
         "edge_2\t202.53\t10000000\tNA\tNA\n"
+    )
+
+
+def test_autoselect_decoy_all_passing_identical_di():
+    # The error message received is the same as the "all passing undefined"
+    # case tested above, but the cause is slightly different.
+    # I could actually see this happening in practice (not likely, but if there
+    # are a lot of small contigs / the users adjust the threshold params /
+    # etc), so we should test it.
+    def run_check(tsv_text):
+        with pytest.raises(SequencingDataError) as ei:
+            fu.autoselect_decoy(StringIO(tsv_text), int(1e7), 202.53, mock_log)
+        assert str(ei.value) == (
+            "No diversity index column has at least two contigs that (1) pass "
+            "the min length \u2265 10,000,000 and min average cov \u2265 "
+            "202.53x checks and (2) have defined and distinct diversity "
+            "indices in this column."
+        )
+    run_check(
+        f"Contig\tAverageCoverage\tLength\t{DI_PREF}1\t{DI_PREF}2\n"
+        "edge_1\t35000\t100000000000\t0\t3\n"
+        "edge_2\t202.53\t10000000\t0\t3\n"
+        "edge_3\t202.53\t10000000\t0\t3\n"
+    )
+    run_check(
+        f"Contig\tAverageCoverage\tLength\t{DI_PREF}1\t{DI_PREF}2\n"
+        "edge_1\t35000\t100000000000\tNA\t3\n"
+        "edge_2\t202.53\t10000000\tNA\t3\n"
+        "edge_3\t202.53\t10000000\tNA\t3\n"
     )
 
 
