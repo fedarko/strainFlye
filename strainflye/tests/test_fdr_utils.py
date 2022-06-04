@@ -303,3 +303,17 @@ def test_normalize_series_identical():
     # in practice the decoy autoselection should never pass a series with < 2
     # elements but you never know, may as well be safe
     assert fu.normalize_series(pd.Series([3], index=["a"], name="DI")) is None
+
+
+def test_normalize_series_good():
+    s_params = {"index": ["a", "b", "c", "d", "e"], "name": "DI"}
+    assert (
+        (fu.normalize_series(pd.Series([2, 5, 9, 2, 1], **s_params)))
+        == pd.Series([1 / 8, 1 / 2, 1, 1 / 8, 0], **s_params)
+    ).all()
+
+    s_params = {"index": ["a", "b"], "name": "DI"}
+    assert (
+        (fu.normalize_series(pd.Series([2, 5], **s_params)))
+        == pd.Series([0, 1], **s_params)
+    ).all()
