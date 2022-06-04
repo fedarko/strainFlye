@@ -6,6 +6,7 @@ import pysam
 import pandas as pd
 from collections import defaultdict
 from .errors import ParameterError, SequencingDataError
+from .config import DI_PREF
 
 
 def parse_vcf(vcf):
@@ -215,15 +216,18 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
     """
     di = pd.read_csv(diversity_indices, sep="\t", index_col=0)
 
+    # We raise an error here that covers the just-one-contig case, too. Because
+    # although we could select that contig as a decoy, we wouldn't have any
+    # target contigs left!
     if len(di.index) < 2:
         raise ParameterError(
-            "Diversity indices file describes less than two contigs."
+            "Diversity indices file describes < 2 contigs."
         )
 
-    if "Length" not in di.columns and "AverageCoverage" not in di.columns:
+    if "Length" not in di.columns or "AverageCoverage" not in di.columns:
         raise ParameterError(
-            "Length and AverageCoverage columns are not contained in the "
-            "diversity indices file."
+            "Diversity indices file must include the Length and "
+            "AverageCoverage columns."
         )
 
     # Filter to contigs that pass both the length and coverage thresholds.
@@ -240,6 +244,10 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
     if num_passing_contigs == 0:
         raise SequencingDataError(f"No contigs pass {check_str}.")
     elif num_passing_contigs == 1:
+        # Arguably, we could raise an error here -- but we know at this point
+        # that there are >= 2 contigs in the file (and this is just the only
+        # one that passes the length and coverage thresholds). So we may as
+        # well select this contig, albeit after giving a warning.
         fancylog(
             f"Warning: Only one contig passes {check_str}. Selecting it.",
             prefix="",
@@ -251,36 +259,39 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
     # Diversity index columns where there are at least two "passing" contigs
     # that have defined (non-NA) diversity indices
     good_di_cols = []
-    for di_col in set(passing_di.columns) - {"Length", "AverageCoverage"}:
-        di_vals = passing_di[di_col]
-        finite_di_vals = di_vals[~di_vals.isna()]
-        if len(finite_di_vals.index) >= 2:
-            good_di_cols.append(di_col)
+    for di_col in passing_di.columns:
+        # ignore non-diversity-index columns
+        if di_col.startswith(DI_PREF):
+            di_vals = passing_di[di_col]
+            finite_di_vals = di_vals[~di_vals.isna()]
+            if len(finite_di_vals.index) >= 2:
+                good_di_cols.append(di_col)
 
-            # Small TODO: in theory, it'd be faster to combine the computation
-            # of min and max into a single pass over the values (see e.g.
-            # https://stackoverflow.com/q/12200580) but this probably won't
-            # be a performance bottleneck so I'm not gonna bother for now
-            min_di = min(finite_di_vals)
-            max_di = max(finite_di_vals)
+                # Small TODO: in theory, it'd be faster to combine the
+                # computation of min and max into a single pass over the values
+                # (see e.g. https://stackoverflow.com/q/12200580) but this
+                # probably won't be a performance bottleneck so I'm not gonna
+                # bother for now
+                min_di = min(finite_di_vals)
+                max_di = max(finite_di_vals)
 
-            # Use pandas' vectorization to apply linear interpolation across
-            # all diversity indices in this Series
-            scores = (finite_di_vals - min_di) / (max_di - min_di)
-            # Update scores.
-            for passing_contig in passing_di.index:
-                if passing_contig in scores:
-                    contig2score[passing_contig] += scores[passing_contig]
-                else:
-                    # Penalize this contig for not having a defined diversity
-                    # index in this column: give it the maximum possible score
-                    contig2score[passing_contig] += 1
+                # Use pandas' vectorization to apply linear interpolation
+                # across all diversity indices in this Series
+                scores = (finite_di_vals - min_di) / (max_di - min_di)
+                # Update scores.
+                for passing_contig in passing_di.index:
+                    if passing_contig in scores:
+                        contig2score[passing_contig] += scores[passing_contig]
+                    else:
+                        # Penalize this contig for not having a defined
+                        # diversity index in this column: give it the maximum
+                        # possible score
+                        contig2score[passing_contig] += 1
 
     if len(good_di_cols) == 0:
         raise SequencingDataError(
-            "No diversity index columns in the TSV file have at least two "
-            f"contigs that pass {check_str} and also have defined diversity "
-            "indices."
+            "No diversity index columns have at least two contigs that pass "
+            f"{check_str} and also have defined diversity indices."
         )
     lowest_score_contig = min(passing_contigs, key=contig2score.get)
     return lowest_score_contig

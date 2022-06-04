@@ -14,3 +14,6 @@ MAX_DEPTH_PYSAM = 10000000
 # zero, but that would cause literally every position to be a mutation, so...
 # look, don't do that, okay?)
 HIGH_FREQUENCY_MIN_PCT = 5
+
+# Prefix of diversity index columns in diversity index TSV files
+DI_PREF = "DivIdx"

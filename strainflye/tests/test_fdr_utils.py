@@ -1,7 +1,9 @@
 import tempfile
 import pytest
 import strainflye.fdr_utils as fu
+from io import StringIO
 from strainflye.errors import ParameterError
+from strainflye.config import DI_PREF
 
 
 def write_tempfile(text):
@@ -12,8 +14,9 @@ def write_tempfile(text):
 
 
 def test_parse_vcf_good():
-
     # Header + first four mutations called on SheepGut using p = 0.15%
+    # ... just for reference, using StringIO didn't seem to work with pysam's
+    # VCF reader, hence the use of tempfiles here
     fh = write_tempfile(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220526\n"
@@ -177,4 +180,47 @@ def test_check_decoy_selection():
     assert str(ei.value) == (
         "Either the diversity indices file or a decoy contig must be "
         "specified."
+    )
+
+
+def test_autoselect_decoy_not_enough_contigs():
+    # fortunately, pandas.read_csv() is cool with StringIO, so we don't have to
+    # write out tempfiles
+    tsv = StringIO(
+        f"Contig\tAverageCoverage\tLength\t{DI_PREF}\t{DI_PREF}\n"
+        "edge_1\t35.2\t100\t0.5\t0.2\n"
+    )
+    with pytest.raises(ParameterError) as ei:
+        fu.autoselect_decoy(tsv, 1e6, 1e2, print)
+    assert str(ei.value) == "Diversity indices file describes < 2 contigs."
+
+
+def test_autoselect_decoy_missing_required_cols():
+    def run_check(tsv_text):
+        with pytest.raises(ParameterError) as ei:
+            fu.autoselect_decoy(StringIO(tsv_text), 1e6, 1e2, print)
+        assert str(ei.value) == (
+            "Diversity indices file must include the Length and "
+            "AverageCoverage columns."
+        )
+
+    # Check 1: omit AverageCoverage
+    run_check(
+        f"Contig\tLength\t{DI_PREF}1\t{DI_PREF}2\n"
+        "edge_1\t35\t0.5\t0.2\n"
+        "edge_2\t36\t0.5\t0.2\n"
+    )
+
+    # Check 2: omit Length
+    run_check(
+        f"Contig\tAverageCoverage\t{DI_PREF}1\t{DI_PREF}2\n"
+        "edge_1\t35.2\t0.5\t0.2\n"
+        "edge_2\t36\t0.5\t0.2\n"
+    )
+
+    # Check 3: omit both
+    run_check(
+        f"Contig\t{DI_PREF}1\t{DI_PREF}2\n"
+        "edge_1\t0.5\t0.2\n"
+        "edge_2\t0.5\t0.2\n"
     )

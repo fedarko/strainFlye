@@ -313,7 +313,7 @@ def run(
             div_index_p_list, min_read_number=min_read_number
         )
         for p, msc in zip(div_index_p_list, min_suff_coverages):
-            di_header += f"\tDivIdx(p={p},minSuffCov={msc})"
+            di_header += f"\t{config.DI_PREF}(p={p},minSuffCov={msc})"
 
     else:
         param_name = "r"
@@ -326,7 +326,7 @@ def run(
             div_index_r_list, min_cov_factor=min_cov_factor
         )
         for r, msc in zip(div_index_r_list, min_suff_coverages):
-            di_header += f"\tDivIdx(r={r},minSuffCov={msc})"
+            di_header += f"\t{config.DI_PREF}(r={r},minSuffCov={msc})"
 
     call_str = f"{param_name}-mutation calling ({min_str})"
     fancylog(f"Running {call_str}.")
