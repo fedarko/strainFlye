@@ -235,6 +235,9 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
     ]
     passing_contigs = passing_di.index
     num_passing_contigs = len(passing_contigs)
+    # it isn't clear how much precision min_avg_cov has, so we don't impose any
+    # limit on how many digits it goes out to when printing it out. let's let
+    # python handle this one
     check_str = (
         f"the min length \u2265 {min_len:,} and min average cov \u2265 "
         f"{min_avg_cov:,}x checks"

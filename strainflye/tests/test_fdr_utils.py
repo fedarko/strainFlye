@@ -2,7 +2,7 @@ import tempfile
 import pytest
 import strainflye.fdr_utils as fu
 from io import StringIO
-from strainflye.errors import ParameterError
+from strainflye.errors import ParameterError, SequencingDataError
 from strainflye.config import DI_PREF
 
 
@@ -223,4 +223,29 @@ def test_autoselect_decoy_missing_required_cols():
         f"Contig\t{DI_PREF}1\t{DI_PREF}2\n"
         "edge_1\t0.5\t0.2\n"
         "edge_2\t0.5\t0.2\n"
+    )
+
+
+def test_autoselect_decoy_no_passing():
+
+    def run_check(tsv_text):
+        with pytest.raises(SequencingDataError) as ei:
+            fu.autoselect_decoy(StringIO(tsv_text), int(1e6), 100.5, print)
+        assert str(ei.value) == (
+            "No contigs pass the min length \u2265 1,000,000 and min average cov "
+            "\u2265 100.5x checks."
+        )
+
+    # Check 1: neither contig passes either the length or coverage check
+    run_check(
+        f"Contig\tAverageCoverage\tLength\t{DI_PREF}1\t{DI_PREF}2\n"
+        "edge_1\t35\t1000\t0.5\t0.2\n"
+        "edge_2\t36\t1000\t0.6\t0.1\n"
+    )
+    # Check 2: One passes the coverage check, the other passes the length
+    # check, neither passes both
+    run_check(
+        f"Contig\tAverageCoverage\tLength\t{DI_PREF}1\t{DI_PREF}2\n"
+        "edge_1\t3500\t100\t0.5\t0.2\n"
+        "edge_2\t36\t100000000000\t0.6\t0.1\n"
     )
