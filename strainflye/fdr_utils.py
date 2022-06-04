@@ -148,7 +148,7 @@ def check_decoy_selection(diversity_indices, decoy_contig):
             )
 
 
-def autoselect_decoy(diversity_indices, min_len=500000, min_avg_cov=500):
+def autoselect_decoy(diversity_indices, min_len, min_avg_cov):
     """Attempts to select a good decoy contig based on diversity index data.
 
     There are lots of ways to implement this, so here we just stick with
@@ -157,9 +157,6 @@ def autoselect_decoy(diversity_indices, min_len=500000, min_avg_cov=500):
     contigs across all diversity index columns provided in the file. Select as
     the decoy the contig that appears most frequently in these lists of five
     contigs, breaking ties based on lowest diversity index.
-
-    TODO: add min_len and min_avg_cov as CLI parameters, since these could
-    cause problems if contigs are generally low-coverage and low-length?
 
     Parameters
     ----------
@@ -175,7 +172,7 @@ def autoselect_decoy(diversity_indices, min_len=500000, min_avg_cov=500):
         In order for a contig to be selected as the decoy, its length must be
         at least this.
 
-    min_avg_cov: int
+    min_avg_cov: float
         In order for a contig to be selected as the decoy, its average coverage
         must be at least this.
 
@@ -209,13 +206,15 @@ def autoselect_decoy(diversity_indices, min_len=500000, min_avg_cov=500):
             "Length and AverageCoverage columns are not contained in the "
             "diversity indices file."
         )
+    # Filter to contigs that pass both the length and coverage thresholds.
+    # https://stackoverflow.com/a/13616382
     valid_di = di[
         (di["Length"] >= min_len) & (di["AverageCoverage"] >= min_avg_cov)
     ]
     if len(valid_di.index) == 0:
         raise SequencingDataError(
-            f"No contigs pass the min length \u2265 {min_len} and min "
-            f"average cov \u2265 {min_avg_cov}x checks."
+            f"No contigs pass the min length \u2265 {min_len:,} and min "
+            f"average cov \u2265 {min_avg_cov:,}x checks."
         )
     # TODO actually do stuff
 
@@ -227,6 +226,8 @@ def run_estimate(
     decoy_context,
     high_p,
     high_r,
+    decoy_min_length,
+    decoy_min_average_coverage,
     output_fdr_info,
     fancylog,
 ):
@@ -263,6 +264,14 @@ def run_estimate(
     high_r: int
         "Indisputable" threshold for r-mutations.
 
+    decoy_min_length: int
+        If automatically selecting decoy contigs, we'll only consider contigs
+        that are at least this long.
+
+    decoy_min_average_coverage: float
+        If automatically selecting decoy contigs, we'll only consider contigs
+        with average coverages of at least this.
+
     output_fdr_info: str
         Filepath to which we'll write a TSV file describing estimated FDRs
         for the target contigs.
@@ -283,7 +292,9 @@ def run_estimate(
     if selection_type == "DI":
         fancylog("Selecting a decoy contig based on the diversity indices...")
         # Automatically select a decoy contig from the diversity indices
-        used_decoy_contig = autoselect_decoy(diversity_indices)
+        used_decoy_contig = autoselect_decoy(
+            diversity_indices, decoy_min_length, decoy_min_average_coverage
+        )
         fancylog(f"Using {used_decoy_contig} as the decoy contig.", prefix="")
     else:
         used_decoy_contig = decoy_contig

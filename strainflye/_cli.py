@@ -486,11 +486,12 @@ strainflye.add_command(fdr)
     required=False,
     type=click.STRING,
     help=(
-        "Name of the decoy contig to use for FDR estimation. Mutually "
-        "exclusive with --diversity-indices."
+        "Name of a specific contig to use as the decoy contig for FDR "
+        "estimation. Mutually exclusive with --diversity-indices."
     ),
 )
 @click.option(
+    "-dctx",
     "--decoy-context",
     required=False,
     default="CP2",
@@ -538,6 +539,30 @@ strainflye.add_command(fdr)
     ),
 )
 @click.option(
+    "-dml",
+    "--decoy-min-length",
+    required=False,
+    default=1000000,
+    show_default=True,
+    type=click.IntRange(min=0, min_open=True),
+    help=(
+        "Minimum length of a potential decoy contig. Only used if "
+        "--diversity-indices is specified."
+    ),
+)
+@click.option(
+    "-dmac",
+    "--decoy-min-average-coverage",
+    required=False,
+    default=500,
+    show_default=True,
+    type=click.FloatRange(min=0, min_open=True),
+    help=(
+        "Minimum average coverage of a potential decoy contig. Only used if "
+        "--diversity-indices is specified."
+    ),
+)
+@click.option(
     "-o",
     "--output-fdr-info",
     required=True,
@@ -555,6 +580,8 @@ def estimate(
     decoy_context,
     high_p,
     high_r,
+    decoy_min_length,
+    decoy_min_average_coverage,
     output_fdr_info,
 ):
     """Estimates contigs' mutation calls' FDRs.
@@ -577,6 +604,7 @@ def estimate(
             ("VCF file", vcf),
             ("diversity indices file", diversity_indices),
             ("manually-set decoy contig", decoy_contig),
+            ("decoy contig context-dependent mutation type", decoy_context),
             (
                 (
                     "high p threshold (only used if the VCF describes "
@@ -591,6 +619,20 @@ def estimate(
                 ),
                 high_r,
             ),
+            (
+                (
+                    "min length of a potential decoy contig (only used if "
+                    "diversity indices are specified)"
+                ),
+                decoy_min_length,
+            ),
+            (
+                (
+                    "min average coverage of a potential decoy contig (only "
+                    "used if diversity indices are specified)"
+                ),
+                decoy_min_average_coverage,
+            ),
         ),
         (("FDR estimate file", output_fdr_info),),
     )
@@ -601,6 +643,8 @@ def estimate(
         decoy_context,
         high_p,
         high_r,
+        decoy_min_length,
+        decoy_min_average_coverage,
         output_fdr_info,
         fancylog,
     )
