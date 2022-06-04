@@ -4,6 +4,7 @@
 import re
 import pysam
 import pandas as pd
+from collections import defaultdict
 from .errors import ParameterError, SequencingDataError
 
 
@@ -148,15 +149,29 @@ def check_decoy_selection(diversity_indices, decoy_contig):
             )
 
 
-def autoselect_decoy(diversity_indices, min_len, min_avg_cov):
+def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
     """Attempts to select a good decoy contig based on diversity index data.
 
     There are lots of ways to implement this, so here we just stick with
-    something simple. Filter to all contigs whose lengths and average coverages
-    meet some thresholds, then determine the five lowest-diversity-index
-    contigs across all diversity index columns provided in the file. Select as
-    the decoy the contig that appears most frequently in these lists of five
-    contigs, breaking ties based on lowest diversity index.
+    something simple that combines the diversity index information from
+    multiple thresholds:
+
+    1. Filter to all contigs whose lengths and average coverages meet the
+       specified thresholds. The number of "passing" contigs is C. If C = 1,
+       select this contig; if C = 0, raise an error.
+
+    2. For each of the D diversity index columns provided in the file (where at
+       least two contigs have defined diversity indices), compute the minimum
+       and maximum diversity index in this column. Assign each contig a score
+       for this column in [0, 1] using linear interpolation: the contig with
+       the lowest diversity index gets a score of 0, the contig with the
+       highest gets a score of 1, and everything else is scaled in between.
+       If a contig has an undefined diversity index in such a column, set its
+       score for this column to 1.
+
+    3. For each of the C contigs, sum scores across all of the D diversity
+       index columns. Select the contig with the lowest score sum. Break ties
+       arbitrarily.
 
     Parameters
     ----------
@@ -176,6 +191,9 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov):
         In order for a contig to be selected as the decoy, its average coverage
         must be at least this.
 
+    fancylog: function
+        Logging function.
+
     Returns
     -------
     decoy_contig: str
@@ -192,31 +210,80 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov):
     SequencingDataError
         - If none of the contigs in the diversity index file pass the length
           and average coverage thresholds.
-        - If none of the "passing" contigs in the diversity index file have
-          defined diversity indices (should never happen unless the
-          diversity index values used to generate this file are weird).
+        - If none of the diversity index columns have at least two "passing"
+          contigs with defined diversity indices.
     """
     di = pd.read_csv(diversity_indices, sep="\t", index_col=0)
+
     if len(di.index) < 2:
         raise ParameterError(
             "Diversity indices file describes less than two contigs."
         )
+
     if "Length" not in di.columns and "AverageCoverage" not in di.columns:
         raise ParameterError(
             "Length and AverageCoverage columns are not contained in the "
             "diversity indices file."
         )
+
     # Filter to contigs that pass both the length and coverage thresholds.
     # https://stackoverflow.com/a/13616382
-    valid_di = di[
+    passing_di = di[
         (di["Length"] >= min_len) & (di["AverageCoverage"] >= min_avg_cov)
     ]
-    if len(valid_di.index) == 0:
-        raise SequencingDataError(
-            f"No contigs pass the min length \u2265 {min_len:,} and min "
-            f"average cov \u2265 {min_avg_cov:,}x checks."
+    passing_contigs = passing_di.index
+    num_passing_contigs = len(passing_contigs)
+    check_str = (
+        f"the min length \u2265 {min_len:,} and min average cov \u2265 "
+        f"{min_avg_cov:,}x checks"
+    )
+    if num_passing_contigs == 0:
+        raise SequencingDataError(f"No contigs pass {check_str}.")
+    elif num_passing_contigs == 1:
+        fancylog(
+            f"Warning: Only one contig passes {check_str}. Selecting it.",
+            prefix="",
         )
-    # TODO actually do stuff
+        return passing_contigs[0]
+
+    # Actually start scoring contigs based on their diversity indices.
+    contig2score = defaultdict(int)
+    # Diversity index columns where there are at least two "passing" contigs
+    # that have defined (non-NA) diversity indices
+    good_di_cols = []
+    for di_col in set(passing_di.columns) - {"Length", "AverageCoverage"}:
+        di_vals = passing_di[di_col]
+        finite_di_vals = di_vals[~di_vals.isna()]
+        if len(finite_di_vals.index) >= 2:
+            good_di_cols.append(di_col)
+
+            # Small TODO: in theory, it'd be faster to combine the computation
+            # of min and max into a single pass over the values (see e.g.
+            # https://stackoverflow.com/q/12200580) but this probably won't
+            # be a performance bottleneck so I'm not gonna bother for now
+            min_di = min(finite_di_vals)
+            max_di = max(finite_di_vals)
+
+            # Use pandas' vectorization to apply linear interpolation across
+            # all diversity indices in this Series
+            scores = (finite_di_vals - min_di) / (max_di - min_di)
+            # Update scores.
+            for passing_contig in passing_di.index:
+                if passing_contig in scores:
+                    contig2score[passing_contig] += scores[passing_contig]
+                else:
+                    # Penalize this contig for not having a defined diversity
+                    # index in this column: give it the maximum possible score
+                    contig2score[passing_contig] += 1
+
+    if len(good_di_cols) == 0:
+        raise SequencingDataError(
+            "No diversity index columns in the TSV file have at least two "
+            f"contigs that pass {check_str} and also have defined diversity "
+            "indices."
+        )
+    lowest_score_contig = min(passing_contigs, key=contig2score.get)
+    return lowest_score_contig
 
 
 def run_estimate(
@@ -291,11 +358,15 @@ def run_estimate(
     selection_type = check_decoy_selection(diversity_indices, decoy_contig)
     if selection_type == "DI":
         fancylog("Selecting a decoy contig based on the diversity indices...")
-        # Automatically select a decoy contig from the diversity indices
         used_decoy_contig = autoselect_decoy(
-            diversity_indices, decoy_min_length, decoy_min_average_coverage
+            diversity_indices,
+            decoy_min_length,
+            decoy_min_average_coverage,
+            fancylog,
         )
-        fancylog(f"Using {used_decoy_contig} as the decoy contig.", prefix="")
+        fancylog(
+            f"Selected {used_decoy_contig} as the decoy contig.", prefix=""
+        )
     else:
         used_decoy_contig = decoy_contig
         fancylog(f"The specified decoy contig is {used_decoy_contig}.")
