@@ -459,11 +459,21 @@ strainflye.add_command(fdr)
 
 @fdr.command(**cmd_params)
 @click.option(
+    "-c",
+    "--contigs",
+    required=True,
+    type=click.Path(exists=True),
+    help="FASTA file of contigs.",
+)
+@click.option(
     "-v",
     "--vcf",
     required=True,
     type=click.Path(exists=True),
-    help="VCF file describing na\u00efvely called p- or r-mutations.",
+    help=(
+        "VCF file describing na\u00efvely called p- or r-mutations in the "
+        "contigs."
+    ),
 )
 @click.option(
     "-di",
@@ -574,6 +584,7 @@ strainflye.add_command(fdr)
     ),
 )
 def estimate(
+    contigs,
     vcf,
     diversity_indices,
     decoy_contig,
@@ -601,6 +612,7 @@ def estimate(
     fancylog = cli_utils.fancystart(
         "strainFlye fdr estimate",
         (
+            ("contig file", contigs),
             ("VCF file", vcf),
             ("diversity indices file", diversity_indices),
             ("manually-set decoy contig", decoy_contig),
@@ -637,6 +649,7 @@ def estimate(
         (("FDR estimate file", output_fdr_info),),
     )
     fdr_utils.run_estimate(
+        contigs,
         vcf,
         diversity_indices,
         decoy_contig,
