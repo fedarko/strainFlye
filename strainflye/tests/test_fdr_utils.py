@@ -307,6 +307,7 @@ def test_autoselect_decoy_all_passing_identical_di():
             "202.53x checks and (2) have defined and distinct diversity "
             "indices in this column."
         )
+
     run_check(
         f"Contig\tAverageCoverage\tLength\t{DI_PREF}1\t{DI_PREF}2\n"
         "edge_1\t35000\t100000000000\t0\t3\n"
