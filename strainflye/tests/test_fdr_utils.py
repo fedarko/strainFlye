@@ -292,6 +292,44 @@ def test_autoselect_decoy_all_passing_undefined_di(capsys):
     )
 
 
+def test_autoselect_decoy_good():
+    # Total scores:
+    #
+    # A: 1 + 0 = 1 (the 1 is because its div idx is undefined in col 1)
+    #
+    # B: 0 + 1 = 1
+    #
+    # C:  ((0.01 / 0.6) = 0.01666)
+    #   + (((0.2 - 0.14) / (0.31 - 0.14)) = 0.3529) = 0.3696
+    #
+    # D:  ((0.1 / 0.6) = 0.1666)
+    #   + (((0.15 - 0.14) / (0.31 - 0.14)) = 0.3529) = 0.2255
+    #
+    # E: 1 + 0 = 1
+    #
+    # F: No score (length doesn't pass)
+    #
+    # The "D" contig should be selected. It doesn't have the lowest diversity
+    # index in either column, but it's close enough to the bottom.
+    assert (
+        fu.autoselect_decoy(
+            StringIO(
+                f"Contig\tAverageCoverage\tLength\t{DI_PREF}1\t{DI_PREF}2\n"
+                "A\t35000\t100000000000\tNA\t0.14\n"
+                "B\t202.53\t10000000\t0.0\t0.31\n"
+                "C\t202.53\t10000000\t0.01\t0.2\n"
+                "D\t202.53\t10000000\t0.1\t0.15\n"
+                "E\t202.53\t10000000\t0.6\tNA\n"
+                "F\t202.53\t5\t0\t0\n"
+            ),
+            1000,
+            100,
+            mock_log,
+        )
+        == "D"
+    )
+
+
 def test_normalize_series_identical():
     assert (
         fu.normalize_series(

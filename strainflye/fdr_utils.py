@@ -330,6 +330,8 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
             f"{check_str} and (2) have defined and distinct diversity indices "
             "in this column."
         )
+    # Find the passing contig with the lowest total score:
+    # https://stackoverflow.com/a/3282904
     lowest_score_contig = min(passing_contigs, key=contig2score.get)
     return lowest_score_contig
 
