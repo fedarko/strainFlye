@@ -466,8 +466,8 @@ strainflye.add_command(fdr)
     required=True,
     type=click.Path(exists=True),
     help=(
-        "VCF file describing na\u00efvely called p- or r-mutations. All "
-        "contigs in this file should be included in the FASTA file of contigs."
+        "VCF file describing na\u00efvely called p- or r-mutations in the "
+        "FASTA file's contigs."
     ),
 )
 @click.option(
