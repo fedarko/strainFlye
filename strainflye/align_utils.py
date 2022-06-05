@@ -7,7 +7,7 @@ import pysam
 from itertools import combinations
 from collections import defaultdict
 from . import graph_utils, fasta_utils
-from .errors import ParameterError, SequencingDataError
+from .errors import ParameterError, SequencingDataError, WeirdError
 
 
 def index_bam(in_bam, bam_descriptor, fancylog):
@@ -52,7 +52,7 @@ def get_coords(alnseg):
 
     Raises
     ------
-    ValueError
+    WeirdError
         If the segment's start is greater than its end (both in inclusive
         coordinates). (If this ends up being a problem in practice, maybe
         because there of reverse-mapped reads or something (???), then this
@@ -65,7 +65,7 @@ def get_coords(alnseg):
     s = alnseg.reference_start
     e = alnseg.reference_end + 1
     if s > e:
-        raise ValueError(
+        raise WeirdError(
             f"Malformed linear alignment coordinates: start {s}, end {e}"
         )
     return (s, e)
@@ -159,7 +159,7 @@ def filter_osa_reads(in_bam, out_bam, fancylog, verbose):
         # Sanity checking -- should never happen (TM) because we should have
         # already continued if n_reads_in_seq == 0
         if num_lin_alns == 0:
-            raise ValueError(
+            raise WeirdError(
                 "0 linear alns, but > 0 aligned reads? Something's wrong."
             )
 
@@ -338,7 +338,7 @@ def filter_pm_reads(
     if min_percent_aligned < 0 or min_percent_aligned > 100:
         # not gonna bother trying to format this number nicely because it could
         # be, well, anything outside of [0, 100]
-        raise ValueError(
+        raise WeirdError(
             f"min_percent_aligned = {min_percent_aligned} is not in [0, 100]."
         )
 
@@ -349,7 +349,7 @@ def filter_pm_reads(
     # This should never happen, but we originally used these two numbers
     # interchangeably and i wanna verify this just in case pysam breaks
     if len(bam_contigs) != bf.nreferences:
-        raise ValueError("This BAM file is cursed. Call a priest.")
+        raise WeirdError("This BAM file is cursed. Call a priest.")
 
     graph = None
     if gfa is not None:
@@ -426,7 +426,7 @@ def filter_pm_reads(
 
         Raises
         ------
-        ValueError
+        WeirdError
             - If the inferred lengths of a read are observed to be inconsistent
               (see readname2len's description).
 
@@ -442,7 +442,7 @@ def filter_pm_reads(
         obs_read_len = aln.infer_read_length()
         if aln.query_name in readname2len:
             if readname2len[aln.query_name] != obs_read_len:
-                raise ValueError(
+                raise WeirdError(
                     "Inconsistent read lengths across alignments of read "
                     f"{aln.query_name}: prev aln = "
                     f"{readname2len[aln.query_name]:,}, this aln = "
@@ -454,7 +454,7 @@ def filter_pm_reads(
         # Each AlignedSegment returned by fetch(contig) should pertain to that
         # specific contig
         if aln.reference_name != contig_name:
-            raise ValueError(
+            raise WeirdError(
                 f"Alignment reference name, {aln.reference_name}, isn't "
                 f"{contig_name} as expected"
             )
@@ -472,7 +472,7 @@ def filter_pm_reads(
             # this check needs to be removed in the future, then this block
             # could just be commented out or replaced with a "pass" statement
             # or something.
-            raise ValueError(
+            raise WeirdError(
                 "No (mis)match operations (M/X/=) found in an alignment of "
                 f"read {aln.query_name}.\nThe CIGAR string for this alignment "
                 f"is {aln.cigarstring}, for reference.\nIf you encountered "
@@ -626,7 +626,7 @@ def filter_pm_reads(
         passing_aln_ct = 0
         for aln in bf.fetch(contig_to_focus_on):
             if aln.query_name not in readname2len:
-                raise ValueError(
+                raise WeirdError(
                     f"We should have seen read {aln.query_name} earlier!"
                 )
             read_len = readname2len[aln.query_name]
@@ -638,7 +638,7 @@ def filter_pm_reads(
                 #
                 # Our earlier error check should prevent us from ever getting
                 # to this point, but you never know.
-                raise ValueError(
+                raise WeirdError(
                     f"Read {aln.query_name} had no match operations done? Sus."
                 )
 

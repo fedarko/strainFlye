@@ -11,3 +11,7 @@ class ParameterError(Exception):
 
 class GraphParsingError(Exception):
     pass
+
+
+class WeirdError(Exception):
+    pass

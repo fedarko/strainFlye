@@ -6,7 +6,7 @@ import time
 import pysam
 import pysamstats
 from . import config
-from .errors import SequencingDataError, ParameterError
+from .errors import SequencingDataError, ParameterError, WeirdError
 from strainflye import __version__, fasta_utils
 
 
@@ -361,6 +361,26 @@ def run(
     )
 
     contig_name2len = fasta_utils.get_name2len(contigs)
+
+    # Verify that all contigs in the FASTA are also references in the BAM
+    # (this will throw an error if not)
+    bf = pysam.AlignmentFile(bam, "rb")
+    fasta_utils.verify_contigs_subset(set(contig_name2len), set(bf.references))
+
+    num_fasta_contigs = len(contig_name2len)
+    num_bam_refs = bf.nreferences
+    fancylog(
+        (
+            f"The FASTA file describes {num_fasta_contigs:,} contigs, all of "
+            "which are included in the BAM file (which has "
+            f"{num_bam_refs:,} references)."
+        ),
+        prefix="",
+    )
+
+    # Now, create a header for the VCF file listing all contigs -- this is
+    # technically optional, but 1) it's recommended practice and 2) it'll help
+    # a lot with parsing this VCF downstream
     contig_header = ""
     for c in contig_name2len:
         contig_header += f"##contig=<ID={c},length={contig_name2len[c]}>\n"
@@ -389,12 +409,14 @@ def run(
     # part) of this -- go through each position in each contig and call
     # mutations, as well as observe coverages / etc.
     fancylog(f"Running {call_str} and computing diversity indices...")
-    bf = pysam.AlignmentFile(bam, "rb")
-    for si, seq in enumerate(bf.references, 1):
+    for si, seq in enumerate(contig_name2len, 1):
         if verbose:
-            pct = 100 * (si / bf.nreferences)
+            pct = 100 * (si / num_fasta_contigs)
             fancylog(
-                f"On contig {seq} ({si:,} / {bf.nreferences:,}) ({pct:.2f}%).",
+                (
+                    f"On contig {seq} ({si:,} / {num_fasta_contigs:,}) "
+                    f"({pct:.2f}%).",
+                ),
                 prefix="",
             )
 
@@ -436,7 +458,7 @@ def run(
 
             rpos = rec["pos"] + 1
             if rpos != pos:
-                raise ValueError(
+                raise WeirdError(
                     f"Found discontinuity in traversal: {pos:,}-th pos, but "
                     f"rec['pos'] + 1 is {rpos:,}"
                 )
@@ -511,6 +533,12 @@ def run(
                             msc_mut_ct[ri] += 1
 
         # Now that we've examined all positions in this contig...
+        contig_len = contig_name2len[seq]
+        if pos != contig_len:
+            raise WeirdError(
+                f"For contig {seq}, the final position = {pos:,}, but the "
+                f"contig length = {contig_len:,}. Something went really wrong."
+            )
 
         # Output VCF info, if we called any mutations
         if num_any_muts > 0:
@@ -518,14 +546,14 @@ def run(
                 vcf_file.write(vcf_text)
 
         # Output diversity index info
-        avg_cov = coverage_sum / pos
-        di_line = f"{seq}\t{avg_cov}\t{pos}"
+        avg_cov = coverage_sum / contig_len
+        di_line = f"{seq}\t{avg_cov}\t{contig_len}"
 
         # For each threshold value, did we observe enough sufficiently-covered
         # positions in order to compute the diversity index for this threshold
         # for this contig? If so, compute and report this diversity index.
         num_defined_di = 0
-        half_contig_len = pos / 2
+        half_contig_len = contig_len / 2
         if using_p:
             di_list = div_index_p_list
         else:
