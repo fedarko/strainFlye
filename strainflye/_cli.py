@@ -3,6 +3,7 @@
 # etc. See https://click.palletsprojects.com/en/8.0.x/commands/ for details.
 import click
 from . import cli_utils, align_utils, graph_utils, call_utils, fdr_utils
+from . import param_descriptions as desc
 
 
 # By default, Click's help info (shown when running e.g. "strainFlye -h")
@@ -187,14 +188,14 @@ strainflye.add_command(call)
     "--contigs",
     required=True,
     type=click.Path(exists=True),
-    help="FASTA file of contigs in which to na\u00efvely call mutations.",
+    help=desc.INPUT_CONTIGS_NAIVE_CALL,
 )
 @click.option(
     "-b",
     "--bam",
     required=True,
     type=click.Path(exists=True),
-    help="BAM file representing an alignment of reads to contigs.",
+    help=desc.INPUT_BAM,
 )
 @click.option(
     "--min-p",
@@ -253,10 +254,7 @@ strainflye.add_command(call)
     "--output-vcf",
     required=True,
     type=click.Path(dir_okay=False),
-    help=(
-        "Filepath to which an output VCF file (describing the called "
-        "mutations) will be written."
-    ),
+    help=desc.OUTPUT_VCF_NAIVE_CALL,
 )
 @click.option(
     "-od",
@@ -274,7 +272,7 @@ strainflye.add_command(call)
     is_flag=True,
     default=False,
     show_default=True,
-    help="Display extra details for each contig while running.",
+    help=desc.VERBOSE_CALL,
 )
 def p_mutation(
     contigs,
@@ -331,14 +329,14 @@ def p_mutation(
     "--contigs",
     required=True,
     type=click.Path(exists=True),
-    help="FASTA file of contigs in which to na\u00efvely call mutations.",
+    help=desc.INPUT_CONTIGS_NAIVE_CALL,
 )
 @click.option(
     "-b",
     "--bam",
     required=True,
     type=click.Path(exists=True),
-    help="BAM file representing an alignment of reads to contigs.",
+    help=desc.INPUT_BAM,
 )
 @click.option(
     "--min-r",
@@ -380,10 +378,7 @@ def p_mutation(
     "--output-vcf",
     required=True,
     type=click.Path(dir_okay=False),
-    help=(
-        "Filepath to which an output VCF file (describing the called "
-        "mutations) will be written."
-    ),
+    help=desc.OUTPUT_VCF_NAIVE_CALL,
 )
 @click.option(
     "-od",
@@ -401,7 +396,7 @@ def p_mutation(
     is_flag=True,
     default=False,
     show_default=True,
-    help="Display extra details for each contig while running.",
+    help=desc.VERBOSE_CALL,
 )
 def r_mutation(
     contigs,
@@ -471,8 +466,8 @@ strainflye.add_command(fdr)
     required=True,
     type=click.Path(exists=True),
     help=(
-        "VCF file describing na\u00efvely called p- or r-mutations in the "
-        "contigs."
+        "VCF file describing na\u00efvely called p- or r-mutations. All "
+        "contigs in this file should be included in the FASTA file of contigs."
     ),
 )
 @click.option(
