@@ -7,7 +7,7 @@ import pysam
 import pysamstats
 from . import config
 from .errors import SequencingDataError, ParameterError
-from strainflye import __version__
+from strainflye import __version__, fasta_utils
 
 
 def get_alt_pos_info(rec):
@@ -307,7 +307,7 @@ def run(
         min_str = f"--min-p = {min_p / 100:.2f}%"
         filter_header = (
             f'##FILTER=<ID=strainflye_minp_{min_p}, Description="min p '
-            'threshold (scaled up by 100)">'
+            'threshold (scaled up by 100)">\n'
         )
         min_suff_coverages = get_min_sufficient_coverages_p(
             div_index_p_list, min_read_number=min_read_number
@@ -320,7 +320,7 @@ def run(
         min_str = f"--min-r = {min_r:,}"
         filter_header = (
             f'##FILTER=<ID=strainflye_minr_{min_r}, Description="min r '
-            'threshold">'
+            'threshold">\n'
         )
         min_suff_coverages = get_min_sufficient_coverages_r(
             div_index_r_list, min_cov_factor=min_cov_factor
@@ -328,14 +328,12 @@ def run(
         for r, msc in zip(div_index_r_list, min_suff_coverages):
             di_header += f"\t{config.DI_PREF}(r={r},minSuffCov={msc})"
 
-    call_str = f"{param_name}-mutation calling ({min_str})"
-    fancylog(f"Running {call_str}.")
-
     # Write out DI file header
     with open(output_diversity_indices, "w") as di_file:
         di_file.write(f"{di_header}\n")
 
     # Write out VCF file header
+    fancylog("Loading contig information and creating a VCF header...")
     # See the VCF 4.3 docs for details about the Number meanings:
     # - The 1 indicates that we only include one version of this Number per
     #   position (because it doesn't really make sense to, for example,
@@ -359,9 +357,15 @@ def run(
         "##INFO=<ID=MDP,Number=1,Type=Integer,"
         'Description="(Mis)match read depth">\n'
         "##INFO=<ID=AAD,Number=A,Type=Integer,"
-        'Description="Alternate allele read depth">'
+        'Description="Alternate allele read depth">\n'
     )
 
+    contig_name2len = fasta_utils.get_name2len(contigs)
+    contig_header = ""
+    for c in contig_name2len:
+        contig_header += f"##contig=<ID={c},length={contig_name2len[c]}>\n"
+
+    call_str = f"{param_name}-mutation calling ({min_str})"
     with open(output_vcf, "w") as vcf_file:
         # Header info gleaned by reading over the VCF docs
         # (https://samtools.github.io/hts-specs/VCFv4.3.pdf) and copying how
@@ -374,15 +378,17 @@ def run(
             f"##fileDate={time.strftime('%Y%m%d')}\n"
             f'##source="strainFlye v{__version__}: {call_str}"\n'
             f"##reference={os.path.abspath(contigs)}\n"
-            f"{info_header}\n"
-            f"{filter_header}\n"
+            f"{contig_header}"
+            f"{info_header}"
+            f"{filter_header}"
             "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
         )
+    fancylog("Loaded contig information and created a VCF header.", prefix="")
 
     # Finally, we can get to the meat (and the most computationally expensive
     # part) of this -- go through each position in each contig and call
     # mutations, as well as observe coverages / etc.
-
+    fancylog(f"Running {call_str} and computing diversity indices...")
     bf = pysam.AlignmentFile(bam, "rb")
     for si, seq in enumerate(bf.references, 1):
         if verbose:
@@ -553,6 +559,9 @@ def run(
                 ),
                 prefix="",
             )
+    fancylog(
+        f"Done running {call_str} and computing diversity indices.", prefix=""
+    )
 
 
 def is_position_rare_direct(alt_pos, cov):

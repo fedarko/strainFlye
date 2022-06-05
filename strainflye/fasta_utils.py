@@ -18,6 +18,7 @@ def get_name2len(fasta_fp, min_num_contigs=2):
 
     min_num_contigs: int
         Minimum number of contigs that must be described in the FASTA file.
+        This will raise an error if this condition is not met.
 
     Returns
     -------
@@ -35,6 +36,7 @@ def get_name2len(fasta_fp, min_num_contigs=2):
           - Blank sequence name
           - Degenerate nucleotides in sequences
           - Gaps in sequences
+          - Less than min_num_contigs contigs are described
     """
     name2len = {}
     # Fails nicely with a FileNotFoundError if this file doesn't exist
