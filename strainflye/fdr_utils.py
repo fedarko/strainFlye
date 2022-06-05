@@ -483,6 +483,53 @@ def run_estimate(
     # that's how it works
     fancylog("(Sorry for doubting you.)", prefix="")
 
+    # Figure out the exact p or r values we'll iterate through -- these will
+    # correspond to the columns in our output TSV of FDR estimation (i.e.
+    # for each target contig, we'll produce this many FDR estimates).
+    #
+    # NOTE 1: For the time being, we just go through in increments of 1 (for
+    # p, this is 0.01%; for r, this is just 1 read). We could support other
+    # "step" values, but that's a lot of work for probably little benefit
+    # (unless this ends up being a bottleneck, idk).
+    #
+    # NOTE 2: We do not produce an estimate for the exact high_p (or high_r)
+    # value. THe maximum threshold is that minus the step value (... which is
+    # always 1, at least right now).
+    fancylog(f"Determining range of values of {thresh_type} to consider...")
+    if thresh_type == "p":
+        if high_p <= thresh_min:
+            raise ParameterError(
+                f"--high-p = {high_p:,} must be larger than the minimum p "
+                f"used in the VCF ({thresh_min:,})."
+            )
+        thresh_max = high_p - 1
+    else:
+        if high_r <= thresh_min:
+            raise ParameterError(
+                f"--high-r = {high_r:,} must be larger than the minimum r "
+                f"used in the VCF ({thresh_min:,})."
+            )
+        thresh_max = high_r - 1
+    # ... yeah, we could have just set thresh_max to high_p or high_r without
+    # the - 1 and then used it as the top of this range, which is technically
+    # more efficient I guess, but we will need thresh_max (as it currently is,
+    # with the - 1) later and this way is clearer to read I guess ._.
+    thresh_vals = range(thresh_min, thresh_max + 1)
+    fancylog(
+        (
+            f"We'll consider {len(thresh_vals):,} values of {thresh_type}: "
+            f"from {thresh_min:,} to {thresh_max:,}."
+        ),
+        prefix="",
+    )
+
+    # For each value in thresh_vals, compute the decoy genome's mutation
+    # rate. Will need to predict genes using prodigal first, if decoy_context
+    # isn't "Full".
+    #
+    # Save these to a list, decoy_mut_rates -- this will have the same
+    # dimensions as thresh_vals.
+
     # TODO: Verify that the decoy contig has a nonzero mutation rate.
     # If not, that's problematic, because
     # then we'd estimate the FDR as zero for every target contig. That
@@ -490,21 +537,13 @@ def run_estimate(
     # auto-selection to just contigs with mutations? Hm, but that would be
     # annoying to implement, and users can always manually set a decoy contig.)
 
-    # TODO: Figure out range of p or r to use. Create a list, threshold_vals.
-    # For each value in threshold_vals, compute the decoy genome's mutation
-    # rate. Will need to predict genes using prodigal first, if decoy_context
-    # isn't "Full".
-    #
-    # Save these to a list, decoy_mut_rates -- this will have the same
-    # dimensions as threshold_vals.
-
     # TODO: For each target genome...
-    # - For each value in threshold_vals...
+    # - For each value in thresh_vals...
     #   - Compute the mutation rate for this target genome at this
     #     threshold value. The entire target genome, not just the dctx stuff.
     #   - Compute the FDR estimate for this pair of (target, threshold).
     #     Save to a list of target_fdr_ests, which has the same dimensions
-    #     as threshold_vals.
+    #     as thresh_vals.
     # - Write out a new row to the FDR estimate file describing
     #   target_fdr_ests.
 
