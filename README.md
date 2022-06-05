@@ -68,7 +68,7 @@ pip install -e .[dev]
 ### Tutorial
 
 We provide a (work in progress) tutorial using the SheepGut dataset
-[here](https://nbviewer.org/github/fedarko/strainFlye/blob/main/docs/SheepGutExample.ipynb).
+**[here](https://nbviewer.org/github/fedarko/strainFlye/blob/main/docs/SheepGutExample.ipynb)**.
 
 ### Command-line usage
 
@@ -92,7 +92,7 @@ Options:
 Commands:
   align  Aligns reads to contigs, then filters this alignment.
   call   [+] Naïve mutation calling and diversity index computation.
-  fdr    FDR estimation and fixing for contigs' mutation calls.
+  fdr    [+] FDR estimation and fixing for contigs' mutation calls.
   utils  [+] Various utility commands provided with strainFlye.
 ```
 
