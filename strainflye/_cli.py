@@ -480,7 +480,7 @@ strainflye.add_command(fdr)
     help=(
         "TSV file describing the diversity indices of a set of contigs. "
         "Used to automatically select a decoy contig. "
-        "Mutually exclusive with --decoy-contig."
+        "This option is mutually exclusive with --decoy-contig."
     ),
 )
 @click.option(
@@ -492,7 +492,8 @@ strainflye.add_command(fdr)
     type=click.STRING,
     help=(
         "Name of a specific contig to use as the decoy contig for FDR "
-        "estimation. Mutually exclusive with --diversity-indices."
+        "estimation. This option is mutually exclusive with "
+        "--diversity-indices."
     ),
 )
 @click.option(

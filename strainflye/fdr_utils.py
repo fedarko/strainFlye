@@ -406,11 +406,41 @@ def run_estimate(
         Logging function.
 
     """
-    fancylog("Sanity-checking the VCF file...")
-    # Are we using p or r? And what's the minimum p or r that was used?
+    fancylog("Loading and checking contig information...")
+
+    # get name -> length mapping for the FASTA file; also sanity check it a bit
+    contig_name2len = fasta_utils.get_name2len(contigs)
+
+    # Load the VCF file, also
     vcf_obj, thresh_type, thresh_min = parse_vcf(vcf)
+
+    # Figure out which contigs are considered in the VCF file
+    # (thankfully, this header can include contigs with no called mutations,
+    # which makes my life easier here)
+    vcf_contigs = set(vcf_obj.header.contigs)
+
+    # Ensure that the sets of contigs in the VCF file and FASTA match exactly
+    # (In theory, we could allow the VCF to be a subset of the FASTA, but...
+    # nah, that's too much work and the user should already have an exactly-
+    # matching FASTA file around from when they ran "call".)
+    verify_contigs_subset(
+        vcf_contigs,
+        set(contig_name2len),
+        "the VCF file",
+        "the FASTA file",
+        exact=True,
+    )
+    # We *could* try to ensure that the diversity index file's contigs, if
+    # a diversity index file is specified, are a subset of the VCF -- but
+    # no need to do this extra work right now. the main thing that matters IMO
+    # is just checking that the selected decoy contig is in the VCF, which is
+    # much easier to do later.
     fancylog(
-        f"Looks good; input VCF file contains {thresh_type}-mutations "
+        "The VCF and FASTA files describe {len(contig_name2len):,} contigs.",
+        prefix="",
+    )
+    fancylog(
+        f"Also, the input VCF file contains {thresh_type}-mutations "
         f"(minimum {thresh_type} = {thresh_min:,}).",
         prefix="",
     )
@@ -432,29 +462,23 @@ def run_estimate(
         used_decoy_contig = decoy_contig
         fancylog(f"The specified decoy contig is {used_decoy_contig}.")
 
-    fancylog("Sanity-checking the FASTA file of contigs...")
-    # get mapping for the FASTA file; also sanity check it a bit
-    contig_name2len = fasta_utils.get_name2len(contigs)
-
     # verify that the decoy contig is actually contained in the FASTA file
     if used_decoy_contig not in contig_name2len:
         raise ParameterError(
             f"Selected decoy contig {used_decoy_contig} is not present in "
             f"{contigs}."
         )
+    fancylog(
+        "Verified that the decoy contig is present in the FASTA file.",
+        prefix="",
+    )
+
     # if someone chuckles at this, the project is successful
     # that's how it works
-    fancylog(
-        "Verified that the decoy contig is present in this file.", prefix=""
-    )
     fancylog("(Sorry for doubting you.)", prefix="")
 
-    # TODO: verify that all contigs in the VCF are also present in the contigs
-    # file (maaaybe will change later if contigs can be a subset of total, but
-    # eh).
-
-    # TODO: Verify that the decoy contig is actually contained in the VCF, i.e.
-    # it has some mutations called in it. If not, that's problematic, because
+    # TODO: Verify that the decoy contig has a nonzero mutation rate.
+    # If not, that's problematic, because
     # then we'd estimate the FDR as zero for every target contig. That
     # shouldn't happen most of the time, anyway. Maybe add an option to limit
     # auto-selection to just contigs with mutations? Hm, but that would be

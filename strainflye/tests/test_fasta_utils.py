@@ -111,5 +111,30 @@ def test_verify_contigs_subset_good():
     utils.verify_contigs_subset(set("a"), set("a"), "s1", "s2")
 
     # Proper subset
+    utils.verify_contigs_subset(set(""), set(""), "s1", "s2")
+    utils.verify_contigs_subset(set(""), set("ab"), "s1", "s2")
     utils.verify_contigs_subset(set("a"), set("ab"), "s1", "s2")
     utils.verify_contigs_subset(set("ab"), set("abc"), "s1", "s2")
+
+
+def test_verify_contigs_subset_exact():
+    # Check that exact doesn't change mandate that child is subset of parent
+    with pytest.raises(ParameterError) as ei:
+        utils.verify_contigs_subset(
+            set("abcdef"), set("abdef"), "s1", "s2", exact=True
+        )
+    assert str(ei.value) == "All contigs in s1 must also be contained in s2."
+
+    # Now, check that exact ensures that the two sets are equal, even if child
+    # is a subset of parent
+    with pytest.raises(ParameterError) as ei:
+        utils.verify_contigs_subset(
+            set("abcd"), set("abcdef"), "s1", "s2", exact=True
+        )
+    assert str(ei.value) == "All contigs in s2 must also be contained in s1."
+
+    # Now, check that exact succeeds
+    utils.verify_contigs_subset(
+        set("abcd"), set("abcd"), "s1", "s2", exact=True
+    )
+    utils.verify_contigs_subset(set(""), set(""), "s1", "s2", exact=True)
