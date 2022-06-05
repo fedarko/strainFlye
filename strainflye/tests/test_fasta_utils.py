@@ -2,7 +2,7 @@ import re
 import pytest
 import strainflye.fasta_utils as utils
 from io import StringIO
-from strainflye.errors import SequencingDataError
+from strainflye.errors import SequencingDataError, ParameterError
 
 
 # ... In practice, the user will see "... in asdf.fasta ..." in error messages
@@ -97,3 +97,19 @@ def test_get_name2len_min_num_contigs_zero():
         utils.get_name2len(sio)
     exp_pattern = f"Less than 2 contigs are given in {SIO_REPR}."
     assert re.match(exp_pattern, str(ei.value)) is not None
+
+
+def test_verify_contigs_subset_raises_error():
+    with pytest.raises(ParameterError) as ei:
+        utils.verify_contigs_subset(set("abcdef"), set("abdef"), "s1", "s2")
+    assert str(ei.value) == "All contigs in s1 must also be contained in s2."
+
+
+def test_verify_contigs_subset_good():
+    # Sets are identical
+    utils.verify_contigs_subset(set("abcdef"), set("abcdef"), "s1", "s2")
+    utils.verify_contigs_subset(set("a"), set("a"), "s1", "s2")
+
+    # Proper subset
+    utils.verify_contigs_subset(set("a"), set("ab"), "s1", "s2")
+    utils.verify_contigs_subset(set("ab"), set("abc"), "s1", "s2")
