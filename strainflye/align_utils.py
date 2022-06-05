@@ -134,7 +134,7 @@ def filter_osa_reads(in_bam, out_bam, fancylog, verbose):
         verboselog(
             (
                 f"OSA filter pass 1/2: on contig {seq} ({si:,} / "
-                f"{bf.nreferences:,}) ({pct:.2f}%)."
+                f"{bf.nreferences:,} = {pct:.2f}% done)."
             ),
             prefix="",
         )
@@ -218,7 +218,7 @@ def filter_osa_reads(in_bam, out_bam, fancylog, verbose):
         pct = 100 * (si / bf.nreferences)
         verboselog(
             f"OSA filter pass 2/2: on contig {seq} ({si:,} / "
-            f"{bf.nreferences:,}) ({pct:.2f}%).",
+            f"{bf.nreferences:,} = {pct:.2f}% done).",
             prefix="",
         )
 
@@ -492,7 +492,7 @@ def filter_pm_reads(
         pct = 100 * (ci / bf.nreferences)
         verboselog(
             f"PM read filter: on {cdsc} ({ci:,} / "
-            f"{bf.nreferences:,}) ({pct:.2f}%).",
+            f"{bf.nreferences:,} = {pct:.2f}% done).",
             prefix="",
         )
         # Maps read name to read length (which should be constant across all

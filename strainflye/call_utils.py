@@ -418,12 +418,13 @@ def run(
     # mutations, as well as observe coverages / etc.
     fancylog(f"Running {call_str} and computing diversity indices...")
     for si, seq in enumerate(contig_name2len, 1):
+        contig_len = contig_name2len[seq]
         if verbose:
             pct = 100 * (si / num_fasta_contigs)
             fancylog(
                 (
-                    f"On contig {seq} ({si:,} / {num_fasta_contigs:,}) "
-                    f"({pct:.2f}%)."
+                    f"On contig {seq} ({contig_len:,} bp) ({si:,} / "
+                    f"{num_fasta_contigs:,} = {pct:.2f}% done)."
                 ),
                 prefix="",
             )
@@ -541,7 +542,6 @@ def run(
                             msc_mut_ct[ri] += 1
 
         # Now that we've examined all positions in this contig...
-        contig_len = contig_name2len[seq]
         if pos != contig_len:
             raise WeirdError(
                 f"For contig {seq}, the final position = {pos:,}, but the "
