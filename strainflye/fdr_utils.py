@@ -423,7 +423,7 @@ def run_estimate(
     # (In theory, we could allow the VCF to be a subset of the FASTA, but...
     # nah, that's too much work and the user should already have an exactly-
     # matching FASTA file around from when they ran "call".)
-    verify_contigs_subset(
+    fasta_utils.verify_contigs_subset(
         vcf_contigs,
         set(contig_name2len),
         "the VCF file",
