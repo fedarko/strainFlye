@@ -436,7 +436,10 @@ def run_estimate(
     # is just checking that the selected decoy contig is in the VCF, which is
     # much easier to do later.
     fancylog(
-        "The VCF and FASTA files describe {len(contig_name2len):,} contigs.",
+        (
+            "The VCF and FASTA files describe the same "
+            f"{len(contig_name2len):,} contigs."
+        ),
         prefix="",
     )
     fancylog(
@@ -469,7 +472,10 @@ def run_estimate(
             f"{contigs}."
         )
     fancylog(
-        "Verified that the decoy contig is present in the FASTA file.",
+        (
+            "Verified that this decoy contig is present in the VCF and FASTA "
+            "files."
+        ),
         prefix="",
     )
 
