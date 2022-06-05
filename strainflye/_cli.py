@@ -293,7 +293,7 @@ def p_mutation(
     using the utilities contained in the "strainFlye fdr" module.
     """
     fancylog = cli_utils.fancystart(
-        "strainFlye call",
+        "strainFlye call p-mutation",
         (
             ("contig file", contigs),
             ("BAM file", bam),
