@@ -278,6 +278,9 @@ def run(
         should've taken care of that for the div index lists). However, we do
         check here that only one of (min_p, min_r) is specified.
     """
+    # Sanity-check whether we're using p or r. Since (currently) p-mutation and
+    # r-mutation calling are separate commands, we should never see these
+    # errors in practice, but you never know.
     using_p = min_p is not None
     using_r = min_r is not None
 
@@ -288,6 +291,30 @@ def run(
     elif not using_p and not using_r:
         raise ParameterError("Either p or r needs to be specified.")
 
+    fancylog("Loading and checking contig information...")
+    contig_name2len = fasta_utils.get_name2len(contigs)
+    # Verify that all contigs in the FASTA are also references in the BAM
+    # (this will throw an error if not)
+    bf = pysam.AlignmentFile(bam, "rb")
+    fasta_utils.verify_contigs_subset(
+        set(contig_name2len),
+        set(bf.references),
+        "the FASTA file",
+        "the BAM file",
+    )
+    num_fasta_contigs = len(contig_name2len)
+    fancylog(
+        f"The FASTA file describes {num_fasta_contigs:,} contigs.", prefix=""
+    )
+    fancylog(
+        (
+            "All of these are included in the BAM file (which has "
+            f"{bf.nreferences:,} references)."
+        ),
+        prefix="",
+    )
+
+    fancylog("Creating and writing diversity index and VCF file headers...")
     # TODO? Add some checking to make sure that using_p implies that only
     # div_index_p_list is specified, and same for using_r and div_index_r_list
     # ... not high priority tho, since the user can't cause these problems from
@@ -333,7 +360,6 @@ def run(
         di_file.write(f"{di_header}\n")
 
     # Write out VCF file header
-    fancylog("Loading contig information and creating a VCF header...")
     # See the VCF 4.3 docs for details about the Number meanings:
     # - The 1 indicates that we only include one version of this Number per
     #   position (because it doesn't really make sense to, for example,
@@ -358,24 +384,6 @@ def run(
         'Description="(Mis)match read depth">\n'
         "##INFO=<ID=AAD,Number=A,Type=Integer,"
         'Description="Alternate allele read depth">\n'
-    )
-
-    contig_name2len = fasta_utils.get_name2len(contigs)
-
-    # Verify that all contigs in the FASTA are also references in the BAM
-    # (this will throw an error if not)
-    bf = pysam.AlignmentFile(bam, "rb")
-    fasta_utils.verify_contigs_subset(set(contig_name2len), set(bf.references))
-
-    num_fasta_contigs = len(contig_name2len)
-    num_bam_refs = bf.nreferences
-    fancylog(
-        (
-            f"The FASTA file describes {num_fasta_contigs:,} contigs, all of "
-            "which are included in the BAM file (which has "
-            f"{num_bam_refs:,} references)."
-        ),
-        prefix="",
     )
 
     # Now, create a header for the VCF file listing all contigs -- this is
@@ -403,7 +411,7 @@ def run(
             f"{filter_header}"
             "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
         )
-    fancylog("Loaded contig information and created a VCF header.", prefix="")
+    fancylog("Wrote out diversity index and VCF file headers.", prefix="")
 
     # Finally, we can get to the meat (and the most computationally expensive
     # part) of this -- go through each position in each contig and call
@@ -415,7 +423,7 @@ def run(
             fancylog(
                 (
                     f"On contig {seq} ({si:,} / {num_fasta_contigs:,}) "
-                    f"({pct:.2f}%).",
+                    f"({pct:.2f}%)."
                 ),
                 prefix="",
             )

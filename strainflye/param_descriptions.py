@@ -4,9 +4,9 @@
 
 INPUT_CONTIGS_NAIVE_CALL = (
     "FASTA file of contigs in which to na\u00efvely call mutations. "
-    'All contigs in this file should be "references" in the BAM file; '
-    "however, if some references in the BAM file are not included in this "
-    "file, we won't perform any calling will on these absent contigs."
+    "All contigs in this FASTA file should also be contained in the BAM file; "
+    "however, if some contigs in the BAM file are not included in this FASTA "
+    "file, we won't perform any calling on these absent contigs."
 )
 
 INPUT_BAM = "BAM file representing an alignment of reads to contigs."
