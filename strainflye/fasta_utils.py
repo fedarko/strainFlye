@@ -177,6 +177,4 @@ def get_single_seq(fasta_fp, contig_name):
     for seq in skbio.io.read(fasta_fp, format="fasta", constructor=skbio.DNA):
         if seq.metadata["id"] == contig_name:
             return seq
-    raise SequencingDataError(
-        f"Contig {contig_name} is not in {fasta_fp}."
-    )
+    raise SequencingDataError(f"Contig {contig_name} is not in {fasta_fp}.")

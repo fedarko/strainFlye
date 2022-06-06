@@ -345,6 +345,47 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
     return lowest_score_contig
 
 
+def compute_full_contig_mut_rates(
+    bcf_obj,
+    thresh_type,
+    thresh_vals,
+    contig,
+    contig_len,
+    decoy_mut_rates=None,
+):
+    # For each threshold value, keep track of how many mutations we've seen at
+    # this threshold.
+    num_muts = np.array([0] * len(thresh_vals))
+
+    for mut in bcf_obj.fetch(contig):
+
+        alt_pos = mut.info.get("AAD")
+        cov_pos = mut.info.get("MDP")
+
+        if thresh_type == "p":
+            max_passing_val = floor((10000 * alt_pos) / cov_pos)
+        else:
+            max_passing_val = alt_pos
+
+        # NOTE: This is already more optimized than the analysis
+        # notebooks, but I think it could still be made faster. Maybe
+        # just increment a single value (corresponding to the max
+        # passing p/r), and then do everything at the end after seeing
+        # all mutations in one pass? Let's see if this is a bottleneck.
+        num_vals_to_update = max_passing_val - thresh_vals[0] + 1
+        for i in range(num_vals_to_update):
+            num_muts[i] += 1
+
+    denominator = 3 * len(seq)
+    if decoy_mut_rates is None:
+        return [n / denominator for n in num_muts]
+    else:
+        return [
+            str((denominator * decoy_mut_rates[i]) / n)
+            for i, n in enumerate(num_muts)
+        ]
+
+
 def compute_decoy_mut_rates(
     contigs,
     bcf_obj,
@@ -407,37 +448,19 @@ def compute_decoy_mut_rates(
     """
     decoy_seq = fasta_utils.get_single_seq(contigs, decoy_contig)
 
-    # For each threshold value, keep track of how many mutations we've seen at
-    # this threshold.
-    num_muts = np.array([0] * len(thresh_vals))
     if decoy_context == "Full":
-        for mut in bcf_obj.fetch(decoy_contig):
-
-            # TODO export to call_utils functions for calling for many
-            # values of p/r at once
-            alt_pos = mut.info.get("AAD")
-            cov_pos = mut.info.get("MDP")
-
-            if thresh_type == "p":
-                max_passing_val = floor((10000 * alt_pos) / cov_pos)
-            else:
-                max_passing_val = alt_pos
-
-            # NOTE: This is already more optimized than the analysis
-            # notebooks, but I think it could still be made faster. Maybe
-            # just increment a single value (corresponding to the max
-            # passing p/r), and then do everything at the end after seeing
-            # all mutations in one pass? Let's see if this is a bottleneck.
-            num_vals_to_update = max_passing_val - thresh_vals[0] + 1
-            for i in range(num_vals_to_update):
-                num_muts[i] += 1
-        denominator = (3 * len(seq))
-        return [n / denominator for n in num_muts]
+        return compute_full_contig_mut_rates(
+            bcf_obj,
+            thresh_type,
+            thresh_vals,
+            decoy_contig,
+            len(decoy_seq),
+        )
     else:
         raise NotImplementedError(
             'Only the "Full" context is implemented now.'
         )
-    
+
     # TODO:
     # - If decoy_context != "Full",
     #   - Predict genes in this sequence using prodigal. Save .sco to tempfile.
@@ -628,6 +651,10 @@ def run_estimate(
         prefix="",
     )
 
+    fancylog(
+        f"Computing mutation rates for {used_decoy_contig} at these threshold "
+        "values..."
+    )
     # For each value in thresh_vals, compute the decoy genome's mutation rate.
     decoy_mut_rates = compute_decoy_mut_rates(
         contigs,
@@ -637,6 +664,12 @@ def run_estimate(
         used_decoy_contig,
         decoy_context,
     )
+    fancylog("Done.", prefix="")
+
+    fancylog(
+        "Computing mutation rates and FDR estimates for the "
+        f"{len(contig_name2len) - 1:,} target contigs..."
+    )
 
     # Write out the header for the FDR TSV file
     fdr_header = "Contig"
@@ -645,15 +678,24 @@ def run_estimate(
     with open(output_fdr_info, "w") as fdr_file:
         fdr_file.write(f"{fdr_header}\n")
 
-    # TODO: For each target genome...
-    # - For each value in thresh_vals...
-    #   - Compute the mutation rate for this target genome at this
-    #     threshold value. The entire target genome, not just the dctx stuff.
-    #   - Compute the FDR estimate for this pair of (target, threshold).
-    #     Save to a list of target_fdr_ests, which has the same dimensions
-    #     as thresh_vals.
-    # - Write out a new row to the FDR estimate file describing
-    #   target_fdr_ests.
+    # Compute FDR estimates for each target contig.
+    # This is analogous to the "Full" context-dependent option for the decoy
+    # genome comptuation, so we can reuse a lot of code from that.
+    for target_contig in bcf_contigs - {decoy_contig}:
+        target_fdr_ests = compute_full_contig_mut_rates(
+            bcf_obj,
+            thresh_type,
+            thresh_vals,
+            target_contig,
+            contig_name2len[target_contig],
+            decoy_mut_rates=decoy_mut_rates,
+        )
+        fdr_vals = "\t".join(target_fdr_ests)
+        # TODO chunk outputs?
+        with open(output_fdr_info, "a") as fdr_file:
+            fdr_file.write(f"{target_contig}\t{fdr_vals}\n")
+
+    fancylog("Done computing FDR estimates for the target contigs.", prefix="")
 
     # TODO: Verify that the decoy contig has a nonzero mutation rate?
     # If not, that's problematic, because
