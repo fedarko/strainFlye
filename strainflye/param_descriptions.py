@@ -9,7 +9,10 @@ INPUT_CONTIGS_NAIVE_CALL = (
     "file, we won't perform any calling on these absent contigs."
 )
 
-INPUT_BAM = "BAM file representing an alignment of reads to contigs."
+INPUT_BAM = (
+    "Sorted and indexed BAM file representing an alignment of reads to "
+    "contigs."
+)
 
 OUTPUT_DIR_NAIVE_CALL = (
     "Directory to which an output BCF file (describing the called "

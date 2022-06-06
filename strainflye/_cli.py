@@ -634,7 +634,7 @@ def estimate(
     "--vcf",
     required=True,
     type=click.Path(exists=True),
-    help="BCF file describing na\u00efvely called p- or r-mutations.",
+    help="Indexed BCF file describing na\u00efvely called p- or r-mutations.",
 )
 @click.option(
     "-fi",
