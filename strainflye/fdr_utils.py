@@ -693,7 +693,7 @@ def run_estimate(
     # Compute FDR estimates for each target contig.
     # This is analogous to the "Full" context-dependent option for the decoy
     # genome comptuation, so we can reuse a lot of code from that.
-    for target_contig in bcf_contigs - {decoy_contig}:
+    for target_contig in bcf_contigs - {used_decoy_contig}:
         target_fdr_ests = compute_full_contig_mut_rates(
             bcf_obj,
             thresh_type,
