@@ -6,7 +6,7 @@ import subprocess
 import pysam
 from itertools import combinations
 from collections import defaultdict
-from . import graph_utils, fasta_utils
+from . import graph_utils, fasta_utils, misc_utils
 from .errors import ParameterError, SequencingDataError, WeirdError
 
 
@@ -755,7 +755,7 @@ def run(reads, contigs, graph, output_dir, fancylog, verbose):
         fancylog("Everything looks good so far.", prefix="")
 
     # Make the output dir if it doesn't already exist
-    os.makedirs(output_dir, exist_ok=True)
+    misc_utils.make_output_dir(output_dir)
     first_output_bam = os.path.join(output_dir, "sorted-unfiltered.bam")
 
     # There isn't really a need to store the SAM file from minimap2, or the

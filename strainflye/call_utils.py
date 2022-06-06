@@ -7,7 +7,7 @@ import pysam
 import pysamstats
 from . import config
 from .errors import SequencingDataError, ParameterError, WeirdError
-from strainflye import __version__, fasta_utils
+from strainflye import __version__, fasta_utils, misc_utils
 
 
 def get_alt_pos_info(rec):
@@ -193,8 +193,7 @@ def get_min_sufficient_coverages_r(r_vals, min_cov_factor):
 def run(
     contigs,
     bam,
-    output_vcf,
-    output_diversity_indices,
+    output_dir,
     fancylog,
     verbose,
     min_p=None,
@@ -224,13 +223,11 @@ def run(
     bam: str
         Filepath to a BAM file mapping reads to contigs.
 
-    output_vcf: str
-        Filepath to which a VCF file describing called mutations will be
-        written.
-
-    output_diversity_indices: str
-        Filepath to which a TSV file describing diversity indices will be
-        written.
+    output_dir: str
+        Directory to which BCF / BCF index / TSV diversity index outputs will
+        be written. We'll also write out temporary files -- VCF, bgzipped VCF,
+        etc. (The temporary files are the motivation for using an output
+        directory rather than letting users name the output files explicitly.)
 
     fancylog: function
         Logging function.
@@ -313,6 +310,18 @@ def run(
         ),
         prefix="",
     )
+
+    # Create the output directory (if it doesn't already exist) and determine
+    # the output filepaths within this directory.
+    # I'm waffling over if it makes sense to try to name these files based on
+    # the threshold type and minimum used to create them (e.g.
+    # "naive-p0.15.vcf"), but that will complicate using this in a pipeline.
+    # Let's leave it as is for now.
+    misc_utils.make_output_dir(output_dir)
+    output_diversity_indices = os.path.join(
+        output_dir, "diversity-indices.tsv"
+    )
+    output_vcf = os.path.join(output_dir, "naive-calls.vcf")
 
     fancylog("Creating and writing diversity index and VCF file headers...")
     # TODO? Add some checking to make sure that using_p implies that only
@@ -598,6 +607,17 @@ def run(
     fancylog(
         f"Done running {call_str} and computing diversity indices.", prefix=""
     )
+    fancylog(
+        f"Converting the VCF file we just created to a compressed BCF file..."
+    )
+    output_bcf = os.path.join(output_dir, "naive-calls.bcf")
+    subprocess.run(
+        ["bcftools", "view", "-O", "b", output_vcf, "-o", output_bcf]
+    )
+    os.remove(output_vcf)
+    fancylog(f"Done. Indexing this BCF...", prefix="")
+    subprocess.run(["bcftools", "index", output_bcf])
+    fancylog(f"Done indexing this BCF.", prefix="")
 
 
 def is_position_rare_direct(alt_pos, cov):

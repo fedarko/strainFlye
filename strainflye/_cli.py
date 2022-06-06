@@ -77,7 +77,7 @@ def strainflye():
     type=click.Path(dir_okay=True, file_okay=False),
     help=(
         "Directory to which an output BAM file and BAM index file will be "
-        "written. Some temporary files may also be written to this directory."
+        "written. Some temporary files will also be written to this directory."
     ),
 )
 @click.option(
@@ -250,22 +250,11 @@ strainflye.add_command(call)
     ),
 )
 @click.option(
-    "-ov",
-    "--output-vcf",
+    "-o",
+    "--output-dir",
     required=True,
-    type=click.Path(dir_okay=False),
-    help=desc.OUTPUT_VCF_NAIVE_CALL,
-)
-@click.option(
-    "-od",
-    "--output-diversity-indices",
-    required=True,
-    type=click.Path(dir_okay=False),
-    help=(
-        "Filepath to which an output tab-separated values (TSV) file "
-        "describing diversity indices for the values of p given in "
-        "--div-index-p-list will be written."
-    ),
+    type=click.Path(dir_okay=True, file_okay=False),
+    help=desc.OUTPUT_DIR_NAIVE_CALL,
 )
 @click.option(
     "--verbose/--no-verbose",
@@ -281,15 +270,14 @@ def p_mutation(
     min_alt_pos,
     div_index_p_list,
     min_read_number,
-    output_vcf,
-    output_diversity_indices,
+    output_dir,
     verbose,
 ):
     """Calls p-mutations and computes diversity indices.
 
     The primary parameter for this command is the lower bound of p, defined by
-    --min-p. The VCF output will include "mutations" for all positions that
-    pass this (likely very low) threshold, but this VCF should be adjusted
+    --min-p. The BCF output will include "mutations" for all positions that
+    pass this (likely very low) threshold, but this BCF should be adjusted
     using the utilities contained in the "strainFlye fdr" module.
     """
     fancylog = cli_utils.fancystart(
@@ -302,17 +290,13 @@ def p_mutation(
             ("--div-index-p-list", div_index_p_list),
             ("minimum read number", min_read_number),
         ),
-        (
-            ("VCF file", output_vcf),
-            ("diversity indices file", output_diversity_indices),
-        ),
+        (("directory", output_dir),),
     )
     di_list = call_utils.parse_di_list(div_index_p_list, param="p")
     call_utils.run(
         contigs,
         bam,
-        output_vcf,
-        output_diversity_indices,
+        output_dir,
         fancylog,
         verbose,
         min_p=min_p,
@@ -374,22 +358,11 @@ def p_mutation(
     ),
 )
 @click.option(
-    "-ov",
-    "--output-vcf",
+    "-o",
+    "--output-dir",
     required=True,
-    type=click.Path(dir_okay=False),
-    help=desc.OUTPUT_VCF_NAIVE_CALL,
-)
-@click.option(
-    "-od",
-    "--output-diversity-indices",
-    required=True,
-    type=click.Path(dir_okay=False),
-    help=(
-        "Filepath to which an output tab-separated values (TSV) file "
-        "describing diversity indices for the values of r given in "
-        "--div-index-r-list will be written."
-    ),
+    type=click.Path(dir_okay=True, file_okay=False),
+    help=desc.OUTPUT_DIR_NAIVE_CALL,
 )
 @click.option(
     "--verbose/--no-verbose",
@@ -404,15 +377,14 @@ def r_mutation(
     min_r,
     div_index_r_list,
     min_coverage_factor,
-    output_vcf,
-    output_diversity_indices,
+    output_dir,
     verbose,
 ):
     """Calls r-mutations and computes diversity indices.
 
     The primary parameter for this command is the lower bound of r, defined by
-    --min-r. The VCF output will include "mutations" for all positions that
-    pass this (likely very low) threshold, but this VCF should be adjusted
+    --min-r. The BCF output will include "mutations" for all positions that
+    pass this (likely very low) threshold, but this BCF should be adjusted
     using the utilities contained in the "strainFlye fdr" module.
     """
     fancylog = cli_utils.fancystart(
@@ -424,17 +396,13 @@ def r_mutation(
             ("--div-index-r-list", div_index_r_list),
             ("minimum coverage factor", min_coverage_factor),
         ),
-        (
-            ("VCF file", output_vcf),
-            ("diversity indices file", output_diversity_indices),
-        ),
+        (("directory", output_dir),),
     )
     di_list = call_utils.parse_di_list(div_index_r_list, param="r")
     call_utils.run(
         contigs,
         bam,
-        output_vcf,
-        output_diversity_indices,
+        output_dir,
         fancylog,
         verbose,
         min_r=min_r,
@@ -461,13 +429,13 @@ strainflye.add_command(fdr)
     help="FASTA file of contigs.",
 )
 @click.option(
-    "-v",
-    "--vcf",
+    "-b",
+    "--bcf",
     required=True,
     type=click.Path(exists=True),
     help=(
-        "VCF file describing na\u00efvely called p- or r-mutations in the "
-        "FASTA file's contigs."
+        "Indexed BCF file describing na\u00efvely called p- or r-mutations in "
+        "the FASTA file's contigs."
     ),
 )
 @click.option(
@@ -601,7 +569,7 @@ def estimate(
 
     We can produce multiple FDR estimates for a single target contig's calls by
     varying the p or r threshold used (from the --min-p or --min-r threshold
-    used to generate the input VCF file, up to the --high-p or --high-r
+    used to generate the input BCF file, up to the --high-p or --high-r
     threshold given here). Using this information, we can plot an FDR curve for
     a given target contig's mutation calls.
     """
@@ -609,20 +577,20 @@ def estimate(
         "strainFlye fdr estimate",
         (
             ("contig file", contigs),
-            ("VCF file", vcf),
+            ("BCF file", vcf),
             ("diversity indices file", diversity_indices),
             ("manually-set decoy contig", decoy_contig),
             ("decoy contig context-dependent mutation type", decoy_context),
             (
                 (
-                    "high p threshold (only used if the VCF describes "
+                    "high p threshold (only used if the BCF describes "
                     "p-mutations)"
                 ),
                 high_p,
             ),
             (
                 (
-                    "high r threshold (only used if the VCF describes "
+                    "high r threshold (only used if the BCF describes "
                     "r-mutations)"
                 ),
                 high_r,
@@ -666,7 +634,7 @@ def estimate(
     "--vcf",
     required=True,
     type=click.Path(exists=True),
-    help="VCF file describing na\u00efvely called p- or r-mutations.",
+    help="BCF file describing na\u00efvely called p- or r-mutations.",
 )
 @click.option(
     "-fi",
@@ -695,10 +663,10 @@ def estimate(
     required=True,
     type=click.Path(dir_okay=False),
     help=(
-        "Filepath to which an output VCF file (describing the called "
+        "Filepath to which an output BCF file (describing the called "
         "mutations at the optimal p or r value for each contig) will be "
         "written. These mutations will be a subset of those described in the "
-        "input VCF file."
+        "input BCF file."
     ),
 )
 def fix(vcf, fdr_info, fdr, output_vcf):
@@ -706,11 +674,11 @@ def fix(vcf, fdr_info, fdr, output_vcf):
     fancylog = cli_utils.fancystart(
         "strainFlye fdr fix",
         (
-            ("VCF file", vcf),
+            ("BCF file", vcf),
             ("FDR estimate file", fdr_info),
             ("FDR to fix mutation calls at", fdr),
         ),
-        (("VCF file with fixed FDR", output_vcf),),
+        (("BCF file with fixed FDR", output_vcf),),
     )
     fdr_utils.run_fix(vcf, fdr_info, fdr, output_vcf, fancylog)
     fancylog("Done.")

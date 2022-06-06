@@ -11,9 +11,10 @@ INPUT_CONTIGS_NAIVE_CALL = (
 
 INPUT_BAM = "BAM file representing an alignment of reads to contigs."
 
-OUTPUT_VCF_NAIVE_CALL = (
-    "Filepath to which an output VCF file (describing the called "
-    "mutations) will be written."
+OUTPUT_DIR_NAIVE_CALL = (
+    "Directory to which an output BCF file (describing the called "
+    "mutations), BCF index file, and diversity index TSV file will be "
+    "written. Some temporary files will also be written to this directory."
 )
 
 VERBOSE_CALL = "Display extra details for each contig while running."
