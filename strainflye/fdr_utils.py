@@ -3,8 +3,6 @@
 
 import re
 import pysam
-import skbio
-import numpy as np
 import pandas as pd
 from math import floor
 from collections import defaultdict
@@ -355,11 +353,14 @@ def compute_full_contig_mut_rates(
 ):
     # For each threshold value, keep track of how many mutations we've seen at
     # this threshold.
-    num_muts = np.array([0] * len(thresh_vals))
+    num_muts = [0] * len(thresh_vals)
 
     for mut in bcf_obj.fetch(contig):
 
-        alt_pos = mut.info.get("AAD")
+        # AAD is technically a tuple since it's defined once for every alt
+        # allele, but r/n strainflye call only produces max one alt allele per
+        # mutation. So it's a tuple with 1 element (at least for now).
+        alt_pos = mut.info.get("AAD")[0]
         cov_pos = mut.info.get("MDP")
 
         if thresh_type == "p":
@@ -376,7 +377,7 @@ def compute_full_contig_mut_rates(
         for i in range(num_vals_to_update):
             num_muts[i] += 1
 
-    denominator = 3 * len(seq)
+    denominator = 3 * contig_len
     if decoy_mut_rates is None:
         return [n / denominator for n in num_muts]
     else:
