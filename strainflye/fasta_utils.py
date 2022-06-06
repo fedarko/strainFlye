@@ -145,3 +145,38 @@ def verify_contigs_subset(child, parent, child_desc, parent_desc, exact=False):
             f"All contigs in {parent_desc} must also be contained in "
             f"{child_desc}."
         )
+
+
+def get_single_seq(fasta_fp, contig_name):
+    """Retrieves a single sequence from a FASTA file.
+
+    In the worst case, this requires iteration over the entire file at once, so
+    please don't call it once for every contig in a for loop or something.
+    The goal is to just retrieve a single sequence relatively quickly, without
+    having to store every sequence in the file in memory or something.
+
+    Parameters
+    ----------
+    fasta_fp: str
+        Filepath to a FASTA file.
+
+    contig_name: str
+        Name of a contig. This contig's sequence will be retrieved from the
+        FASTA file.
+
+    Returns
+    -------
+    contig_seq: skbio.DNA
+        Sequence of this contig.
+
+    Raises
+    ------
+    SequencingDataError
+        If this contig isn't present in the FASTA file.
+    """
+    for seq in skbio.io.read(fasta_fp, format="fasta", constructor=skbio.DNA):
+        if seq.metadata["id"] == contig_name:
+            return seq
+    raise SequencingDataError(
+        f"Contig {contig_name} is not in {fasta_fp}."
+    )

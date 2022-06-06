@@ -3,7 +3,10 @@
 
 import re
 import pysam
+import skbio
+import numpy as np
 import pandas as pd
+from math import floor
 from collections import defaultdict
 from strainflye import fasta_utils
 from .errors import ParameterError, SequencingDataError
@@ -369,7 +372,7 @@ def compute_decoy_mut_rates(
 
     thresh_vals: list
         List of values of p or r (depending on thresh_type) at which to
-        compute mutation rates.
+        compute mutation rates. This should be listed in ascending order.
 
     decoy_contig: str
         Name of a contig to compute mutation rates for.
@@ -391,13 +394,51 @@ def compute_decoy_mut_rates(
     Returns
     -------
     decoy_mutation_rates: list
+        Has the same dimensions as thresh_vals. The i-th value of
+        decoy_mutation_rates corresponds to the mutation rate computed for this
+        decoy contig based on naive calling using the i-th threshold value.
 
     Raises
     ------
-    ParameterError
-        If decoy_contig isn't in the contigs
+    SequencingDataError
+        If decoy_contig isn't in the contigs. (This should never happen if
+        this function is called from run_estimate(), which should already have
+        ensured that this is the case.)
     """
-    # - Load contig sequence from contigs
+    decoy_seq = fasta_utils.get_single_seq(contigs, decoy_contig)
+
+    # For each threshold value, keep track of how many mutations we've seen at
+    # this threshold.
+    num_muts = np.array([0] * len(thresh_vals))
+    if decoy_context == "Full":
+        for mut in bcf_obj.fetch(decoy_contig):
+
+            # TODO export to call_utils functions for calling for many
+            # values of p/r at once
+            alt_pos = mut.info.get("AAD")
+            cov_pos = mut.info.get("MDP")
+
+            if thresh_type == "p":
+                max_passing_val = floor((10000 * alt_pos) / cov_pos)
+            else:
+                max_passing_val = alt_pos
+
+            # NOTE: This is already more optimized than the analysis
+            # notebooks, but I think it could still be made faster. Maybe
+            # just increment a single value (corresponding to the max
+            # passing p/r), and then do everything at the end after seeing
+            # all mutations in one pass? Let's see if this is a bottleneck.
+            num_vals_to_update = max_passing_val - thresh_vals[0] + 1
+            for i in range(num_vals_to_update):
+                num_muts[i] += 1
+        denominator = (3 * len(seq))
+        return [n / denominator for n in num_muts]
+    else:
+        raise NotImplementedError(
+            'Only the "Full" context is implemented now.'
+        )
+    
+    # TODO:
     # - If decoy_context != "Full",
     #   - Predict genes in this sequence using prodigal. Save .sco to tempfile.
     # - Fetch mutations aligned to this contig in the BCF file.
@@ -587,27 +628,22 @@ def run_estimate(
         prefix="",
     )
 
-    # For each value in thresh_vals, compute the decoy genome's mutation
-    # rate. Will need to predict genes using prodigal first, if decoy_context
-    # isn't "Full".
-    #
-    # Save these to a list, decoy_mut_rates -- this will have the same
-    # dimensions as thresh_vals.
-    # decoy_mut_rates = compute_decoy_mut_rates(
-    #     contigs,
-    #     bcf_obj,
-    #     thresh_type,
-    #     thresh_vals,
-    #     used_decoy_contig,
-    #     decoy_context,
-    # )
+    # For each value in thresh_vals, compute the decoy genome's mutation rate.
+    decoy_mut_rates = compute_decoy_mut_rates(
+        contigs,
+        bcf_obj,
+        thresh_type,
+        thresh_vals,
+        used_decoy_contig,
+        decoy_context,
+    )
 
-    # TODO: Verify that the decoy contig has a nonzero mutation rate?
-    # If not, that's problematic, because
-    # then we'd estimate the FDR as zero for every target contig. That
-    # shouldn't happen most of the time, anyway. Maybe add an option to limit
-    # auto-selection to just contigs with mutations? Hm, but that would be
-    # annoying to implement, and users can always manually set a decoy contig.)
+    # Write out the header for the FDR TSV file
+    fdr_header = "Contig"
+    for val in thresh_vals:
+        fdr_header += f"\t{thresh_type}{val}"
+    with open(output_fdr_info, "w") as fdr_file:
+        fdr_file.write(f"{fdr_header}\n")
 
     # TODO: For each target genome...
     # - For each value in thresh_vals...
@@ -618,6 +654,13 @@ def run_estimate(
     #     as thresh_vals.
     # - Write out a new row to the FDR estimate file describing
     #   target_fdr_ests.
+
+    # TODO: Verify that the decoy contig has a nonzero mutation rate?
+    # If not, that's problematic, because
+    # then we'd estimate the FDR as zero for every target contig. That
+    # shouldn't happen most of the time, anyway. Maybe add an option to limit
+    # auto-selection to just contigs with mutations? Hm, but that would be
+    # annoying to implement, and users can always manually set a decoy contig.)
 
 
 def run_fix(bcf, fdr_info, fdr, output_bcf, fancylog):
