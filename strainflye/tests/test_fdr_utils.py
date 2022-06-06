@@ -15,10 +15,13 @@ def write_tempfile(text):
     return fh
 
 
-def test_parse_vcf_good():
+def test_parse_bcf_good():
     # Header + first four mutations called on SheepGut using p = 0.15%
     # ... just for reference, using StringIO didn't seem to work with pysam's
-    # VCF reader, hence the use of tempfiles here
+    # BCF reader, hence the use of tempfiles here
+    # NOTE FROM MARCUS: pysam accepts either VCF or BCF files, and -- since we
+    # just recently switched from working with VCF to BCF, mainly -- these
+    # tests still output VCF files.
     fh = write_tempfile(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220526\n"
@@ -33,19 +36,19 @@ def test_parse_vcf_good():
         "edge_1\t356\t.\tA\tT\t.\t.\tMDP=403;AAD=2\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
     )
-    vcf_obj, thresh_type, thresh_min = fu.parse_vcf(fh.name)
+    bcf_obj, thresh_type, thresh_min = fu.parse_bcf(fh.name)
 
     # Let's get the easy checks out of the way first...
     assert thresh_type == "p"
     assert thresh_min == 15
-    # This part of things -- parsing the VCF -- pysam handles, so we don't go
+    # This part of things -- parsing the BCF -- pysam handles, so we don't go
     # too in depth. Just verify it gets the positions, alleles, and info right.
     correct_pos = [43, 255, 356, 387]
     correct_mdp = [380, 385, 403, 395]
     correct_aad = [2, 2, 2, 2]
     correct_ref = ["A", "T", "A", "T"]
     correct_alt = ["T", "C", "T", "C"]
-    for ri, rec in enumerate(vcf_obj.fetch()):
+    for ri, rec in enumerate(bcf_obj.fetch()):
         assert rec.pos == correct_pos[ri]
         assert rec.info.get("MDP") == correct_mdp[ri]
         assert rec.ref == correct_ref[ri]
@@ -66,7 +69,7 @@ def test_parse_vcf_good():
         assert rec_aad[0] == correct_aad[ri]
 
 
-def test_parse_vcf_multi_sf_header():
+def test_parse_bcf_multi_sf_header():
     # Header + first four mutations called on SheepGut using p = 0.15%
     fh = write_tempfile(
         "##fileformat=VCFv4.3\n"
@@ -84,14 +87,14 @@ def test_parse_vcf_multi_sf_header():
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
     )
     with pytest.raises(ParameterError) as ei:
-        fu.parse_vcf(fh.name)
+        fu.parse_bcf(fh.name)
     exp_patt = (
-        f"VCF file {fh.name} has multiple strainFlye threshold filter headers."
+        f"BCF file {fh.name} has multiple strainFlye threshold filter headers."
     )
     assert str(ei.value) == exp_patt
 
 
-def test_parse_vcf_no_sf_header():
+def test_parse_bcf_no_sf_header():
     # Header + first four mutations called on SheepGut using p = 0.15%
     fh = write_tempfile(
         "##fileformat=VCFv4.3\n"
@@ -107,15 +110,15 @@ def test_parse_vcf_no_sf_header():
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
     )
     with pytest.raises(ParameterError) as ei:
-        fu.parse_vcf(fh.name)
+        fu.parse_bcf(fh.name)
     exp_patt = (
-        f"VCF file {fh.name} doesn't seem to be from strainFlye: no threshold "
+        f"BCF file {fh.name} doesn't seem to be from strainFlye: no threshold "
         "filter headers."
     )
     assert str(ei.value) == exp_patt
 
 
-def test_parse_vcf_missing_info_fields():
+def test_parse_bcf_missing_info_fields():
     # Header + first four mutations called on SheepGut using p = 0.15%
     # kind of a gross way of doing this -- should ideally set this up as a list
     # from the start, theeen join it up, rather than going from string to list
@@ -139,29 +142,29 @@ def test_parse_vcf_missing_info_fields():
     # remove just the MDP line
     fh = write_tempfile("\n".join(split_text[:4] + split_text[5:]))
     with pytest.raises(ParameterError) as ei:
-        fu.parse_vcf(fh.name)
-    exp_patt = f"VCF file {fh.name} needs to have MDP and AAD info fields."
+        fu.parse_bcf(fh.name)
+    exp_patt = f"BCF file {fh.name} needs to have MDP and AAD info fields."
     assert str(ei.value) == exp_patt
 
     # remove just the AAD line
     fh = write_tempfile("\n".join(split_text[:5] + split_text[6:]))
     with pytest.raises(ParameterError) as ei:
-        fu.parse_vcf(fh.name)
-    exp_patt = f"VCF file {fh.name} needs to have MDP and AAD info fields."
+        fu.parse_bcf(fh.name)
+    exp_patt = f"BCF file {fh.name} needs to have MDP and AAD info fields."
     assert str(ei.value) == exp_patt
 
     # remove both the MDP and AAD lines
     fh = write_tempfile("\n".join(split_text[:4] + split_text[6:]))
     with pytest.raises(ParameterError) as ei:
-        fu.parse_vcf(fh.name)
-    exp_patt = f"VCF file {fh.name} needs to have MDP and AAD info fields."
+        fu.parse_bcf(fh.name)
+    exp_patt = f"BCF file {fh.name} needs to have MDP and AAD info fields."
     assert str(ei.value) == exp_patt
 
     # finally, sanity check that putting back in all the lines works (doesn't
     # throw an error) -- we check this dataset in detail above, so no need to
     # do that again here
     fh = write_tempfile("\n".join(split_text))
-    fu.parse_vcf(fh.name)
+    fu.parse_bcf(fh.name)
 
 
 def test_check_decoy_selection():

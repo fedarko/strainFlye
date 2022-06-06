@@ -549,7 +549,7 @@ strainflye.add_command(fdr)
 )
 def estimate(
     contigs,
-    vcf,
+    bcf,
     diversity_indices,
     decoy_contig,
     decoy_context,
@@ -577,7 +577,7 @@ def estimate(
         "strainFlye fdr estimate",
         (
             ("contig file", contigs),
-            ("BCF file", vcf),
+            ("BCF file", bcf),
             ("diversity indices file", diversity_indices),
             ("manually-set decoy contig", decoy_contig),
             ("decoy contig context-dependent mutation type", decoy_context),
@@ -614,7 +614,7 @@ def estimate(
     )
     fdr_utils.run_estimate(
         contigs,
-        vcf,
+        bcf,
         diversity_indices,
         decoy_contig,
         decoy_context,
@@ -631,7 +631,7 @@ def estimate(
 @fdr.command(**cmd_params)
 @click.option(
     "-v",
-    "--vcf",
+    "--bcf",
     required=True,
     type=click.Path(exists=True),
     help="Indexed BCF file describing na\u00efvely called p- or r-mutations.",
@@ -659,7 +659,7 @@ def estimate(
 )
 @click.option(
     "-o",
-    "--output-vcf",
+    "--output-bcf",
     required=True,
     type=click.Path(dir_okay=False),
     help=(
@@ -669,18 +669,18 @@ def estimate(
         "input BCF file."
     ),
 )
-def fix(vcf, fdr_info, fdr, output_vcf):
+def fix(bcf, fdr_info, fdr, output_bcf):
     """Fixes contigs' mutation calls' FDRs to an upper limit."""
     fancylog = cli_utils.fancystart(
         "strainFlye fdr fix",
         (
-            ("BCF file", vcf),
+            ("BCF file", bcf),
             ("FDR estimate file", fdr_info),
             ("FDR to fix mutation calls at", fdr),
         ),
-        (("BCF file with fixed FDR", output_vcf),),
+        (("BCF file with fixed FDR", output_bcf),),
     )
-    fdr_utils.run_fix(vcf, fdr_info, fdr, output_vcf, fancylog)
+    fdr_utils.run_fix(bcf, fdr_info, fdr, output_bcf, fancylog)
     fancylog("Done.")
 
 
@@ -713,7 +713,7 @@ def fix(vcf, fdr_info, fdr, output_vcf):
 # @strainflye.command(**cmd_params)
 # def smooth():
 #     """Generates smoothed haplotypes."""
-#     # input: contigs, reads, vcf of mutations
+#     # input: contigs, reads, bcf of mutations
 #     # output: contigs / graph / etc. assembled by LJA
 #     print("SMOOTH")
 

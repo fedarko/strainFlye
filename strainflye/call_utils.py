@@ -3,6 +3,7 @@
 
 import os
 import time
+import subprocess
 import pysam
 import pysamstats
 from . import config
@@ -611,16 +612,16 @@ def run(
         f"Done running {call_str} and computing diversity indices.", prefix=""
     )
     fancylog(
-        f"Converting the VCF file we just created to a compressed BCF file..."
+        "Converting the VCF file we just created to a compressed BCF file..."
     )
     output_bcf = os.path.join(output_dir, "naive-calls.bcf")
     subprocess.run(
         ["bcftools", "view", "-O", "b", output_vcf, "-o", output_bcf]
     )
     os.remove(output_vcf)
-    fancylog(f"Done. Indexing this BCF...", prefix="")
+    fancylog("Done. Indexing this BCF...", prefix="")
     subprocess.run(["bcftools", "index", output_bcf])
-    fancylog(f"Done indexing this BCF.", prefix="")
+    fancylog("Done indexing this BCF.", prefix="")
 
 
 def is_position_rare_direct(alt_pos, cov):

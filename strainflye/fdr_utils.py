@@ -10,40 +10,43 @@ from .errors import ParameterError, SequencingDataError
 from .config import DI_PREF
 
 
-def parse_vcf(vcf):
-    """Opens a VCF file, and does sanity checking and p vs. r sniffing on it.
+def parse_bcf(bcf):
+    """Opens a BCF file, and does sanity checking and p vs. r sniffing on it.
 
-    Thankfully, pysam has the ability to read VCF files, so the main thing
-    we do here is checking that the meta-information of the VCF file seems
+    Thankfully, pysam has the ability to read BCF files, so the main thing
+    we do here is checking that the meta-information of the BCF file seems
     seems kosher (i.e. was produced by strainFlye).
 
     Parameters
     ----------
-    vcf: str
-        Path to a VCF file produced by one of "strainFlye call"'s subcommands.
+    bcf: str
+        Path to a BCF file produced by one of "strainFlye call"'s subcommands.
 
     Returns
     -------
     (f, thresh_type, thresh_min): (pysam.VariantFile, str, int)
-        f: Object describing the input VCF file.
+        f: Object describing the input BCF file.
         thresh_type: either "p" or "r", depending on what type of mutation
-                     calling was done to produce this VCF file.
+                     calling was done to produce this BCF file.
         thresh_min: the minimum value of p or r used in mutation calling to
-                    produce this VCF file. Formatted the same as used in the
+                    produce this BCF file. Formatted the same as used in the
                     file (so values of p will still be scaled up by 100).
 
     Raises
     ------
     FileNotFoundError
-        If vcf doesn't exist (raised by pysam).
+        If bcf doesn't exist (raised by pysam).
 
     ValueError
-        If vcf doesn't look like a VCF/BCF file (raised by pysam).
+        If bcf doesn't look like a VCF/BCF file (raised by pysam).
+        (Note that we could *technically* accept gzipped and indexed VCF files,
+        I guess, but I don't want to officially add support for that because
+        that sounds like a lot of testing.)
 
     ParameterError
-        If vcf does not have exactly one "strainFlye threshold filter header,"
+        If bcf does not have exactly one "strainFlye threshold filter header,"
         which is a term I made up just now. Basically, we rely on there
-        existing a single line in the VCF file's header that goes like
+        existing a single line in the BCF file's header that goes like
 
             ##FILTER=<ID=strainflye_minT_MMMM,...>
 
@@ -54,20 +57,19 @@ def parse_vcf(vcf):
         If there isn't exactly one of these lines, then we will be very
         confused! Hence why we raise an error.
     """
-    # this will fail with a FileNotFoundError if "vcf" doesn't point to an
+    # this will fail with a FileNotFoundError if "bcf" doesn't point to an
     # existing file (although we shouldn't need to worry about that much b/c
     # click should've already checked that this file exists); and it'll fail
     # with a ValueError if it points to a file but this file doesn't look like
-    # a VCF/BCF file (it shouldn't be BCF unless the user converted it to BCF
-    # themselves, I guess, but that's fine)
-    f = pysam.VariantFile(vcf)
+    # a VCF/BCF file
+    f = pysam.VariantFile(bcf)
 
     # Now that this at least seems like a VCF/BCF file, make sure it's from
     # strainFlye, and figure out whether it's from p- or r-mutation calling...
     thresh_type = None
     thresh_min = None
 
-    # pysam seems to add an extra filter labelled PASS to the parsed VCF file,
+    # pysam seems to add an extra filter labelled PASS to the parsed BCF file,
     # for some reason. So let's consider all filters that the file has -- might
     # as well, because it's useful to detect the weird case where there are > 1
     # strainFlye threshold headers (we raise an error about this below)
@@ -78,28 +80,28 @@ def parse_vcf(vcf):
             # it multiple times, something has gone very wrong.
             if thresh_type is not None or thresh_min is not None:
                 raise ParameterError(
-                    f"VCF file {vcf} has multiple strainFlye threshold filter "
+                    f"BCF file {bcf} has multiple strainFlye threshold filter "
                     "headers."
                 )
             thresh_type = filter_match.group(1)
             thresh_min = int(filter_match.group(2))
 
     # If we never updated these variables, we never saw a strainFlye filter
-    # header -- probably this VCF isn't from strainFlye.
+    # header -- probably this BCF isn't from strainFlye.
     if thresh_type is None or thresh_min is None:
         raise ParameterError(
-            f"VCF file {vcf} doesn't seem to be from strainFlye: no threshold "
+            f"BCF file {bcf} doesn't seem to be from strainFlye: no threshold "
             "filter headers."
         )
 
-    # Let's be extra paranoid and verify that this VCF has MDP (coverage based
+    # Let's be extra paranoid and verify that this BCF has MDP (coverage based
     # on (mis)matches) and AAD (alternate nucleotide coverage) fields. (It
     # should, because we know at this point that strainFlye generated it, but
     # you never know...)
     info_ids = f.header.info.keys()
     if "MDP" not in info_ids or "AAD" not in info_ids:
         raise ParameterError(
-            f"VCF file {vcf} needs to have MDP and AAD info fields."
+            f"BCF file {bcf} needs to have MDP and AAD info fields."
         )
 
     return f, thresh_type, thresh_min
@@ -116,7 +118,7 @@ def check_decoy_selection(diversity_indices, decoy_contig):
 
     decoy_contig: str or None
         If a str, this should be the name of a contig described in the
-        VCF file.
+        BCF file.
 
     Returns
     -------
@@ -342,7 +344,7 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
 
 def compute_decoy_mut_rates(
     contigs,
-    vcf_obj,
+    bcf_obj,
     thresh_type,
     thresh_vals,
     decoy_contig,
@@ -358,12 +360,12 @@ def compute_decoy_mut_rates(
         contig's sequence (it's probably easier to load it here then to rely on
         the caller to load it).
 
-    vcf_obj: pysam.VariantFile
-        Object describing a VCF file produced by strainFlye's naive calling.
+    bcf_obj: pysam.VariantFile
+        Object describing a BCF file produced by strainFlye's naive calling.
 
     thresh_type: str
         Either "p" or "r", depending on which type of mutations were called in
-        vcf_obj.
+        bcf_obj.
 
     thresh_vals: list
         List of values of p or r (depending on thresh_type) at which to
@@ -398,13 +400,13 @@ def compute_decoy_mut_rates(
     # - Load contig sequence from contigs
     # - If decoy_context != "Full",
     #   - Predict genes in this sequence using prodigal. Save .sco to tempfile.
-    # - Fetch mutations aligned to this contig in the VCF file.
+    # - Fetch mutations aligned to this contig in the BCF file.
     # -
 
 
 def run_estimate(
     contigs,
-    vcf,
+    bcf,
     diversity_indices,
     decoy_contig,
     decoy_context,
@@ -417,7 +419,7 @@ def run_estimate(
 ):
     """Runs the pipeline for decoy selection and FDR estimation.
 
-    Notably, both high_p and high_r will be defined regardless of if the VCF
+    Notably, both high_p and high_r will be defined regardless of if the BCF
     was generated using p- or r-mutations, because (unlike strainFlye call)
     I don't think it's worth splitting this step up into two sub-commands
     by p- or r-mutations. So we'll just ignore one of these values.
@@ -428,8 +430,8 @@ def run_estimate(
         Filepath to a FASTA file containing contigs in which mutations were
         naively called.
 
-    vcf: str
-        Filepath to a VCF file generated by one of strainFlye call's
+    bcf: str
+        Filepath to a BCF file generated by one of strainFlye call's
         subcommands.
 
     diversity_indices: str or None
@@ -439,7 +441,7 @@ def run_estimate(
 
     decoy_contig: str or None
         If a str, this should be the name of a contig described in the
-        VCF file. We'll use this as a decoy contig.
+        BCF file. We'll use this as a decoy contig.
 
     decoy_context: str
         Context-dependent mutation settings (e.g. Full, CP2, Nonsyn, ...)
@@ -473,39 +475,39 @@ def run_estimate(
     # get name -> length mapping for the FASTA file; also sanity check it a bit
     contig_name2len = fasta_utils.get_name2len(contigs)
 
-    # Load the VCF file, also
-    vcf_obj, thresh_type, thresh_min = parse_vcf(vcf)
+    # Load the BCF file, also
+    bcf_obj, thresh_type, thresh_min = parse_bcf(bcf)
 
-    # Figure out which contigs are considered in the VCF file
+    # Figure out which contigs are considered in the BCF file
     # (thankfully, this header can include contigs with no called mutations,
     # which makes my life easier here)
-    vcf_contigs = set(vcf_obj.header.contigs)
+    bcf_contigs = set(bcf_obj.header.contigs)
 
-    # Ensure that the sets of contigs in the VCF file and FASTA match exactly
-    # (In theory, we could allow the VCF to be a subset of the FASTA, but...
+    # Ensure that the sets of contigs in the BCF file and FASTA match exactly
+    # (In theory, we could allow the BCF to be a subset of the FASTA, but...
     # nah, that's too much work and the user should already have an exactly-
     # matching FASTA file around from when they ran "call".)
     fasta_utils.verify_contigs_subset(
-        vcf_contigs,
+        bcf_contigs,
         set(contig_name2len),
-        "the VCF file",
+        "the BCF file",
         "the FASTA file",
         exact=True,
     )
     # We *could* try to ensure that the diversity index file's contigs, if
-    # a diversity index file is specified, are a subset of the VCF -- but
+    # a diversity index file is specified, are a subset of the BCF -- but
     # no need to do this extra work right now. the main thing that matters IMO
-    # is just checking that the selected decoy contig is in the VCF, which is
+    # is just checking that the selected decoy contig is in the BCF, which is
     # much easier to do later.
     fancylog(
         (
-            "The VCF and FASTA files describe the same "
+            "The BCF and FASTA files describe the same "
             f"{len(contig_name2len):,} contigs."
         ),
         prefix="",
     )
     fancylog(
-        f"Also, the input VCF file contains {thresh_type}-mutations "
+        f"Also, the input BCF file contains {thresh_type}-mutations "
         f"(minimum {thresh_type} = {thresh_min:,}).",
         prefix="",
     )
@@ -535,7 +537,7 @@ def run_estimate(
         )
     fancylog(
         (
-            "Verified that this decoy contig is present in the VCF and FASTA "
+            "Verified that this decoy contig is present in the BCF and FASTA "
             "files."
         ),
         prefix="",
@@ -562,14 +564,14 @@ def run_estimate(
         if high_p <= thresh_min:
             raise ParameterError(
                 f"--high-p = {high_p:,} must be larger than the minimum p "
-                f"used in the VCF ({thresh_min:,})."
+                f"used in the BCF ({thresh_min:,})."
             )
         thresh_max = high_p - 1
     else:
         if high_r <= thresh_min:
             raise ParameterError(
                 f"--high-r = {high_r:,} must be larger than the minimum r "
-                f"used in the VCF ({thresh_min:,})."
+                f"used in the BCF ({thresh_min:,})."
             )
         thresh_max = high_r - 1
     # ... yeah, we could have just set thresh_max to high_p or high_r without
@@ -593,7 +595,7 @@ def run_estimate(
     # dimensions as thresh_vals.
     # decoy_mut_rates = compute_decoy_mut_rates(
     #     contigs,
-    #     vcf_obj,
+    #     bcf_obj,
     #     thresh_type,
     #     thresh_vals,
     #     used_decoy_contig,
@@ -618,5 +620,5 @@ def run_estimate(
     #   target_fdr_ests.
 
 
-def run_fix(vcf, fdr_info, fdr, output_vcf, fancylog):
+def run_fix(bcf, fdr_info, fdr, output_bcf, fancylog):
     pass

@@ -21,7 +21,7 @@ def fancystart(cmd_name, inputs, outputs, quiet=False, prefix="--------\n"):
     outputs: tuple of 2-tuples of (str, str)
         A collection of command output information, formatted analogously to
         how "inputs" is formatted. For example, a variant caller might use
-        something like (("VCF file", vcf_filepath)).
+        something like (("BCF file", bcf_filepath)).
 
     quiet: bool
         If this is True, then nothing will be logged from here, and calling
