@@ -591,12 +591,16 @@ def run_estimate(
     #
     # Save these to a list, decoy_mut_rates -- this will have the same
     # dimensions as thresh_vals.
-    decoy_mut_rates = compute_decoy_mut_rates(
-        contigs, vcf_obj, thresh_type, thresh_vals, used_decoy_contig,
-        decoy_context,
-    )
+    # decoy_mut_rates = compute_decoy_mut_rates(
+    #     contigs,
+    #     vcf_obj,
+    #     thresh_type,
+    #     thresh_vals,
+    #     used_decoy_contig,
+    #     decoy_context,
+    # )
 
-    # TODO: Verify that the decoy contig has a nonzero mutation rate.
+    # TODO: Verify that the decoy contig has a nonzero mutation rate?
     # If not, that's problematic, because
     # then we'd estimate the FDR as zero for every target contig. That
     # shouldn't happen most of the time, anyway. Maybe add an option to limit
