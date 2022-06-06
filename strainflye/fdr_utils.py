@@ -391,6 +391,7 @@ def compute_full_contig_mut_rates(
         # it's a long story. see docs for compute_num_mutations_per_mb() in
         # https://github.com/fedarko/sheepgut/blob/main/notebooks/DemonstratingTargetDecoyApproach.ipynb
         numpermb_coeff = 1000000 / contig_len
+        fdr_coeff = 100 * denominator
         numpermbs = []
         fdrs = []
         for i, n in enumerate(num_muts):
@@ -399,7 +400,7 @@ def compute_full_contig_mut_rates(
                 fdrs.append("NA")
                 numpermbs.append("0")
             else:
-                fdrs.append(str((denominator * decoy_mut_rates[i]) / n))
+                fdrs.append(str((fdr_coeff * decoy_mut_rates[i]) / n))
                 numpermbs.append(str(numpermb_coeff * n))
         return fdrs, numpermbs
 

@@ -543,8 +543,10 @@ strainflye.add_command(fdr)
     type=click.Path(dir_okay=False),
     help=(
         "Filepath to which an output tab-separated values (TSV) file "
-        "describing estimated FDRs will be written. Rows correspond to "
-        "target contigs, and columns correspond to p or r values."
+        "describing estimated FDRs (the ratio of the decoy contig mutation "
+        "rate to the target contig mutation rate, multiplied by 100) will be "
+        "written. Rows correspond to target contigs, and columns correspond "
+        "to p or r values."
     ),
 )
 @click.option(
