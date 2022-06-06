@@ -355,6 +355,9 @@ def compute_full_contig_mut_rates(
     # this threshold.
     num_muts = [0] * len(thresh_vals)
 
+    # We can just infer this from thresh_vals
+    high_val = thresh_vals[-1] + 1
+
     for mut in bcf_obj.fetch(contig):
 
         # AAD is technically a tuple since it's defined once for every alt
@@ -367,6 +370,10 @@ def compute_full_contig_mut_rates(
             max_passing_val = floor((10000 * alt_pos) / cov_pos)
         else:
             max_passing_val = alt_pos
+
+        # Don't count "indisputable" mutations towards mutation rates
+        if max_passing_val >= high_val:
+            continue
 
         # NOTE: This is already more optimized than the analysis
         # notebooks, but I think it could still be made faster. Maybe
