@@ -388,10 +388,14 @@ def compute_full_contig_mut_rates(
     if decoy_mut_rates is None:
         return [n / denominator for n in num_muts]
     else:
-        return [
-            str((denominator * decoy_mut_rates[i]) / n)
-            for i, n in enumerate(num_muts)
-        ]
+        fdrs = []
+        for i, n in enumerate(num_muts):
+            # The FDR is undefined if the target's mutation rate is zero
+            if n == 0:
+                fdrs.append("NA")
+            else:
+                fdrs.append(str((denominator * decoy_mut_rates[i]) / n))
+        return fdrs
 
 
 def compute_decoy_mut_rates(
