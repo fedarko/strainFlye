@@ -340,6 +340,68 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
     return lowest_score_contig
 
 
+def compute_decoy_mut_rates(
+    contigs,
+    vcf_obj,
+    thresh_type,
+    thresh_vals,
+    decoy_contig,
+    decoy_context,
+):
+    """Computes mutation rates for a decoy contig at some threshold values.
+
+    Parameters
+    ----------
+    contigs: str
+        Filepath to a FASTA file containing contigs in which mutations were
+        naively called. We'll only really use this to extract the decoy
+        contig's sequence (it's probably easier to load it here then to rely on
+        the caller to load it).
+
+    vcf_obj: pysam.VariantFile
+        Object describing a VCF file produced by strainFlye's naive calling.
+
+    thresh_type: str
+        Either "p" or "r", depending on which type of mutations were called in
+        vcf_obj.
+
+    thresh_vals: list
+        List of values of p or r (depending on thresh_type) at which to
+        compute mutation rates.
+
+    decoy_contig: str
+        Name of a contig to compute mutation rates for.
+
+    decoy_context: str
+        Context-dependent mutation settings to apply in computing the mutation
+        rates. One of the following:
+         - "Full": Compute mutation rates across the entire contig.
+         - "CP2": Only consider positions that are 1) located in a single
+                  predicted protein-coding gene and 2) are located in the
+                  second codon position of this gene.
+         - "Nonsyn": Compute mutation rates based on treating potential
+                     nonsynonymous mutations (for positions located in a single
+                     predicted protein-coding gene) as a decoy.
+         - "Nonsense": Like Nonsyn, but for nonsense mutations.
+         - "CP2Nonsyn": Nonsyn, but only for positions in CP2.
+         - "CP2Nonsense": Nonsense, but only for positions in CP2.
+
+    Returns
+    -------
+    decoy_mutation_rates: list
+
+    Raises
+    ------
+    ParameterError
+        If decoy_contig isn't in the contigs
+    """
+    # - Load contig sequence from contigs
+    # - If decoy_context != "Full",
+    #   - Predict genes in this sequence using prodigal. Save .sco to tempfile.
+    # - Fetch mutations aligned to this contig in the VCF file.
+    # -
+
+
 def run_estimate(
     contigs,
     vcf,
@@ -529,6 +591,10 @@ def run_estimate(
     #
     # Save these to a list, decoy_mut_rates -- this will have the same
     # dimensions as thresh_vals.
+    decoy_mut_rates = compute_decoy_mut_rates(
+        contigs, vcf_obj, thresh_type, thresh_vals, used_decoy_contig,
+        decoy_context,
+    )
 
     # TODO: Verify that the decoy contig has a nonzero mutation rate.
     # If not, that's problematic, because
