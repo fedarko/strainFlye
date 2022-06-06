@@ -421,6 +421,9 @@ def run(
             "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
         )
     fancylog("Wrote out diversity index and VCF file headers.", prefix="")
+    fancylog(
+        "(We'll convert the VCF file to an indexed BCF afterwards.)", prefix=""
+    )
 
     # Finally, we can get to the meat (and the most computationally expensive
     # part) of this -- go through each position in each contig and call
