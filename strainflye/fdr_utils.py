@@ -388,14 +388,20 @@ def compute_full_contig_mut_rates(
     if decoy_mut_rates is None:
         return [n / denominator for n in num_muts]
     else:
+        # it's a long story. see docs for compute_num_mutations_per_mb() in
+        # https://github.com/fedarko/sheepgut/blob/main/notebooks/DemonstratingTargetDecoyApproach.ipynb
+        numpermb_coeff = 1000000 / contig_len
+        numpermbs = []
         fdrs = []
         for i, n in enumerate(num_muts):
             # The FDR is undefined if the target's mutation rate is zero
             if n == 0:
                 fdrs.append("NA")
+                numpermbs.append("0")
             else:
                 fdrs.append(str((denominator * decoy_mut_rates[i]) / n))
-        return fdrs
+                numpermbs.append(str(numpermb_coeff * n))
+        return fdrs, numpermbs
 
 
 def compute_decoy_mut_rates(
@@ -491,6 +497,7 @@ def run_estimate(
     decoy_min_length,
     decoy_min_average_coverage,
     output_fdr_info,
+    output_num_info,
     fancylog,
 ):
     """Runs the pipeline for decoy selection and FDR estimation.
@@ -540,7 +547,12 @@ def run_estimate(
 
     output_fdr_info: str
         Filepath to which we'll write a TSV file describing estimated FDRs
-        for the target contigs.
+        for the target contigs. (x-axis values for the FDR curves, at least as
+        plotted in the paper.)
+
+    output_num_info: str
+        Filepath to which we'll write a TSV file describing numbers of
+        mutations per megabase. (y-axis values for the FDR curves.)
 
     fancylog: function
         Logging function.
@@ -683,18 +695,20 @@ def run_estimate(
         f"{len(contig_name2len) - 1:,} target contigs..."
     )
 
-    # Write out the header for the FDR TSV file
-    fdr_header = "Contig"
+    # Write out the header for the TSV files
+    tsv_header = "Contig"
     for val in thresh_vals:
-        fdr_header += f"\t{thresh_type}{val}"
-    with open(output_fdr_info, "w") as fdr_file:
-        fdr_file.write(f"{fdr_header}\n")
+        tsv_header += f"\t{thresh_type}{val}"
+
+    for tsv_fp in (output_fdr_info, output_num_info):
+        with open(tsv_fp, "w") as fdr_file:
+            fdr_file.write(f"{tsv_header}\n")
 
     # Compute FDR estimates for each target contig.
     # This is analogous to the "Full" context-dependent option for the decoy
     # genome comptuation, so we can reuse a lot of code from that.
     for target_contig in bcf_contigs - {used_decoy_contig}:
-        target_fdr_ests = compute_full_contig_mut_rates(
+        target_fdr_ests, target_numpermbs = compute_full_contig_mut_rates(
             bcf_obj,
             thresh_type,
             thresh_vals,
@@ -702,10 +716,14 @@ def run_estimate(
             contig_name2len[target_contig],
             decoy_mut_rates=decoy_mut_rates,
         )
-        fdr_vals = "\t".join(target_fdr_ests)
+        fdr_line = "\t".join(target_fdr_ests)
+        numpermb_line = "\t".join(target_numpermbs)
+
         # TODO chunk outputs?
         with open(output_fdr_info, "a") as fdr_file:
-            fdr_file.write(f"{target_contig}\t{fdr_vals}\n")
+            fdr_file.write(f"{target_contig}\t{fdr_line}\n")
+        with open(output_num_info, "a") as fdr_file:
+            fdr_file.write(f"{target_contig}\t{numpermb_line}\n")
 
     fancylog("Done computing FDR estimates for the target contigs.", prefix="")
 

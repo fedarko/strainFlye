@@ -537,7 +537,7 @@ strainflye.add_command(fdr)
     ),
 )
 @click.option(
-    "-o",
+    "-of",
     "--output-fdr-info",
     required=True,
     type=click.Path(dir_okay=False),
@@ -545,6 +545,17 @@ strainflye.add_command(fdr)
         "Filepath to which an output tab-separated values (TSV) file "
         "describing estimated FDRs will be written. Rows correspond to "
         "target contigs, and columns correspond to p or r values."
+    ),
+)
+@click.option(
+    "-on",
+    "--output-num-info",
+    required=True,
+    type=click.Path(dir_okay=False),
+    help=(
+        "Filepath to which an output tab-separated values (TSV) file "
+        "describing the number of naively called mutations per megabase will "
+        "be written. Has the same dimensions as the output FDR info file."
     ),
 )
 def estimate(
@@ -558,6 +569,7 @@ def estimate(
     decoy_min_length,
     decoy_min_average_coverage,
     output_fdr_info,
+    output_num_info,
 ):
     """Estimates contigs' mutation calls' FDRs.
 
@@ -570,7 +582,8 @@ def estimate(
     We can produce multiple FDR estimates for a single target contig's calls by
     varying the p or r threshold used (from the --min-p or --min-r threshold
     used to generate the input BCF file, up to the --high-p or --high-r
-    threshold given here). Using this information, we can plot an FDR curve for
+    threshold given here). Using this information (and information about the
+    numbers of mutations called per megabase), we can plot an FDR curve for
     a given target contig's mutation calls.
     """
     fancylog = cli_utils.fancystart(
@@ -610,7 +623,10 @@ def estimate(
                 decoy_min_average_coverage,
             ),
         ),
-        (("FDR estimate file", output_fdr_info),),
+        (
+            ("FDR estimate file", output_fdr_info),
+            ("number of mutations per megabase file", output_num_info),
+        ),
     )
     fdr_utils.run_estimate(
         contigs,
@@ -623,6 +639,7 @@ def estimate(
         decoy_min_length,
         decoy_min_average_coverage,
         output_fdr_info,
+        output_num_info,
         fancylog,
     )
     fancylog("Done.")
