@@ -247,7 +247,6 @@ def test_run_p_r_conflict():
         run(
             "c",
             "b",
-            "ov",
             "od",
             mock_log,
             True,
@@ -264,5 +263,5 @@ def test_run_p_r_conflict():
     )
 
     with pytest.raises(ParameterError) as errorinfo:
-        run("c", "b", "ov", "od", mock_log, True)
+        run("c", "b", "od", mock_log, True)
     assert "Either p or r needs to be specified." == str(errorinfo.value)
