@@ -726,7 +726,7 @@ def run_estimate(
         with open(output_num_info, "a") as fdr_file:
             fdr_file.write(f"{target_contig}\t{numpermb_line}\n")
 
-    fancylog("Done computing FDR estimates for the target contigs.", prefix="")
+    fancylog("Done.", prefix="")
 
     # TODO: Verify that the decoy contig has a nonzero mutation rate?
     # If not, that's problematic, because
