@@ -392,7 +392,7 @@ def test_normalize_series_good():
     ).all()
 
 
-def test_compute_full_contig_mut_rates():
+def test_compute_full_contig_mut_rates_p_simple():
     # We actually need to write out a BCF and index it, so we have to do this
     # first. Notably: the ##contig line needs to be there, otherwise we can't
     # convert to BCF.
@@ -432,6 +432,51 @@ def test_compute_full_contig_mut_rates():
             1 / denominator,
             1 / denominator,
             1 / denominator,
+            0,
+        ]
+    finally:
+        # Python should automatically clear the .vcf tempfile we created
+        # earlier from the system, regardless of how this test goes, but
+        # it won't do this for the .bcf and .bcf.csi files we generated using
+        # bcftools view and bcftools index. So we clear these ourselves, to
+        # avoid littering the cluster with this nonsense!
+        os.remove(bcf_name)
+        os.remove(bcf_name + ".csi")
+
+
+def test_compute_full_contig_mut_rates_r_simple():
+    fh = write_tempfile(
+        "##fileformat=VCFv4.3\n"
+        "##fileDate=20220608\n"
+        '##source="strainFlye v0.0.1: r-mutation calling (--min-r = 5)"\n'
+        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        "##contig=<ID=edge_1,length=500>\n"
+        '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
+        '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
+        '##FILTER=<ID=strainflye_minr_5, Description="min r threshold">\n'  # noqa: E501
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "edge_1\t43\t.\tA\tT\t.\t.\tMDP=10000;AAD=1\n"
+        "edge_1\t255\t.\tT\tC\t.\t.\tMDP=10000;AAD=2\n"
+        "edge_1\t356\t.\tA\tT\t.\t.\tMDP=10000;AAD=5\n"
+        "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
+    )
+    bcf_name = fh.name[:-4] + ".bcf"
+    subprocess.run(["bcftools", "view", "-O", "b", fh.name, "-o", bcf_name])
+    subprocess.run(["bcftools", "index", bcf_name])
+    bcf_obj, thresh_type, thresh_min = fu.parse_bcf(bcf_name)
+    mut_rates = fu.compute_full_contig_mut_rates(
+        bcf_obj, thresh_type, [5, 6, 7, 8, 9, 10, 11, 12], "edge_1", 500
+    )
+    denominator = 3 * 500
+    try:
+        assert mut_rates == [
+            2 / denominator,
+            1 / denominator,
+            1 / denominator,
+            1 / denominator,
+            1 / denominator,
+            1 / denominator,
+            0,
             0,
         ]
     finally:
