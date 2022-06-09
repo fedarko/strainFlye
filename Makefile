@@ -12,8 +12,8 @@ test:
 	python3 -B -m pytest strainflye/tests --cov-report xml --cov-report term --cov strainflye
 
 stylecheck:
-	flake8 --ignore=W503 strainflye/ misc/ setup.py
-	black --check -l 79 strainflye/ misc/ setup.py
+	flake8 --ignore=W503 strainflye/ setup.py
+	black --check -l 79 strainflye/ setup.py
 
 style:
-	black -l 79 strainflye/ misc/ setup.py
+	black -l 79 strainflye/ setup.py

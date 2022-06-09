@@ -346,12 +346,42 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
 def compute_number_of_mutations_in_full_contig(
     bcf_obj, thresh_type, thresh_vals, contig
 ):
+    """Counts mutations at certain p or r thresholds in a contig.
+
+    This function is designed to be useful for either decoy or target contigs.
+    For target contigs,
+
+    Parameters
+    ----------
+    bcf_obj: pysam.VariantFile
+        Object describing a BCF file produced by strainFlye's naive calling.
+
+    thresh_type: str
+        Either "p" or "r", depending on which type of mutations were called in
+        bcf_obj.
+
+    thresh_vals: list
+        List of values of p or r (depending on thresh_type) at which to
+        count mutations in this contig. These values should be listed in
+        ascending order, and the difference between each value in the list
+        should be 1.
+
+    contig: str
+        Name of a contig for which mutation rates will be computed.
+
+    Returns
+    -------
+    num_muts: list
+        List of the called mutations at each threshold in thresh_vals.
+    """
     # For each threshold value, keep track of how many mutations we've seen at
     # this threshold.
     num_muts = [0] * len(thresh_vals)
 
-    # We can just infer this from thresh_vals
+    # We can just infer the "indisputable" mutation value from thresh_vals as
+    # the value just above the max thresh_vals entry
     high_val = thresh_vals[-1] + 1
+    min_val = thresh_vals[0]
 
     for mut in bcf_obj.fetch(contig):
 
@@ -374,8 +404,8 @@ def compute_number_of_mutations_in_full_contig(
         # notebooks, but I think it could still be made faster. Maybe
         # just increment a single value (corresponding to the max
         # passing p/r), and then do everything at the end after seeing
-        # all mutations in one pass? Let's see if this is a bottleneck.
-        num_vals_to_update = max_passing_val - thresh_vals[0] + 1
+        # all mutations in one pass? Doesn't seem like a huge bottleneck tho.
+        num_vals_to_update = max_passing_val - min_val + 1
         for i in range(num_vals_to_update):
             num_muts[i] += 1
     return num_muts
@@ -668,6 +698,11 @@ def run_estimate(
     # NOTE 2: We do not produce an estimate for the exact high_p (or high_r)
     # value. THe maximum threshold is that minus the step value (... which is
     # always 1, at least right now).
+    #
+    # NOTE 3: It'd probably be more efficient to not even store all of these
+    # values in thresh_vals -- instead, we could just save the thresh_min
+    # and thresh_high values and infer other stuff. But that'd require
+    # refactoring, and this is already decently efficient.
     fancylog(f"Determining range of values of {thresh_type} to consider...")
     if thresh_type == "p":
         if high_p <= thresh_min:
