@@ -404,7 +404,7 @@ def test_normalize_series_good():
     ).all()
 
 
-def test_compute_full_contig_mut_rates_p_simple():
+def test_compute_full_decoy_contig_mut_rates_p_simple():
     # This example is designed to be simple -- the MDPs are all exactly 10,000
     # to make it simple to see what AADs will trigger a p-mutation.
     bcf_name = write_indexed_bcf(
@@ -423,7 +423,7 @@ def test_compute_full_contig_mut_rates_p_simple():
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=19\n"
     )
     bcf_obj, thresh_type, thresh_min = fu.parse_bcf(bcf_name)
-    mut_rates = fu.compute_full_contig_mut_rates(
+    mut_rates = fu.compute_full_decoy_contig_mut_rates(
         bcf_obj, thresh_type, [15, 16, 17, 18, 19, 20], "edge_1", 500
     )
     denominator = 3 * 500
@@ -449,7 +449,7 @@ def test_compute_full_contig_mut_rates_p_simple():
         os.remove(bcf_name + ".csi")
 
 
-def test_compute_full_contig_mut_rates_r_simple():
+def test_compute_full_decoy_contig_mut_rates_r_simple():
     bcf_name = write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220608\n"
@@ -466,7 +466,7 @@ def test_compute_full_contig_mut_rates_r_simple():
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
     )
     bcf_obj, thresh_type, thresh_min = fu.parse_bcf(bcf_name)
-    mut_rates = fu.compute_full_contig_mut_rates(
+    mut_rates = fu.compute_full_decoy_contig_mut_rates(
         bcf_obj, thresh_type, [5, 6, 7, 8, 9, 10, 11, 12], "edge_1", 500
     )
     denominator = 3 * 500

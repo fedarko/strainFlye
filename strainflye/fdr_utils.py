@@ -425,7 +425,7 @@ def compute_target_contig_fdr_estimates(
     return fdr_line, numpermb_line
 
 
-def compute_decoy_mut_rates(
+def compute_decoy_contig_mut_rates(
     contigs,
     bcf_obj,
     thresh_type,
@@ -701,7 +701,7 @@ def run_estimate(
         "values..."
     )
     # For each value in thresh_vals, compute the decoy genome's mutation rate.
-    decoy_mut_rates = compute_decoy_mut_rates(
+    decoy_mut_rates = compute_decoy_contig_mut_rates(
         contigs,
         bcf_obj,
         thresh_type,
