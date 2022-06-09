@@ -349,7 +349,6 @@ def compute_number_of_mutations_in_full_contig(
     """Counts mutations at certain p or r thresholds in a contig.
 
     This function is designed to be useful for either decoy or target contigs.
-    For target contigs,
 
     Parameters
     ----------
