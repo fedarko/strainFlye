@@ -343,13 +343,8 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
     return lowest_score_contig
 
 
-def compute_full_contig_mut_rates(
-    bcf_obj,
-    thresh_type,
-    thresh_vals,
-    contig,
-    contig_len,
-    decoy_mut_rates=None,
+def compute_number_of_mutations_in_full_contig(
+    bcf_obj, thresh_type, thresh_vals, contig
 ):
     # For each threshold value, keep track of how many mutations we've seen at
     # this threshold.
@@ -383,26 +378,51 @@ def compute_full_contig_mut_rates(
         num_vals_to_update = max_passing_val - thresh_vals[0] + 1
         for i in range(num_vals_to_update):
             num_muts[i] += 1
+    return num_muts
 
-    denominator = 3 * contig_len
-    if decoy_mut_rates is None:
-        return [n / denominator for n in num_muts]
-    else:
-        # it's a long story. see docs for compute_num_mutations_per_mb() in
-        # https://github.com/fedarko/sheepgut/blob/main/notebooks/DemonstratingTargetDecoyApproach.ipynb
-        numpermb_coeff = 1000000 / contig_len
-        fdr_coeff = 100 * denominator
-        numpermbs = []
-        fdrs = []
-        for i, n in enumerate(num_muts):
-            # The FDR is undefined if the target's mutation rate is zero
-            if n == 0:
-                fdrs.append("NA")
-                numpermbs.append("0")
-            else:
-                fdrs.append(str((fdr_coeff * decoy_mut_rates[i]) / n))
-                numpermbs.append(str(numpermb_coeff * n))
-        return fdrs, numpermbs
+
+def compute_full_decoy_contig_mut_rates(
+    bcf_obj, thresh_type, thresh_vals, decoy_contig, decoy_contig_len
+):
+
+    num_muts = compute_number_of_mutations_in_full_contig(
+        bcf_obj, thresh_type, thresh_vals, decoy_contig
+    )
+    denominator = 3 * decoy_contig_len
+    return [n / denominator for n in num_muts]
+
+
+def compute_target_contig_fdr_estimates(
+    bcf_obj,
+    thresh_type,
+    thresh_vals,
+    target_contig,
+    target_contig_len,
+    decoy_mut_rates,
+):
+    num_muts = compute_number_of_mutations_in_full_contig(
+        bcf_obj, thresh_type, thresh_vals, target_contig
+    )
+
+    # it's a long story. see docs for compute_num_mutations_per_mb() in
+    # https://github.com/fedarko/sheepgut/blob/main/notebooks/DemonstratingTargetDecoyApproach.ipynb
+    numpermb_coeff = 1000000 / target_contig_len
+    denominator = 3 * target_contig_len
+    fdr_coeff = 100 * denominator
+
+    fdr_line = ""
+    numpermb_line = ""
+    for i, n in enumerate(num_muts):
+        fdr_line += "\t"
+        numpermb_line += "\t"
+        # The FDR is undefined if the target's mutation rate is zero
+        if n == 0:
+            fdr_line += "NA"
+            numpermb_line += "0"
+        else:
+            fdr_line += str((fdr_coeff * decoy_mut_rates[i]) / n)
+            numpermb_line += str(numpermb_coeff * n)
+    return fdr_line, numpermb_line
 
 
 def compute_decoy_mut_rates(
@@ -468,7 +488,7 @@ def compute_decoy_mut_rates(
     decoy_seq = fasta_utils.get_single_seq(contigs, decoy_contig)
 
     if decoy_context == "Full":
-        return compute_full_contig_mut_rates(
+        return compute_full_decoy_contig_mut_rates(
             bcf_obj,
             thresh_type,
             thresh_vals,
@@ -709,7 +729,7 @@ def run_estimate(
     # This is analogous to the "Full" context-dependent option for the decoy
     # genome comptuation, so we can reuse a lot of code from that.
     for target_contig in bcf_contigs - {used_decoy_contig}:
-        target_fdr_ests, target_numpermbs = compute_full_contig_mut_rates(
+        fdr_line, numpermb_line = compute_target_contig_fdr_estimates(
             bcf_obj,
             thresh_type,
             thresh_vals,
@@ -717,14 +737,12 @@ def run_estimate(
             contig_name2len[target_contig],
             decoy_mut_rates=decoy_mut_rates,
         )
-        fdr_line = "\t".join(target_fdr_ests)
-        numpermb_line = "\t".join(target_numpermbs)
 
         # TODO chunk outputs?
         with open(output_fdr_info, "a") as fdr_file:
-            fdr_file.write(f"{target_contig}\t{fdr_line}\n")
+            fdr_file.write(f"{target_contig}{fdr_line}\n")
         with open(output_num_info, "a") as fdr_file:
-            fdr_file.write(f"{target_contig}\t{numpermb_line}\n")
+            fdr_file.write(f"{target_contig}{numpermb_line}\n")
 
     fancylog("Done.", prefix="")
 
