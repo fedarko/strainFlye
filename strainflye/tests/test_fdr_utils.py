@@ -10,11 +10,23 @@ from strainflye.config import DI_PREF
 from .utils_for_testing import mock_log
 
 
-def write_tempfile(text):
+def write_vcf_tempfile(text):
     fh = tempfile.NamedTemporaryFile(suffix=".vcf")
     with open(fh.name, "w") as f:
         f.write(text)
     return fh
+
+
+def write_indexed_bcf(vcf_text):
+    # When we're testing stuff like mutation rate computation (for which a VCF
+    # / BCF index needs to be present), we actually need to write out a BCF and
+    # index it -- we can't just use a VCF file instead. Notably: the ##contig
+    # line needs to be there, otherwise we can't convert to BCF.
+    fh = write_vcf_tempfile(vcf_text)
+    bcf_name = fh.name[:-4] + ".bcf"
+    subprocess.run(["bcftools", "view", "-O", "b", fh.name, "-o", bcf_name])
+    subprocess.run(["bcftools", "index", bcf_name])
+    return bcf_name
 
 
 def test_parse_bcf_good():
@@ -24,7 +36,7 @@ def test_parse_bcf_good():
     # NOTE FROM MARCUS: pysam accepts either VCF or BCF files, and -- since we
     # just recently switched from working with VCF to BCF, mainly -- these
     # tests still output VCF files.
-    fh = write_tempfile(
+    fh = write_vcf_tempfile(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220526\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
@@ -73,7 +85,7 @@ def test_parse_bcf_good():
 
 def test_parse_bcf_multi_sf_header():
     # Header + first four mutations called on SheepGut using p = 0.15%
-    fh = write_tempfile(
+    fh = write_vcf_tempfile(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220526\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
@@ -98,7 +110,7 @@ def test_parse_bcf_multi_sf_header():
 
 def test_parse_bcf_no_sf_header():
     # Header + first four mutations called on SheepGut using p = 0.15%
-    fh = write_tempfile(
+    fh = write_vcf_tempfile(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220526\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
@@ -142,21 +154,21 @@ def test_parse_bcf_missing_info_fields():
     split_text = text.splitlines()
 
     # remove just the MDP line
-    fh = write_tempfile("\n".join(split_text[:4] + split_text[5:]))
+    fh = write_vcf_tempfile("\n".join(split_text[:4] + split_text[5:]))
     with pytest.raises(ParameterError) as ei:
         fu.parse_bcf(fh.name)
     exp_patt = f"BCF file {fh.name} needs to have MDP and AAD info fields."
     assert str(ei.value) == exp_patt
 
     # remove just the AAD line
-    fh = write_tempfile("\n".join(split_text[:5] + split_text[6:]))
+    fh = write_vcf_tempfile("\n".join(split_text[:5] + split_text[6:]))
     with pytest.raises(ParameterError) as ei:
         fu.parse_bcf(fh.name)
     exp_patt = f"BCF file {fh.name} needs to have MDP and AAD info fields."
     assert str(ei.value) == exp_patt
 
     # remove both the MDP and AAD lines
-    fh = write_tempfile("\n".join(split_text[:4] + split_text[6:]))
+    fh = write_vcf_tempfile("\n".join(split_text[:4] + split_text[6:]))
     with pytest.raises(ParameterError) as ei:
         fu.parse_bcf(fh.name)
     exp_patt = f"BCF file {fh.name} needs to have MDP and AAD info fields."
@@ -165,7 +177,7 @@ def test_parse_bcf_missing_info_fields():
     # finally, sanity check that putting back in all the lines works (doesn't
     # throw an error) -- we check this dataset in detail above, so no need to
     # do that again here
-    fh = write_tempfile("\n".join(split_text))
+    fh = write_vcf_tempfile("\n".join(split_text))
     fu.parse_bcf(fh.name)
 
 
@@ -393,13 +405,9 @@ def test_normalize_series_good():
 
 
 def test_compute_full_contig_mut_rates_p_simple():
-    # We actually need to write out a BCF and index it, so we have to do this
-    # first. Notably: the ##contig line needs to be there, otherwise we can't
-    # convert to BCF.
-
     # This example is designed to be simple -- the MDPs are all exactly 10,000
     # to make it simple to see what AADs will trigger a p-mutation.
-    fh = write_tempfile(
+    bcf_name = write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220526\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
@@ -414,9 +422,6 @@ def test_compute_full_contig_mut_rates_p_simple():
         "edge_1\t356\t.\tA\tT\t.\t.\tMDP=10000;AAD=16\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=19\n"
     )
-    bcf_name = fh.name[:-4] + ".bcf"
-    subprocess.run(["bcftools", "view", "-O", "b", fh.name, "-o", bcf_name])
-    subprocess.run(["bcftools", "index", bcf_name])
     bcf_obj, thresh_type, thresh_min = fu.parse_bcf(bcf_name)
     mut_rates = fu.compute_full_contig_mut_rates(
         bcf_obj, thresh_type, [15, 16, 17, 18, 19, 20], "edge_1", 500
@@ -445,7 +450,7 @@ def test_compute_full_contig_mut_rates_p_simple():
 
 
 def test_compute_full_contig_mut_rates_r_simple():
-    fh = write_tempfile(
+    bcf_name = write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220608\n"
         '##source="strainFlye v0.0.1: r-mutation calling (--min-r = 5)"\n'
@@ -460,15 +465,14 @@ def test_compute_full_contig_mut_rates_r_simple():
         "edge_1\t356\t.\tA\tT\t.\t.\tMDP=10000;AAD=5\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
     )
-    bcf_name = fh.name[:-4] + ".bcf"
-    subprocess.run(["bcftools", "view", "-O", "b", fh.name, "-o", bcf_name])
-    subprocess.run(["bcftools", "index", bcf_name])
     bcf_obj, thresh_type, thresh_min = fu.parse_bcf(bcf_name)
     mut_rates = fu.compute_full_contig_mut_rates(
         bcf_obj, thresh_type, [5, 6, 7, 8, 9, 10, 11, 12], "edge_1", 500
     )
     denominator = 3 * 500
     try:
+        # Two r-mutations at r = 5, then only one r-mutation for 6 <= r <= 10,
+        # then zero r-mutations from then up.
         assert mut_rates == [
             2 / denominator,
             1 / denominator,
@@ -480,10 +484,5 @@ def test_compute_full_contig_mut_rates_r_simple():
             0,
         ]
     finally:
-        # Python should automatically clear the .vcf tempfile we created
-        # earlier from the system, regardless of how this test goes, but
-        # it won't do this for the .bcf and .bcf.csi files we generated using
-        # bcftools view and bcftools index. So we clear these ourselves, to
-        # avoid littering the cluster with this nonsense!
         os.remove(bcf_name)
         os.remove(bcf_name + ".csi")
