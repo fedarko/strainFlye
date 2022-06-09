@@ -18,6 +18,8 @@ dependencies:
 
     - samtools >= 1.7
 
+    - bcftools
+
     # Probably a later version will be installed; this is just the minimap2
     # version that added the asm20 preset. (If we want to use the more recently
     # added hifi preset, then we'd need to use >= 2.19 here.)
