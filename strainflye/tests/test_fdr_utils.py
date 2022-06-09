@@ -1,4 +1,6 @@
+import os
 import tempfile
+import subprocess
 import pytest
 import pandas as pd
 import strainflye.fdr_utils as fu
@@ -388,3 +390,55 @@ def test_normalize_series_good():
         (fu.normalize_series(pd.Series([2, 5], **s_params)))
         == pd.Series([0, 1], **s_params)
     ).all()
+
+
+def test_compute_full_contig_mut_rates():
+    # We actually need to write out a BCF and index it, so we have to do this
+    # first. Notably: the ##contig line needs to be there, otherwise we can't
+    # convert to BCF.
+
+    # This example is designed to be simple -- the MDPs are all exactly 10,000
+    # to make it simple to see what AADs will trigger a p-mutation.
+    fh = write_tempfile(
+        "##fileformat=VCFv4.3\n"
+        "##fileDate=20220526\n"
+        '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
+        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        "##contig=<ID=edge_1,length=500>\n"
+        '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
+        '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
+        '##FILTER=<ID=strainflye_minp_15, Description="min p threshold (scaled up by 100)">\n'  # noqa: E501
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "edge_1\t43\t.\tA\tT\t.\t.\tMDP=10000;AAD=1\n"
+        "edge_1\t255\t.\tT\tC\t.\t.\tMDP=10000;AAD=2\n"
+        "edge_1\t356\t.\tA\tT\t.\t.\tMDP=10000;AAD=16\n"
+        "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=19\n"
+    )
+    bcf_name = fh.name[:-4] + ".bcf"
+    subprocess.run(["bcftools", "view", "-O", "b", fh.name, "-o", bcf_name])
+    subprocess.run(["bcftools", "index", bcf_name])
+    bcf_obj, thresh_type, thresh_min = fu.parse_bcf(bcf_name)
+    mut_rates = fu.compute_full_contig_mut_rates(
+        bcf_obj, thresh_type, [15, 16, 17, 18, 19, 20], "edge_1", 500
+    )
+    denominator = 3 * 500
+    try:
+        # There are two p-mutations at p = 0.15% and p = 0.16%;
+        # one p-mutation at p = 0.17%, p = 0.18%, and p = 0.19%;
+        # and no p-mutations at p = 0.2%.
+        assert mut_rates == [
+            2 / denominator,
+            2 / denominator,
+            1 / denominator,
+            1 / denominator,
+            1 / denominator,
+            0,
+        ]
+    finally:
+        # Python should automatically clear the .vcf tempfile we created
+        # earlier from the system, regardless of how this test goes, but
+        # it won't do this for the .bcf and .bcf.csi files we generated using
+        # bcftools view and bcftools index. So we clear these ourselves, to
+        # avoid littering the cluster with this nonsense!
+        os.remove(bcf_name)
+        os.remove(bcf_name + ".csi")
