@@ -585,3 +585,37 @@ def test_compute_number_of_mutations_in_full_contig_thresh_val_errors():
     finally:
         os.remove(bcf_name)
         os.remove(bcf_name + ".csi")
+
+
+def test_compute_target_contig_fdr_curve_info():
+    bcf_name = write_indexed_bcf(
+        "##fileformat=VCFv4.3\n"
+        "##fileDate=20220608\n"
+        '##source="strainFlye v0.0.1: r-mutation calling (--min-r = 5)"\n'
+        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        "##contig=<ID=edge_1,length=100>\n"
+        '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
+        '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
+        '##FILTER=<ID=strainflye_minr_5, Description="min r threshold">\n'  # noqa: E501
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "edge_1\t43\t.\tA\tT\t.\t.\tMDP=10000;AAD=1\n"
+        "edge_1\t50\t.\tT\tC\t.\t.\tMDP=10000;AAD=2\n"
+        "edge_1\t51\t.\tA\tT\t.\t.\tMDP=10000;AAD=5\n"
+        "edge_1\t90\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
+    )
+    bcf_obj, thresh_type, thresh_min = fu.parse_bcf(bcf_name)
+    try:
+        fdr_line, num_line = fu.compute_target_contig_fdr_curve_info(
+            bcf_obj,
+            thresh_type,
+            range(5, 12),
+            "edge_1",
+            100,
+            [0.001, 0.002, 0.003, 0.004, 0.1, 0.006, 0.007],
+        )
+        assert (
+            fdr_line == "edge_1\t15.0\t60.0\t90.0\t120.0\t3000.0\t180.0\tNA\n"
+        )
+    finally:
+        os.remove(bcf_name)
+        os.remove(bcf_name + ".csi")

@@ -538,6 +538,9 @@ def compute_target_contig_fdr_curve_info(
     # https://github.com/fedarko/sheepgut/blob/main/notebooks/DemonstratingTargetDecoyApproach.ipynb
     numpermb_coeff = 1000000 / target_contig_len
     denominator = 3 * target_contig_len
+    # The 100 is because we convert FDRs from [0, 1] to percentages
+    # (technically, FDRs can exceed 100% if the decoy mutation rate > the
+    # target mutation rate, but that shouldn't happen too often)
     fdr_coeff = 100 * denominator
 
     fdr_line = target_contig
