@@ -616,6 +616,9 @@ def test_compute_target_contig_fdr_curve_info():
         assert (
             fdr_line == "edge_1\t15.0\t60.0\t90.0\t120.0\t3000.0\t180.0\tNA\n"
         )
+        assert num_line == (
+            "edge_1\t20000.0\t10000.0\t10000.0\t10000.0\t10000.0\t10000.0\t0\n"
+        )
     finally:
         os.remove(bcf_name)
         os.remove(bcf_name + ".csi")
