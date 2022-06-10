@@ -622,3 +622,48 @@ def test_compute_target_contig_fdr_curve_info():
     finally:
         os.remove(bcf_name)
         os.remove(bcf_name + ".csi")
+
+
+def test_compute_decoy_contig_mut_rates_full_r_simple():
+    # this is the same as test_compute_full_decoy_contig_mut_rates_r_simple(),
+    # but it calls compute_decoy_contig_mutation_rates() (which, in turn, calls
+    # compute_full_decoy_contig_mut_rates(), which calls
+    # compute_number_of_mutations_in_full_contig()...)
+    bcf_name = write_indexed_bcf(
+        "##fileformat=VCFv4.3\n"
+        "##fileDate=20220608\n"
+        '##source="strainFlye v0.0.1: r-mutation calling (--min-r = 5)"\n'
+        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        "##contig=<ID=edge_1,length=500>\n"
+        '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
+        '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
+        '##FILTER=<ID=strainflye_minr_5, Description="min r threshold">\n'  # noqa: E501
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "edge_1\t43\t.\tA\tT\t.\t.\tMDP=10000;AAD=1\n"
+        "edge_1\t255\t.\tT\tC\t.\t.\tMDP=10000;AAD=2\n"
+        "edge_1\t356\t.\tA\tT\t.\t.\tMDP=10000;AAD=5\n"
+        "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
+    )
+    bcf_obj, thresh_type, thresh_min = fu.parse_bcf(bcf_name)
+    # where we're going, we don't need other nucleotides
+    contigs_file = StringIO(f">edge_1\n{'A' * 500}")
+    mut_rates = fu.compute_decoy_contig_mut_rates(
+        contigs_file, bcf_obj, thresh_type, range(5, 13), "edge_1", "Full"
+    )
+    denominator = 3 * 500
+    try:
+        # Two r-mutations at r = 5, then only one r-mutation for 6 <= r <= 10,
+        # then zero r-mutations from then up.
+        assert mut_rates == [
+            2 / denominator,
+            1 / denominator,
+            1 / denominator,
+            1 / denominator,
+            1 / denominator,
+            1 / denominator,
+            0,
+            0,
+        ]
+    finally:
+        os.remove(bcf_name)
+        os.remove(bcf_name + ".csi")
