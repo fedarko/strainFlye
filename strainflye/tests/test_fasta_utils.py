@@ -138,3 +138,27 @@ def test_verify_contigs_subset_exact():
         set("abcd"), set("abcd"), "s1", "s2", exact=True
     )
     utils.verify_contigs_subset(set(""), set(""), "s1", "s2", exact=True)
+
+
+def test_get_single_seq_basic():
+    sio = StringIO(">asdf\nAACCCAAATGA\n>ghij\nC\n")
+    seq = utils.get_single_seq(sio, "ghij")
+    assert seq.metadata["id"] == "ghij"
+    assert len(seq) == 1
+    assert str(seq) == "C"
+
+
+def test_get_single_seq_lonely():
+    sio = StringIO(">asdf\nAACCCAAATGA\n")
+    seq = utils.get_single_seq(sio, "asdf")
+    assert seq.metadata["id"] == "asdf"
+    assert len(seq) == 11
+    assert str(seq) == "AACCCAAATGA"
+
+
+def test_get_single_seq_missing():
+    sio = StringIO(">asdf\nAACCCAAATGA\n")
+    with pytest.raises(SequencingDataError) as ei:
+        utils.get_single_seq(sio, "ghij")
+    exp_pattern = f"Contig ghij is not in {SIO_REPR}."
+    assert re.match(exp_pattern, str(ei.value)) is not None
