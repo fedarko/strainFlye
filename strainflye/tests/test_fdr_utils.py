@@ -488,6 +488,62 @@ def test_compute_full_decoy_contig_mut_rates_r_simple():
         os.remove(bcf_name + ".csi")
 
 
+def test_compute_number_of_mutations_in_full_contig_p_with_indisputable():
+    bcf_name = write_indexed_bcf(
+        "##fileformat=VCFv4.3\n"
+        "##fileDate=20220526\n"
+        '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
+        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        "##contig=<ID=edge_1,length=999>\n"
+        '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
+        '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
+        '##FILTER=<ID=strainflye_minp_15, Description="min p threshold (scaled up by 100)">\n'  # noqa: E501
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "edge_1\t100\t.\tA\tT\t.\t.\tMDP=100000;AAD=5\n"
+        "edge_1\t255\t.\tT\tC\t.\t.\tMDP=100000;AAD=151\n"
+        "edge_1\t300\t.\tA\tT\t.\t.\tMDP=100000;AAD=4899\n"
+        "edge_1\t301\t.\tA\tT\t.\t.\tMDP=100000;AAD=4900\n"
+        "edge_1\t302\t.\tA\tT\t.\t.\tMDP=100000;AAD=4995\n"
+        "edge_1\t303\t.\tA\tT\t.\t.\tMDP=100000;AAD=4999\n"
+        "edge_1\t304\t.\tA\tT\t.\t.\tMDP=100000;AAD=5001\n"
+        "edge_1\t387\t.\tT\tC\t.\t.\tMDP=100000;AAD=5000\n"
+    )
+    bcf_obj, thresh_type, thresh_min = fu.parse_bcf(bcf_name)
+    num_muts = fu.compute_number_of_mutations_in_full_contig(
+        bcf_obj, thresh_type, range(15, 500), "edge_1"
+    )
+    try:
+        assert len(num_muts) == 485
+        # Ignore the two indisputable mutations (AAD = 5000 and 5001, which
+        # come out to a frequency of 5,000 / 100,000 >= 5%). Also, ignore the
+        # mutation with AAD = 5, which is below p = 0.15% (in practice we
+        # should never see these sorts of mutations since the naive caller
+        # wouldn't include them, but this checks that they're implicitly
+        # ignored).
+        assert num_muts[0] == 5
+
+        # Once we get up to p = 16 (aka 0.16%), the AAD = 151 mutation (0.151%
+        # frequency) no longer is counted. We stay at 4 mutations up until we
+        # get to i = 475, aka p = 490, at which point we'll drop the AAD = 4899
+        # (4.899% frequency) mutation.
+        for i in range(1, 475):
+            assert num_muts[i] == 4
+        assert num_muts[475] == 3
+        # When we get up to i = 476 (p = 491), we need to also drop the AAD =
+        # 4900 (4.9% frequency) mutation. All that's left now are the AAD =
+        # 4995 and 4999 mutations.
+        for i in range(476, 485):
+            assert num_muts[i] == 2
+    finally:
+        # Python should automatically clear the .vcf tempfile we created
+        # earlier from the system, regardless of how this test goes, but
+        # it won't do this for the .bcf and .bcf.csi files we generated using
+        # bcftools view and bcftools index. So we clear these ourselves, to
+        # avoid littering the cluster with this nonsense!
+        os.remove(bcf_name)
+        os.remove(bcf_name + ".csi")
+
+
 def test_compute_number_of_mutations_in_full_contig_thresh_val_errors():
     bcf_name = write_indexed_bcf(
         "##fileformat=VCFv4.3\n"

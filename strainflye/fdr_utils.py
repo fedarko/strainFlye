@@ -366,6 +366,9 @@ def compute_number_of_mutations_in_full_contig(
     thresh_vals: range
         Range of values of p or r (depending on thresh_type) at which to
         count mutations in this contig. Must use a step size of 1.
+        If a mutation is a mutation for a value of p or r larger than the
+        maximum p or r value here (i.e. it's "indisputable"), it will not be
+        counted.
 
     contig: str
         Name of a contig for which mutation rates will be computed.
@@ -450,6 +453,9 @@ def compute_full_decoy_contig_mut_rates(
     thresh_vals: range
         Range of values of p or r (depending on thresh_type) at which to
         compute mutation rates for this contig. Must use a step size of 1.
+        If a mutation is a mutation for a value of p or r larger than the
+        maximum p or r value here (i.e. it's "indisputable"), it will not be
+        included in the mutation rate computation.
 
     decoy_contig: str
         Decoy contig name.
@@ -494,6 +500,9 @@ def compute_target_contig_fdr_curve_info(
     thresh_vals: range
         Range of values of p or r (depending on thresh_type) at which to
         count mutations in this contig. Must use a step size of 1.
+        If a mutation is a mutation for a value of p or r larger than the
+        maximum p or r value here (i.e. it's "indisputable"), it will not be
+        included in the FDR curve information computation.
 
     target_contig: str
         Name of the target contig.
