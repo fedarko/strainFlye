@@ -350,6 +350,10 @@ def compute_number_of_mutations_in_full_contig(
 
     This function is designed to be useful for either decoy or target contigs.
 
+    We perform some sanity checking on thresh_vals, but we'll assume that
+    the other parameters are well-formed (e.g. thresh_type is either "p" or
+    "r", contig is in bcf_obj, etc.)
+
     Parameters
     ----------
     bcf_obj: pysam.VariantFile
@@ -359,11 +363,9 @@ def compute_number_of_mutations_in_full_contig(
         Either "p" or "r", depending on which type of mutations were called in
         bcf_obj.
 
-    thresh_vals: list
-        List of values of p or r (depending on thresh_type) at which to
-        count mutations in this contig. These values should be listed in
-        ascending order, and the difference between each value in the list
-        should be 1.
+    thresh_vals: range
+        Range of values of p or r (depending on thresh_type) at which to
+        count mutations in this contig. Must use a step size of 1.
 
     contig: str
         Name of a contig for which mutation rates will be computed.
@@ -371,8 +373,26 @@ def compute_number_of_mutations_in_full_contig(
     Returns
     -------
     num_muts: list
-        List of the called mutations at each threshold in thresh_vals.
+        List with the same length as thresh_vals. The i-th value in this list
+        describes the number of called mutations for the i-th threshold in
+        thresh_vals.
+
+    Raises
+    ------
+    ParameterError
+        If thresh_vals doesn't use a step size of 1.
+        If len(thresh_vals) is zero.
+        If either the stop or start of thresh_vals are zero or below.
+
+        (None of these should happen in practice, but you never know...)
     """
+    if thresh_vals.step != 1:
+        raise ParameterError("thresh_vals must use a step size of 1.")
+    if len(thresh_vals) <= 0:
+        raise ParameterError("thresh_vals must have a positive length.")
+    if thresh_vals.start <= 0 or thresh_vals.stop <= 0:
+        raise ParameterError("thresh_vals' start and stop must be positive.")
+
     # For each threshold value, keep track of how many mutations we've seen at
     # this threshold.
     num_muts = [0] * len(thresh_vals)
@@ -413,7 +433,35 @@ def compute_number_of_mutations_in_full_contig(
 def compute_full_decoy_contig_mut_rates(
     bcf_obj, thresh_type, thresh_vals, decoy_contig, decoy_contig_len
 ):
+    """Computes mutation rates for the entirety of a decoy contig.
 
+    This is designed for the "Full" option, in which we consider every position
+    in the contig as a part of the decoy.
+
+    Parameters
+    ----------
+    bcf_obj: pysam.VariantFile
+        Object describing a BCF file produced by strainFlye's naive calling.
+
+    thresh_type: str
+        Either "p" or "r", depending on which type of mutations were called in
+        bcf_obj.
+
+    thresh_vals: range
+        Range of values of p or r (depending on thresh_type) at which to
+        compute mutation rates for this contig. Must use a step size of 1.
+
+    decoy_contig: str
+        Decoy contig name.
+
+    decoy_contig_len: int
+        Decoy contig sequence length.
+
+    Returns
+    -------
+    mut_rates: list
+        Mutation rates for each threshold value in thresh_vals.
+    """
     num_muts = compute_number_of_mutations_in_full_contig(
         bcf_obj, thresh_type, thresh_vals, decoy_contig
     )
@@ -421,7 +469,7 @@ def compute_full_decoy_contig_mut_rates(
     return [n / denominator for n in num_muts]
 
 
-def compute_target_contig_fdr_estimates(
+def compute_target_contig_fdr_curve_info(
     bcf_obj,
     thresh_type,
     thresh_vals,
@@ -429,6 +477,50 @@ def compute_target_contig_fdr_estimates(
     target_contig_len,
     decoy_mut_rates,
 ):
+    """Computes FDR curve information for a given target contig.
+
+    The intent is to create output that can be dropped straight into a TSV
+    file, without too much work on the part of the caller.
+
+    Parameters
+    ----------
+    bcf_obj: pysam.VariantFile
+        Object describing a BCF file produced by strainFlye's naive calling.
+
+    thresh_type: str
+        Either "p" or "r", depending on which type of mutations were called in
+        bcf_obj.
+
+    thresh_vals: range
+        Range of values of p or r (depending on thresh_type) at which to
+        count mutations in this contig. Must use a step size of 1.
+
+    target_contig: str
+        Name of the target contig.
+
+    target_contig_len: int
+        Target contig sequence length.
+
+    decoy_mut_rates: list
+        List of mutation rates (with the same length as thresh_vals) for the
+        decoy contig. The context used to compute these mutation rates (Full,
+        CP2, Nonsyn, ...) doesn't matter. All we care about is these rates.
+
+    Returns
+    -------
+    (fdr_line, num_line): (str, str)
+        These are both tab-separated lines (suitable for adding to a TSV file
+        where the first column is the target contig name and there are
+        len(thresh_vals) additional columns).
+
+        The first entry in fdr_line and num_line is the target contig name.
+        The remaining entries in fdr_line describe the estimated FDR for this
+        target contig at each threshold value (the x-axis on the FDR curves, as
+        we currently draw them). The remaining entries in num_line describe the
+        number of mutations per megabase for this target contig at each
+        threshold value (the y-axis on the FDR curves, as we currently draw
+        them).
+    """
     num_muts = compute_number_of_mutations_in_full_contig(
         bcf_obj, thresh_type, thresh_vals, target_contig
     )
@@ -439,19 +531,19 @@ def compute_target_contig_fdr_estimates(
     denominator = 3 * target_contig_len
     fdr_coeff = 100 * denominator
 
-    fdr_line = ""
-    numpermb_line = ""
+    fdr_line = target_contig
+    num_line = target_contig
     for i, n in enumerate(num_muts):
-        fdr_line += "\t"
-        numpermb_line += "\t"
-        # The FDR is undefined if the target's mutation rate is zero
         if n == 0:
-            fdr_line += "NA"
-            numpermb_line += "0"
+            # The FDR is undefined if the target's mutation rate is zero
+            fdr_val = "NA"
+            num_val = "0"
         else:
-            fdr_line += str((fdr_coeff * decoy_mut_rates[i]) / n)
-            numpermb_line += str(numpermb_coeff * n)
-    return fdr_line, numpermb_line
+            fdr_val = str((fdr_coeff * decoy_mut_rates[i]) / n)
+            num_val = str(numpermb_coeff * n)
+        fdr_line += f"\t{fdr_val}"
+        num_line += f"\t{num_val}"
+    return fdr_line + "\n", num_line + "\n"
 
 
 def compute_decoy_contig_mut_rates(
@@ -479,9 +571,9 @@ def compute_decoy_contig_mut_rates(
         Either "p" or "r", depending on which type of mutations were called in
         bcf_obj.
 
-    thresh_vals: list
-        List of values of p or r (depending on thresh_type) at which to
-        compute mutation rates. This should be listed in ascending order.
+    thresh_vals: range
+        Range of values of p or r (depending on thresh_type) at which to
+        compute mutation rates. Must use a step size of 1.
 
     decoy_contig: str
         Name of a contig to compute mutation rates for.
@@ -697,11 +789,6 @@ def run_estimate(
     # NOTE 2: We do not produce an estimate for the exact high_p (or high_r)
     # value. THe maximum threshold is that minus the step value (... which is
     # always 1, at least right now).
-    #
-    # NOTE 3: It'd probably be more efficient to not even store all of these
-    # values in thresh_vals -- instead, we could just save the thresh_min
-    # and thresh_high values and infer other stuff. But that'd require
-    # refactoring, and this is already decently efficient.
     fancylog(f"Determining range of values of {thresh_type} to consider...")
     if thresh_type == "p":
         if high_p <= thresh_min:
@@ -750,11 +837,13 @@ def run_estimate(
         f"{len(contig_name2len) - 1:,} target contigs..."
     )
 
-    # Write out the header for the TSV files
+    # Create the header for the TSV files
     tsv_header = "Contig"
     for val in thresh_vals:
         tsv_header += f"\t{thresh_type}{val}"
 
+    # ... and write it out. The header is the same for the FDR estimate file
+    # and for the (# of mutations per megabase) file.
     for tsv_fp in (output_fdr_info, output_num_info):
         with open(tsv_fp, "w") as fdr_file:
             fdr_file.write(f"{tsv_header}\n")
@@ -763,7 +852,7 @@ def run_estimate(
     # This is analogous to the "Full" context-dependent option for the decoy
     # genome comptuation, so we can reuse a lot of code from that.
     for target_contig in bcf_contigs - {used_decoy_contig}:
-        fdr_line, numpermb_line = compute_target_contig_fdr_estimates(
+        fdr_line, numpermb_line = compute_target_contig_fdr_curve_info(
             bcf_obj,
             thresh_type,
             thresh_vals,
@@ -774,9 +863,9 @@ def run_estimate(
 
         # TODO chunk outputs?
         with open(output_fdr_info, "a") as fdr_file:
-            fdr_file.write(f"{target_contig}{fdr_line}\n")
-        with open(output_num_info, "a") as fdr_file:
-            fdr_file.write(f"{target_contig}{numpermb_line}\n")
+            fdr_file.write(fdr_line)
+        with open(output_num_info, "a") as num_file:
+            num_file.write(numpermb_line)
 
     fancylog("Done.", prefix="")
 

@@ -424,7 +424,7 @@ def test_compute_full_decoy_contig_mut_rates_p_simple():
     )
     bcf_obj, thresh_type, thresh_min = fu.parse_bcf(bcf_name)
     mut_rates = fu.compute_full_decoy_contig_mut_rates(
-        bcf_obj, thresh_type, [15, 16, 17, 18, 19, 20], "edge_1", 500
+        bcf_obj, thresh_type, range(15, 21), "edge_1", 500
     )
     denominator = 3 * 500
     try:
@@ -467,7 +467,7 @@ def test_compute_full_decoy_contig_mut_rates_r_simple():
     )
     bcf_obj, thresh_type, thresh_min = fu.parse_bcf(bcf_name)
     mut_rates = fu.compute_full_decoy_contig_mut_rates(
-        bcf_obj, thresh_type, [5, 6, 7, 8, 9, 10, 11, 12], "edge_1", 500
+        bcf_obj, thresh_type, range(5, 13), "edge_1", 500
     )
     denominator = 3 * 500
     try:
