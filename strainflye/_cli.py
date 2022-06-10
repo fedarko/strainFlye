@@ -649,7 +649,7 @@ def estimate(
 
 @fdr.command(**cmd_params)
 @click.option(
-    "-v",
+    "-b",
     "--bcf",
     required=True,
     type=click.Path(exists=True),
@@ -663,6 +663,16 @@ def estimate(
     help='Estimated FDR TSV file produced by "strainFlye fdr estimate".',
 )
 @click.option(
+    "-ni",
+    "--num-info",
+    required=True,
+    type=click.Path(dir_okay=False),
+    help=(
+        'Number of mutations per megabase TSV file produced by "strainFlye '
+        'fdr estimate".'
+    ),
+)
+@click.option(
     "--fdr",
     required=False,
     default=100,
@@ -673,7 +683,7 @@ def estimate(
         "This is interpreted as a scaled-up percentage, such that f = N "
         "corresponds to (N / 100)% (i.e. the default of f = 100 corresponds "
         "to an FDR of 1%). No upper limit is imposed, since estimated FDRs "
-        "can technically exceed (10000 / 100)% = 100% in uncommon cases."
+        "can technically exceed (10000 / 100)% = 100%."
     ),
 )
 @click.option(
@@ -688,16 +698,24 @@ def estimate(
         "input BCF file."
     ),
 )
-def fix(bcf, fdr_info, fdr, output_bcf):
-    """Fixes contigs' mutation calls' FDRs to an upper limit."""
+def fix(bcf, fdr_info, num_info, fdr, output_bcf):
+    """Fixes contigs' mutation calls' FDRs to an upper limit.
+
+    This takes as input the outputs of "strainFlye fdr estimate" to guide us on
+    how to fix the FDR for each contig. Note that mutations that passed the
+    "high" p or r threshold specified for "strainFlye fdr estimate", which were
+    not used for FDR estimation, will all be included in the output BCF file
+    from this command; these mutations are considered indisputable.
+    """
     fancylog = cli_utils.fancystart(
         "strainFlye fdr fix",
         (
             ("BCF file", bcf),
             ("FDR estimate file", fdr_info),
+            ("number of mutations per megabase file", num_info),
             ("FDR to fix mutation calls at", fdr),
         ),
-        (("BCF file with fixed FDR", output_bcf),),
+        (("BCF file with mutation calls at the fixed FDR", output_bcf),),
     )
     fdr_utils.run_fix(bcf, fdr_info, fdr, output_bcf, fancylog)
     fancylog("Done.")
