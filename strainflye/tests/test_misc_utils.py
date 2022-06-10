@@ -3,6 +3,7 @@ import shutil
 import tempfile
 import strainflye.misc_utils as mu
 
+
 def test_make_output_dir_exists():
     with tempfile.TemporaryDirectory() as tdname:
         assert os.path.exists(tdname)
@@ -22,7 +23,9 @@ def test_make_output_dir_exists():
 
 
 def test_make_output_dir_notexists_multilevel():
-    tdname = os.path.join(tempfile.gettempdir(), "_strainflye_td1", "_strainflye_td2")
+    tdname = os.path.join(
+        tempfile.gettempdir(), "_strainflye_td1", "_strainflye_td2"
+    )
     try:
         assert not os.path.exists(tdname)
         mu.make_output_dir(tdname)
