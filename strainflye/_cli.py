@@ -692,7 +692,7 @@ def estimate(
     required=True,
     type=click.Path(dir_okay=False),
     help=(
-        "Filepath to which an output BCF file (describing the called "
+        "Filepath to which an output indexed BCF file (describing the called "
         "mutations at the optimal p or r value for each contig) will be "
         "written. These mutations will be a subset of those described in the "
         "input BCF file."
@@ -717,7 +717,7 @@ def fix(bcf, fdr_info, num_info, fdr, output_bcf):
         ),
         (("BCF file with mutation calls at the fixed FDR", output_bcf),),
     )
-    fdr_utils.run_fix(bcf, fdr_info, fdr, output_bcf, fancylog)
+    fdr_utils.run_fix(bcf, fdr_info, num_info, fdr, output_bcf, fancylog)
     fancylog("Done.")
 
 
