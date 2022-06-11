@@ -3,6 +3,7 @@ import tempfile
 import subprocess
 import pytest
 import pandas as pd
+import numpy as np
 import strainflye.fdr_utils as fu
 from io import StringIO
 from strainflye.errors import ParameterError, SequencingDataError
@@ -765,3 +766,22 @@ def test_load_and_sanity_check_fdr_file_invalid_fdrs():
     with pytest.raises(ParameterError) as ei:
         fu.load_and_sanity_check_fdr_file(tsv, "r")
     assert str(ei.value) == f"{ep}: Column r50 doesn't seem to be numeric?"
+
+
+def test_load_and_sanity_check_fdr_file_normal():
+    tsv = StringIO(
+        "Contig\tr50\tr51\tr52\n"
+        "edge_1\t0.5\t0.3\t0.2\n"
+        "edge_2\t0.2\t0.1\t0.4\n"
+        "edge_3\t1.5\tNA\tNA\n"
+    )
+    obs_df = fu.load_and_sanity_check_fdr_file(tsv, "r")
+    exp_df = pd.DataFrame(
+        {
+            "r50": [0.5, 0.2, 1.5],
+            "r51": [0.3, 0.1, np.nan],
+            "r52": [0.2, 0.4, np.nan],
+        },
+        index=pd.Index(["edge_1", "edge_2", "edge_3"], name="Contig"),
+    )
+    pd.testing.assert_frame_equal(obs_df, exp_df)
