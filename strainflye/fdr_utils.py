@@ -5,6 +5,7 @@ import re
 import pysam
 import pandas as pd
 from math import floor
+from statistics import mean
 from collections import defaultdict
 from strainflye import fasta_utils, call_utils
 from .errors import ParameterError, SequencingDataError
@@ -1100,10 +1101,60 @@ def load_and_sanity_check_fdr_file(fdr_info, thresh_type):
                     "steps of 1."
                 )
         prev_col_val = col_val
+
     if (fi < 0).any().any():
         raise ParameterError(f"{ep}: FDR estimates must be nonnegative or NA.")
 
     return fi
+
+
+def log_optimal_threshold_value_stats(
+    optimal_thresh_vals, thresh_type, thresh_min, thresh_max, fdr, fancylog
+):
+    # A contig can have a N/A optimal threshold value if its entire FDR curve
+    # was > the fixed FDR (see Case 4 in get_optimal_threshold_values()).
+    non_na = optimal_thresh_vals[~optimal_thresh_vals.isna()]
+    num_nonna = len(non_na)
+    num_targets = len(optimal_thresh_vals)
+
+    if len(non_na) == 0:
+        # This should not happen except for really weird cases
+        fancylog(
+            (
+                f"WARNING: No values of {thresh_type} resulted in estimated "
+                "FDRs \u2264 the fixed FDR, for all {num_na:,} contigs."
+            ),
+            prefix="",
+        )
+    else:
+        fancylog(
+            (
+                f"For {num_nonna:,} / {num_targets:,} contigs, there exist "
+                f"values of {thresh_type} (from {thresh_type} = {thresh_min} "
+                f"to {thresh_type} = {thresh_max}) that yield estimated FDRs "
+                f"\u2264 {fdr}%."
+            ),
+            prefix="",
+        )
+        numeric_otvs = non_na.str.slice(1).astype(int)
+        # NOTE: Could roll these into a single loop to speed this up, but this
+        # almost certainly won't be a bottleneck
+        min_contig = numeric_otvs.idxmin()
+        min_tv = numeric_otvs[min_contig]
+        max_contig = numeric_otvs.idxmax()
+        max_tv = numeric_otvs[max_contig]
+        mean_tv = mean(numeric_otvs)
+        fancylog(
+            (
+                f"These values range from {thresh_type} = {min_tv:,} "
+                f"({min_contig}) to {thresh_type} = {max_tv:,} ({max_contig})."
+            ),
+            prefix="",
+        )
+        fancylog(
+            f"The mean of these values is {thresh_type} = {mean_tv:,.2f}.",
+            prefix="",
+        )
 
 
 def run_fix(bcf, fdr_info, fdr, output_bcf, fancylog):
@@ -1196,13 +1247,23 @@ def run_fix(bcf, fdr_info, fdr, output_bcf, fancylog):
         prefix="",
     )
 
-    fancylog(f"Finding optimal values of {thresh_type} for each contig...")
-    # We can now begin this in earnest. Figure out the "optimal" value of p or
-    # r for each contig, based on the estimated FDR information.
+    fancylog(
+        "Based on the FDR information, finding optimal values of "
+        f"{thresh_type} for each contig..."
+    )
+    # We can now begin in earnest. Figure out the "optimal" value of p or r for
+    # for each contig, based on the estimated FDR information.
     optimal_thresh_vals = get_optimal_threshold_values(fi, fdr)
     fancylog("Done.", prefix="")
+    log_optimal_threshold_value_stats(
+        optimal_thresh_vals, thresh_type, thresh_min, thresh_max, fdr, fancylog
+    )
 
-    fancylog("Writing a filtered BCF file...")
+    fancylog(
+        "Writing a filtered BCF file including both (1) indisputable "
+        "mutations and (2) non-indisputable mutations that result in a FDR "
+        f"\u2264 {fdr}%..."
+    )
     # Filter mutations for each contig to those that pass these thresholds (in
     # addition to indisputable mutations, using thresh_high from above).
     write_filtered_bcf(bcf_obj, output_bcf, optimal_thresh_vals, thresh_high)
