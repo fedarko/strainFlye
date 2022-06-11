@@ -1032,7 +1032,7 @@ def write_filtered_bcf(
     in_bcf_obj, out_bcf_fp, optimal_thresh_vals, thresh_high
 ):
     """Writes out a filtered BCF based on optimal p or r values."""
-    pass
+    raise NotImplementedError("Still gotta do this!!!")
 
 
 def load_and_sanity_check_fdr_file(fdr_info, thresh_type):
@@ -1077,28 +1077,30 @@ def load_and_sanity_check_fdr_file(fdr_info, thresh_type):
     if len(fi.columns) < 1:
         raise ParameterError(f"{ep}: no threshold values described?")
 
-    prev_col_val = 0
+    prev_col_val = None
     for col in fi.columns:
         if col[0] != thresh_type:
             raise ParameterError(
                 f"{ep}: columns should start with {thresh_type}."
             )
         col_val = int(col[1:])
-        if col_val <= prev_col_val:
-            raise ParameterError(
-                f"{ep}: values of {thresh_type} should increase from left to "
-                "right."
-            )
-        # We could eventually support different step sizes, but not yet.
-        # Actually I think this might be overzealous -- I don't think we do
-        # anything in "fix" that requires known step sizes -- but whatever, I
-        # wanna be careful.
-        if col_val != prev_col_val + 1:
-            raise ParameterError(
-                f"{ep}: values of {thresh_type} should only increase in steps "
-                "of 1."
-            )
-    if (fi < 0).any.any():
+        if prev_col_val is not None:
+            if col_val <= prev_col_val:
+                raise ParameterError(
+                    f"{ep}: values of {thresh_type} should increase from left "
+                    "to right."
+                )
+            # We could eventually support different step sizes, but not yet.
+            # Actually I think this might be overzealous -- I don't think we do
+            # anything in "fix" that requires known step sizes -- but whatever,
+            # I wanna be careful.
+            if col_val != prev_col_val + 1:
+                raise ParameterError(
+                    f"{ep}: values of {thresh_type} should only increase in "
+                    "steps of 1."
+                )
+        prev_col_val = col_val
+    if (fi < 0).any().any():
         raise ParameterError(f"{ep}: FDR estimates must be nonnegative or NA.")
 
     return fi
