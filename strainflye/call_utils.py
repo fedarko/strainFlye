@@ -11,6 +11,28 @@ from .errors import SequencingDataError, ParameterError, WeirdError
 from strainflye import __version__, fasta_utils, misc_utils
 
 
+def index_bcf(in_bcf, fancylog):
+    """Indexes a BCF file using bcftools.
+
+    This creates a .bcf.csi file in the same location as the BCF file.
+
+    Parameters
+    ----------
+    in_bcf: str
+        Location of the BCF file to be indexed.
+
+    fancylog: function
+        Logging function.
+
+    Returns
+    -------
+    None
+    """
+    fancylog("Indexing the BCF file...")
+    subprocess.run(["bcftools", "index", in_bcf])
+    fancylog("Done indexing the BCF file.", prefix="")
+
+
 def get_alt_pos_info(rec):
     """Returns info about the second-most-common nucleotide at a position.
 
@@ -619,9 +641,8 @@ def run(
         ["bcftools", "view", "-O", "b", output_vcf, "-o", output_bcf]
     )
     os.remove(output_vcf)
-    fancylog("Done. Indexing this BCF...", prefix="")
-    subprocess.run(["bcftools", "index", output_bcf])
-    fancylog("Done indexing this BCF.", prefix="")
+    fancylog("Done.", prefix="")
+    index_bcf(output_bcf, fancylog)
 
 
 def is_position_rare_direct(alt_pos, cov):

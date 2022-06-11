@@ -490,6 +490,7 @@ strainflye.add_command(fdr)
     show_default=True,
     type=click.IntRange(min=0, max=5000, min_open=True),
     help=(
+        "(Only applies if the input BCF file describes p-mutations.) "
         "p-mutations with a mutation rate "
         "(freq(pos)) greater than or equal to this are considered "
         '"indisputable," and will not '
@@ -507,6 +508,7 @@ strainflye.add_command(fdr)
     show_default=True,
     type=click.IntRange(min=0, min_open=True),
     help=(
+        "(Only applies if the input BCF file describes r-mutations.) "
         "r-mutations with an alternate nucleotide read "
         "coverage greater than or equal to this are considered "
         "indisputable, and will not be included in FDR estimation."
@@ -663,16 +665,6 @@ def estimate(
     help='Estimated FDR TSV file produced by "strainFlye fdr estimate".',
 )
 @click.option(
-    "-ni",
-    "--num-info",
-    required=True,
-    type=click.Path(dir_okay=False),
-    help=(
-        'Number of mutations per megabase TSV file produced by "strainFlye '
-        'fdr estimate".'
-    ),
-)
-@click.option(
     "--fdr",
     required=False,
     default=1,
@@ -692,12 +684,12 @@ def estimate(
     type=click.Path(dir_okay=False),
     help=(
         "Filepath to which an output indexed BCF file (describing the called "
-        "mutations at the optimal p or r value for each contig) will be "
-        "written. These mutations will be a subset of those described in the "
-        "input BCF file."
+        "mutations at the optimal p or r value for each contig, along with "
+        'any "indisputable" mutations relative to the --high-p or --high-r '
+        "parameter used for strainFlye fdr estimate) will be written."
     ),
 )
-def fix(bcf, fdr_info, num_info, fdr, output_bcf):
+def fix(bcf, fdr_info, fdr, output_bcf):
     """Fixes contigs' mutation calls' FDRs to an upper limit.
 
     This takes as input the outputs of "strainFlye fdr estimate" to guide us on
@@ -711,12 +703,11 @@ def fix(bcf, fdr_info, num_info, fdr, output_bcf):
         (
             ("BCF file", bcf),
             ("FDR estimate file", fdr_info),
-            ("number of mutations per megabase file", num_info),
             ("FDR to fix mutation calls at", fdr),
         ),
         (("BCF file with mutation calls at the fixed FDR", output_bcf),),
     )
-    fdr_utils.run_fix(bcf, fdr_info, num_info, fdr, output_bcf, fancylog)
+    fdr_utils.run_fix(bcf, fdr_info, fdr, output_bcf, fancylog)
     fancylog("Done.")
 
 
