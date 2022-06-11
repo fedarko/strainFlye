@@ -1023,28 +1023,29 @@ def run_fix(bcf, fdr_info, num_info, fdr, output_bcf, fancylog):
     # estimated FDR below the fixed value.
     #
     # How do we identify this "optimal" value? By looking at the FDR curve.
-    # We define four "cases" of how a FDR curve can look:
-    #
+    # We define four "cases" of how a FDR curve can look, relative to the fixed
+    # FDR (which can be thought of as an infinite vertical line).
+    #     |
     # Case 1. The curve crosses the line at exactly one point.
-    #         This is easy to handle -- select the value of p or r just below
-    #         the intersection for this contig.
+    #     |   This is easy to handle -- select the value of p or r just below
+    #     |   the intersection for this contig.
     # ^  _|_____
     # | / |
     # |/  |
     # +---|------->
-    #
+    #     |
     # Case 2. The curve crosses the line more than one point.
-    #         (This is an unfortunate possibility, because we do not have the
-    #         guarantee that FDR estimates increase monotonically with lower
-    #         values of p or r.) In this case, we select the value of p or r
-    #         just below the intersection for this contig with the highest
-    #         # mutations / mb (in the plot below, at the top intersection).
-    #
-    #         Notably, this will always correspond to the lowest value of p or
-    #         r that is <= the fixed FDR: lower values of p or r also "include"
-    #         the p- or r-mutations called from higher values of p or r, so the
-    #         lowest "passing" threshold value will also result in the highest
-    #         number of mutations per megabase in the target contig.
+    #     |   (This is an unfortunate possibility, because we do not have the
+    #     |   guarantee that FDR estimates increase monotonically with lower
+    #     |   values of p or r.) In this case, we select the value of p or r
+    #     |   just below the intersection for this contig with the highest
+    #     |   # mutations / mb (in the plot below, at the top intersection).
+    #     |
+    #     |   Notably, this will always correspond to the lowest value of p or
+    #     |   r that is <= the fixed FDR: lower values of p or r also "include"
+    #     |   the p- or r-mutations called from higher values of p or r, so the
+    #     |   lowest "passing" threshold value will also result in the highest
+    #     |   number of mutations per megabase in the target contig.
     # ^  _|_____
     # | / |
     # |/  |
@@ -1053,22 +1054,22 @@ def run_fix(bcf, fdr_info, num_info, fdr, output_bcf, fancylog):
     # | / |
     # |/  |
     # +---|------->
-    #
+    #     |
     # Case 3. The curve crosses the line at zero points, and all estimated FDRs
-    #         are LOWER than the fixed FDR. In this case, just select the
-    #         lowest value of p or r used.
-    #
+    #     |   are LOWER than the fixed FDR. In this case, just select the
+    #     |   lowest value of p or r used.
+    #     |
     # ^ | |
     # | | |
     # |/  |
     # +---|------->
-    #
+    #     |
     # Case 4. The curve crosses the line at zero points, and all estimated FDRs
-    #         are HIGHER than the fixed FDR. In this case, our hands are tied;
-    #         don't select any value of p or r. We can't call any
-    #         non-indisputable mutations for this contig, at least not at this
-    #         fixed FDR.
-    #
+    #     |   are HIGHER than the fixed FDR. In this case, our hands are tied;
+    #     |   don't select any value of p or r. We can't call any
+    #     |   non-indisputable mutations for this contig, at least not at this
+    #     |   fixed FDR.
+    #     |
     # ^   |    /
     # |   |   /
     # |   |  |
