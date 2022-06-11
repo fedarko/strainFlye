@@ -9,7 +9,6 @@ from strainflye.errors import ParameterError, SequencingDataError
 from strainflye.config import DI_PREF
 from .utils_for_testing import mock_log
 
-
 def write_vcf_tempfile(text):
     fh = tempfile.NamedTemporaryFile(suffix=".vcf")
     with open(fh.name, "w") as f:
@@ -667,3 +666,41 @@ def test_compute_decoy_contig_mut_rates_full_r_simple():
     finally:
         os.remove(bcf_name)
         os.remove(bcf_name + ".csi")
+
+
+def test_load_and_sanity_check_fdr_file_basic_errors():
+    ep = "Input FDR TSV file seems malformed"
+    # Very real and legitimate TSV file
+    tsv = StringIO(f"OIJsdoijsjdlasidjlasdj\taiodsfjoaidsfj,a123")
+    with pytest.raises(ParameterError) as ei:
+        fu.load_and_sanity_check_fdr_file(tsv, "p")
+    assert str(ei.value) == f'{ep}: no "Contig" header?'
+
+    tsv = StringIO(f"Contig\tp15\n")
+    with pytest.raises(ParameterError) as ei:
+        fu.load_and_sanity_check_fdr_file(tsv, "p")
+    assert str(ei.value) == f'{ep}: no contigs described?'
+
+    tsv = StringIO(f"Contig\nedge_1\nedge_2\n")
+    with pytest.raises(ParameterError) as ei:
+        fu.load_and_sanity_check_fdr_file(tsv, "p")
+    assert str(ei.value) == f'{ep}: no threshold values described?'
+
+
+def test_load_and_sanity_check_fdr_file_p_vs_r_mismatch():
+    ep = "Input FDR TSV file seems malformed"
+
+    # Check p vs. r mismatch
+    tsv_str = f"Contig\tp15\tp16\nedge_1\t3\t5\n"
+    tsv = StringIO(tsv_str)
+    with pytest.raises(ParameterError) as ei:
+        fu.load_and_sanity_check_fdr_file(tsv, "r")
+    assert str(ei.value) == f'{ep}: columns should start with r.'
+
+    # ... And check that using p instead of r as the thresh_type works.
+    # (We need to make a new StringIO, because I guess the old one already got
+    # used up?)
+    tsv = StringIO(tsv_str)
+    obs_df = fu.load_and_sanity_check_fdr_file(tsv, "p")
+    exp_df = pd.DataFrame({"p15": [3], "p16": [5]}, index=pd.Index(["edge_1"], name="Contig"))
+    pd.testing.assert_frame_equal(obs_df, exp_df)

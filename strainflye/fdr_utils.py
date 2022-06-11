@@ -1070,7 +1070,7 @@ def load_and_sanity_check_fdr_file(fdr_info, thresh_type):
     """
     fi = pd.read_csv(fdr_info, sep="\t", index_col=0)
     # error prefix -- saves us some typing...
-    ep = f"TSV file {fdr_info} seems malformed"
+    ep = "Input FDR TSV file seems malformed"
     if fi.index.name != "Contig":
         raise ParameterError(f'{ep}: no "Contig" header?')
     if len(fi.index) < 1:
