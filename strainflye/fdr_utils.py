@@ -714,7 +714,7 @@ def run_estimate(
     Returns
     -------
     None
-    
+
     Raises
     ------
     ParameterError
@@ -977,10 +977,7 @@ def run_fix(bcf, fdr_info, num_info, fdr, output_bcf, fancylog):
     # because the decoy contig will be missing.
     tsv_contigs = set(fi.index)
     fasta_utils.verify_contigs_subset(
-        tsv_contigs,
-        bcf_contigs,
-        tsv_desc,
-        "the BCF file"
+        tsv_contigs, bcf_contigs, tsv_desc, "the BCF file"
     )
     absent_contigs = bcf_contigs - tsv_contigs
     if len(absent_contigs) != 1:
@@ -1007,12 +1004,16 @@ def run_fix(bcf, fdr_info, num_info, fdr, output_bcf, fancylog):
         (
             'Looks like the cutoff for "indisputable" mutations was '
             f"{thresh_type} = {thresh_high:,}."
-        ), prefix="",)
+        ),
+        prefix="",
+    )
     fancylog(
         (
             "All mutations passing this cutoff will be included in the "
             "output BCF file."
-        ), prefix="")
+        ),
+        prefix="",
+    )
 
     # We can now begin this in earnest.
     # For a given contig's FDR curve, we define four cases regarding how this
@@ -1020,6 +1021,9 @@ def run_fix(bcf, fdr_info, num_info, fdr, output_bcf, fancylog):
     # The goal is to, for each contig, identify the "optimal" value of p or r
     # that maximizes the number of mutations / mb we see while keeping the
     # estimated FDR below the fixed value.
+    #
+    # How do we identify this "optimal" value? By looking at the FDR curve.
+    # We define four "cases" of how a FDR curve can look:
     #
     # Case 1. The curve crosses the line at exactly one point.
     #         This is easy to handle -- select the value of p or r just below
@@ -1035,6 +1039,12 @@ def run_fix(bcf, fdr_info, num_info, fdr, output_bcf, fancylog):
     #         values of p or r.) In this case, we select the value of p or r
     #         just below the intersection for this contig with the highest
     #         # mutations / mb (in the plot below, at the top intersection).
+    #
+    #         Notably, this will always correspond to the lowest value of p or
+    #         r that is <= the fixed FDR: lower values of p or r also "include"
+    #         the p- or r-mutations called from higher values of p or r, so the
+    #         lowest "passing" threshold value will also result in the highest
+    #         number of mutations per megabase in the target contig.
     # ^  _|_____
     # | / |
     # |/  |
@@ -1045,8 +1055,8 @@ def run_fix(bcf, fdr_info, num_info, fdr, output_bcf, fancylog):
     # +---|------->
     #
     # Case 3. The curve crosses the line at zero points, and all estimated FDRs
-    #         are LOWER than the fixed FDR. In this case, just select the lowest
-    #         value of p or r used.
+    #         are LOWER than the fixed FDR. In this case, just select the
+    #         lowest value of p or r used.
     #
     # ^ | |
     # | | |
@@ -1063,7 +1073,31 @@ def run_fix(bcf, fdr_info, num_info, fdr, output_bcf, fancylog):
     # |   |   /
     # |   |  |
     # +---|------->
-    #
+
+    # Convert the FDR information to a binary matrix:
+    # True  means this FDR is <= the fixed FDR value
+    # False means this FDR is >  the fixed FDR value
+    lte_fdr = fi <= fdr
+
+    def get_optimal_threshold(fdr_df_row):
+        # We implicitly go through from lower to higher threshold values -- so
+        # we'll select the lowest threshold value that is <= the fixed FDR.
+        # This automatically accounts for Cases 1, 2, and 3 above.
+        for ci, val in enumerate(fdr_df_row):
+            if val:
+                return fdr_df_row.index[ci]
+        # If we make it here, then none of the threshold values were <= the
+        # fixed FDR. So this is a "Case 4" situation -- return None.
+        return None
+
+    # We can select each optimal threshold using DataFrame.apply(). This is
+    # faster than naive looping through the DataFrame, but it could still
+    # probably be sped up (although I'm not sure how exactly we could use
+    # vectorization here). See
+    # https://web.archive.org/web/20181106230656/https://engineering.upside.com/a-beginners-guide-to-optimizing-pandas-code-for-speed-c09ef2c6a4d6
+    # for details.
+    lte_fdr.apply(get_optimal_threshold, axis=1)
+
     # Once we have selected the "optimal" p or r values for each contig, we can
     # then just filter mutations for each contig to those that pass these
     # thresholds (in addition to indisputable mutations, using thresh_high from

@@ -675,15 +675,14 @@ def estimate(
 @click.option(
     "--fdr",
     required=False,
-    default=100,
+    default=1,
     show_default=True,
-    type=click.IntRange(min=0, min_open=True),
+    type=click.FloatRange(min=0, min_open=True),
     help=(
         "False discovery rate at which identified mutations will be fixed. "
-        "This is interpreted as a scaled-up percentage, such that f = N "
-        "corresponds to (N / 100)% (i.e. the default of f = 100 corresponds "
-        "to an FDR of 1%). No upper limit is imposed, since estimated FDRs "
-        "can technically exceed (10000 / 100)% = 100%."
+        "This is interpreted as a percentage: the default of 1 corresponds "
+        "to an FDR of 1%. No upper limit is imposed, since estimated FDRs can "
+        "technically exceed 100%."
     ),
 )
 @click.option(
