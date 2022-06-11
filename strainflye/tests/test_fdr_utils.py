@@ -785,3 +785,26 @@ def test_load_and_sanity_check_fdr_file_normal():
         index=pd.Index(["edge_1", "edge_2", "edge_3"], name="Contig"),
     )
     pd.testing.assert_frame_equal(obs_df, exp_df)
+
+
+def test_get_optimal_threshold_values():
+    contig_idx = pd.Index(["edge_A", "edge_B", "edge_C"], name="Contig")
+    fdr_df = pd.DataFrame(
+        {
+            "r5": [1, 0.5, 0.1],
+            "r6": [1, 0.7, 0.8],
+            "r7": [3, np.nan, 1],
+            "r8": [4, 0.2, np.nan],
+        },
+        index=contig_idx,
+    )
+
+    # "Case 3": all of the FDRs are <= 10%
+    obs_otv_10 = fu.get_optimal_threshold_values(fdr_df, 10)
+    exp_otv_10 = pd.Series([5, 5, 5], index=contig_idx)
+    pd.testing.assert_series_equal(obs_otv_10, exp_otv_10)
+
+    # "Case 2": all of the FDRs are > 0.001%
+    obs_otv_10 = fu.get_optimal_threshold_values(fdr_df, 0.001)
+    exp_otv_10 = pd.Series([np.nan, np.nan, np.nan], index=contig_idx)
+    pd.testing.assert_series_equal(obs_otv_10, exp_otv_10)

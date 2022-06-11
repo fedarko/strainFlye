@@ -3,6 +3,7 @@
 
 import re
 import pysam
+import numpy as np
 import pandas as pd
 from math import floor
 from statistics import mean
@@ -929,7 +930,13 @@ def get_optimal_threshold_values(fi, fdr):
         FDR information produced by "strainFlye fdr estimate". The indices
         (rows) correspond to contigs; the columns correspond to threshold
         values of p or r (sorted in ascending order from left to right). Cells
-        indicate the estimated FDR for this contig at this threshold value.
+        indicate the estimated FDR for this contig at this threshold value (and
+        may be NaN if no FDR estimate was defined for a given combination of
+        (contig, threshold value)).
+
+        This should have already been sanity-checked using
+        load_and_sanity_check_fdr_file(), so we don't perform any validation on
+        this DataFrame's structure here.
 
     fdr: float
         FDR at which (non-indisputable) mutation calls for each contig will be
@@ -939,11 +946,12 @@ def get_optimal_threshold_values(fi, fdr):
     -------
     pd.Series
         Has the same index as fi (so, this has one entry per contig). Each
-        contig's entry will be the smallest threshold value (column name) at
-        which this contig's FDR is less than or equal to the specified fdr.
+        contig's entry will be the smallest threshold value (extracted
+        from the column name -- i.e. "p15" will get converted to the int 15)
+        at which this contig's FDR is less than or equal to the specified fdr.
         If no such threshold value exists (i.e. all estimated FDRs for this
-        contig are greater than the specified fdr), the contig's entry in this
-        series will be None.
+        contig are greater than the specified fdr and/or are NaN), the contig's
+        entry in this series will be None.
     """
     # For a given contig's FDR curve, we define four cases regarding how this
     # curve intersects with a fixed FDR (represented as a vertical line).
@@ -1006,8 +1014,20 @@ def get_optimal_threshold_values(fi, fdr):
 
     # Convert the FDR information to a binary matrix:
     # True  means this FDR is <= the fixed FDR value
-    # False means this FDR is >  the fixed FDR value
-    lte_fdr = fi <= fdr
+    # False means this FDR is >  the fixed FDR value (or is a NaN)
+    #
+    # Note that that the ~fi.isna() check (automatically rendering all NaNs as
+    # False) isn't really required, since (per IEEE-754 standards, I think? --
+    # see https://stackoverflow.com/a/1573715) running "NaN <= x" should yield
+    # False for all x. However, I don't really want to rely on this implicit
+    # condition, and I'll take making this 0.1 seconds slower if it means I
+    # don't have to think about floating-point standards any more right now.
+    lte_fdr = (~fi.isna()) & (fi <= fdr)
+
+    # While we're at it, convert the columns of this DataFrame to their integer
+    # values -- so, "p15" --> 15, for example. We should have already
+    # sanity-checked this DataFrame's structure before calling this.
+    lte_fdr.columns = fi.columns.str.slice(1).astype(int)
 
     def get_optimal_threshold(fdr_df_row):
         # We implicitly go through from lower to higher threshold values -- so
@@ -1017,8 +1037,8 @@ def get_optimal_threshold_values(fi, fdr):
             if val:
                 return fdr_df_row.index[ci]
         # If we make it here, then none of the threshold values were <= the
-        # fixed FDR. So this is a "Case 4" situation -- return None.
-        return None
+        # fixed FDR. So this is a "Case 4" situation -- return NaN.
+        return np.nan
 
     # We can select each optimal threshold using DataFrame.apply(). This is
     # faster than naive looping through the DataFrame, but it could still
