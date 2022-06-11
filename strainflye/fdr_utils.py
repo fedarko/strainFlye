@@ -1102,8 +1102,20 @@ def load_and_sanity_check_fdr_file(fdr_info, thresh_type):
                 )
         prev_col_val = col_val
 
-    if (fi < 0).any().any():
-        raise ParameterError(f"{ep}: FDR estimates must be nonnegative or NA.")
+        col_fdrs = fi[col]
+        # Check that this column is numeric (NaNs are ok).
+        # See https://stackoverflow.com/a/45568283.
+        if not pd.api.types.is_numeric_dtype(col_fdrs):
+            raise ParameterError(
+                f"{ep}: Column {col} doesn't seem to be numeric?"
+            )
+
+        # At this point, we've already screened for non-numeric dtypes, so we
+        # should be able to use < 0 without problems
+        if (col_fdrs < 0).any():
+            raise ParameterError(
+                f"{ep}: Column {col} contains negative FDR estimates?"
+            )
 
     return fi
 
