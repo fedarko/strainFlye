@@ -1050,9 +1050,61 @@ def get_optimal_threshold_values(fi, fdr):
 
 
 def write_filtered_bcf(
-    in_bcf_obj, out_bcf_fp, optimal_thresh_vals, thresh_high
+    in_bcf_obj, out_bcf_fp, optimal_thresh_vals, thresh_type, thresh_high
 ):
-    """Writes out a filtered BCF based on optimal p or r values."""
+    """Writes out a filtered BCF based on optimal threshold values.
+
+    The filtered BCF will include:
+
+        1. "Indisputable" mutations (that pass thresh_high). We will include
+           indisputable mutations from all contigs -- the target(s), and the
+           decoy.
+
+        2. Non-indisputable mutations (that do not pass thresh_high but pass
+           the corresponding optimal_thresh_vals value for a target contig).
+           We will only include these mutations from the target contigs, since
+           we don't have an optimal threshold value generated for the decoy
+           contig.
+
+           If a target contig did not have an optimal threshold value given
+           (i.e. its OTV is np.nan), then we will not include any
+           non-indisputable mutations for this contig.
+
+    Parameters
+    ----------
+    in_bcf_obj: pysam.VariantFile
+        Object describing a BCF file produced by strainFlye's naive calling.
+
+    out_bcf_fp: str
+        Filepath to which a filtered version of in_bcf_obj will be written.
+
+    optimal_thresh_vals: pd.Series
+        Output of get_optimal_threshold_values(). The index corresponds to
+        contig names; the values correspond to either the optimal value of p
+        or r for a contig (expressed as a number), or np.nan (if no optimal
+        value exists for this contig -- i.e. all of this contig's estimated
+        FDRs were greater than the threshold or were undefined).
+
+        Note that the dtype of this Series will probably be a float, because
+        the presence of NaNs forces the dtype to be float. (This problem is
+        documented, for example, at
+        https://pandas.pydata.org/docs/user_guide/integer_na.html.) This isn't
+        a problem, since I know that all of the numbers are integers (e.g.
+        15.0) -- so we can call int() on them without worrying.
+
+    thresh_type: str
+        Either "p" or "r". We assume at this point that in_bcf_obj,
+        optimal_thresh_vals, etc. all also use this thresh_type -- so please
+        don't break this, ok?
+
+    thresh_high: int
+        The "high" (indisputable) value of p or r passed to
+        "strainFlye fdr estimate".
+
+    Returns
+    -------
+    None
+    """
     raise NotImplementedError("Still gotta do this!!!")
 
 
@@ -1340,12 +1392,12 @@ def run_fix(bcf, fdr_info, fdr, output_bcf, fancylog):
 
     fancylog(
         "Writing a filtered BCF file including both (1) indisputable "
-        "mutations and (2) non-indisputable mutations that result in a FDR "
-        f"\u2264 {fdr}%..."
+        "mutations from all contigs and (2) non-indisputable mutations from "
+        "the target contigs that result in a FDR \u2264 {fdr}%..."
     )
     # Filter mutations for each contig to those that pass these thresholds (in
     # addition to indisputable mutations, using thresh_high from above).
-    write_filtered_bcf(bcf_obj, output_bcf, optimal_thresh_vals, thresh_high)
+    write_filtered_bcf(bcf_obj, output_bcf, optimal_thresh_vals, thresh_type, thresh_high)
     fancylog("Done.", prefix="")
 
     # ... Then, just make sure to index the output BCF file, and we're done!
