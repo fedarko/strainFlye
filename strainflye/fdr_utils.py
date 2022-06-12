@@ -1050,7 +1050,13 @@ def get_optimal_threshold_values(fi, fdr):
 
 
 def write_filtered_bcf(
-    in_bcf_obj, out_bcf_fp, optimal_thresh_vals, thresh_type, thresh_high
+    in_bcf_obj,
+    out_bcf_fp,
+    decoy_contig,
+    optimal_thresh_vals,
+    thresh_type,
+    thresh_high,
+    fancylog,
 ):
     """Writes out a filtered BCF based on optimal threshold values.
 
@@ -1078,6 +1084,9 @@ def write_filtered_bcf(
     out_bcf_fp: str
         Filepath to which a filtered version of in_bcf_obj will be written.
 
+    decoy_contig: str
+        Name of the decoy contig.
+
     optimal_thresh_vals: pd.Series
         Output of get_optimal_threshold_values(). The index corresponds to
         contig names; the values correspond to either the optimal value of p
@@ -1101,11 +1110,67 @@ def write_filtered_bcf(
         The "high" (indisputable) value of p or r passed to
         "strainFlye fdr estimate".
 
+    fancylog: function
+        Logging function.
+
     Returns
     -------
     None
     """
-    raise NotImplementedError("Still gotta do this!!!")
+    # We will write out certain mutation "records" to this BCF.
+    out_bcf_obj = pysam.VariantFile(out_bcf_fp, "wb", header=in_bcf_obj.header)
+
+    # For each contig (considering both the decoy and target(s))...
+    for contig in in_bcf_obj.header.contigs:
+
+        num_written_muts = 0
+        num_original_muts = 0
+
+        thresh_used = thresh_high
+        # We only call "indisputable" mutations for the decoy contig.
+        if contig != decoy_contig:
+            # Figure out the minimum threshold to use for this contig. If we
+            # can only output indisputable mutations for this contig, then this
+            # threshold will remain thresh_high; if we have a lower threshold
+            # value defined, we can use that. (We can do this because mutations
+            # that pass thresh_high will automatically also pass lower
+            # thresholds.)
+            otv = optimal_thresh_vals[contig]
+            if not np.isnan(otv):
+                thresh_used = otv
+
+        for mut in in_bcf_obj.fetch(contig):
+
+            alt_pos = mut.info.get("AAD")[0]
+            cov_pos = mut.info.get("MDP")
+
+            # We can figure out whether or not this mutation passes thresh_used
+            # by using the calling functions from call_utils. Notably, we pass
+            # 1 as min_alt_pos for call_p_mutation() because we don't care
+            # about min_alt_pos at this point -- like, it applied to the
+            # mutations the user screened for using "strainFlye call"
+            is_mut = False
+            if thresh_type == "p":
+                is_mut = call_utils.call_p_mutation(
+                    alt_pos, cov_pos, thresh_used, 1
+                )
+            else:
+                is_mut = call_utils.call_r_mutation(alt_pos, thresh_used)
+
+            if is_mut:
+                out_bcf_obj.write(mut)
+                num_written_muts += 1
+
+            num_original_muts += 1
+
+        # TODO: Only output if a verbose flag is set.
+        fancylog(
+            (
+                f"Wrote out {num_written_muts:,} / {num_original_muts:,} "
+                f"mutations for {contig}."
+            ),
+            prefix="",
+        )
 
 
 def load_and_sanity_check_fdr_file(fdr_info, thresh_type):
@@ -1393,12 +1458,20 @@ def run_fix(bcf, fdr_info, fdr, output_bcf, fancylog):
     fancylog(
         "Writing a filtered BCF file including both (1) indisputable "
         "mutations from all contigs and (2) non-indisputable mutations from "
-        "the target contigs that result in a FDR \u2264 {fdr}%..."
+        f"the target contigs that result in a FDR \u2264 {fdr}%..."
     )
     # Filter mutations for each contig to those that pass these thresholds (in
     # addition to indisputable mutations, using thresh_high from above).
-    write_filtered_bcf(bcf_obj, output_bcf, optimal_thresh_vals, thresh_type, thresh_high)
+    write_filtered_bcf(
+        bcf_obj,
+        output_bcf,
+        decoy_contig,
+        optimal_thresh_vals,
+        thresh_type,
+        thresh_high,
+        fancylog,
+    )
     fancylog("Done.", prefix="")
 
     # ... Then, just make sure to index the output BCF file, and we're done!
-    call_utils.index_bcf(output_bcf)
+    call_utils.index_bcf(output_bcf, fancylog)
