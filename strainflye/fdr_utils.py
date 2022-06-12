@@ -838,7 +838,7 @@ def run_estimate(
     thresh_vals = range(thresh_min, thresh_high)
     fancylog(
         (
-            f"We'll consider {len(thresh_vals):,} values of {thresh_type}: "
+            f"We'll consider {len(thresh_vals):,} value(s) of {thresh_type}: "
             f"from {thresh_min:,} to {thresh_max:,}."
         ),
         prefix="",
@@ -1143,18 +1143,64 @@ def load_and_sanity_check_fdr_file(fdr_info, thresh_type):
 def log_optimal_threshold_value_stats(
     optimal_thresh_vals, thresh_type, thresh_min, thresh_max, fdr, fancylog
 ):
+    """Logs information about the optimal threshold values.
+
+    Selecting these values is arguably the main part of how "strainFlye fdr
+    fix" works, so I wanted to be as clear as possible -- hence this function
+    existing.
+
+    Parameters
+    ----------
+    optimal_thresh_vals: pd.Series
+        Output of get_optimal_threshold_values(). The index corresponds to
+        contig names; the values correspond to either the optimal value of p
+        or r for a contig (expressed as a number), or np.nan (if no optimal
+        value exists for this contig -- i.e. all of this contig's estimated
+        FDRs were greater than the threshold or were undefined).
+
+        Note that the dtype of this Series will probably be a float, because
+        the presence of NaNs forces the dtype to be float. (This problem is
+        documented, for example, at
+        https://pandas.pydata.org/docs/user_guide/integer_na.html.) This isn't
+        a problem, since I know that all of the numbers are integers (e.g.
+        15.0) -- so we can call int() on them without worrying.
+
+    thresh_type: str
+        Either "p" or "r".
+
+    thresh_min: int
+        Minimum value of p or r used in "strainFlye call".
+
+    thresh_max: int
+        The maximum value of p or r: this is equal to the "high" (indisputable)
+        value of p or r passed to "strainFlye fdr estimate" minus 1. Note that
+        this can technically be equal to thresh_min in the silly case where
+        --high-p = --min-p + 1 (same goes for r), although that really
+        shouldn't happen in practice.
+
+    fdr: float
+        FDR at which (non-indisputable) mutation calls for each contig will be
+        fixed.
+
+    fancylog: function
+        Logging function.
+
+    Returns
+    -------
+    None
+    """
     # A contig can have a N/A optimal threshold value if its entire FDR curve
     # was > the fixed FDR (see Case 4 in get_optimal_threshold_values()).
-    non_na = optimal_thresh_vals[~optimal_thresh_vals.isna()]
-    num_nonna = len(non_na)
+    nonna = optimal_thresh_vals[~optimal_thresh_vals.isna()]
+    num_nonna = len(nonna)
     num_targets = len(optimal_thresh_vals)
 
-    if len(non_na) == 0:
+    if num_nonna == 0:
         # This should not happen except for really weird cases
         fancylog(
             (
-                f"WARNING: No values of {thresh_type} resulted in estimated "
-                "FDRs \u2264 the fixed FDR, for all {num_na:,} contigs."
+                f"Warning: No values of {thresh_type} resulted in estimated "
+                f"FDRs \u2264 the fixed FDR, for all {num_targets:,} contigs."
             ),
             prefix="",
         )
@@ -1162,20 +1208,21 @@ def log_optimal_threshold_value_stats(
         fancylog(
             (
                 f"For {num_nonna:,} / {num_targets:,} contigs, there exist "
-                f"values of {thresh_type} (from {thresh_type} = {thresh_min} "
-                f"to {thresh_type} = {thresh_max}) that yield estimated FDRs "
-                f"\u2264 {fdr}%."
+                f"values of {thresh_type} (at least, considering the range "
+                f"from {thresh_type} = {thresh_min} to {thresh_type} = "
+                f"{thresh_max}) that yield estimated FDRs \u2264 {fdr}%."
             ),
             prefix="",
         )
-        numeric_otvs = non_na.str.slice(1).astype(int)
         # NOTE: Could roll these into a single loop to speed this up, but this
         # almost certainly won't be a bottleneck
-        min_contig = numeric_otvs.idxmin()
-        min_tv = numeric_otvs[min_contig]
-        max_contig = numeric_otvs.idxmax()
-        max_tv = numeric_otvs[max_contig]
-        mean_tv = mean(numeric_otvs)
+        # Also see above re: int() calls -- all of the numbers here should ints
+        # that just end with ".0", so we're not actually losing any information
+        min_contig = nonna.idxmin()
+        min_tv = int(nonna[min_contig])
+        max_contig = nonna.idxmax()
+        max_tv = int(nonna[max_contig])
+        mean_tv = mean(nonna)
         fancylog(
             (
                 f"These values range from {thresh_type} = {min_tv:,} "

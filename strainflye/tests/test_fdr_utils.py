@@ -820,3 +820,44 @@ def test_get_optimal_threshold_values():
     obs_otv_10 = fu.get_optimal_threshold_values(fdr_df, 0.001)
     exp_otv_10 = pd.Series([np.nan, np.nan, np.nan], index=contig_idx)
     pd.testing.assert_series_equal(obs_otv_10, exp_otv_10)
+
+
+def test_log_optimal_threshold_value_stats_good(capsys):
+    otv = pd.Series(
+        [np.nan, 2, 5, 10, 3, 2, 9, 1, np.nan, 19],
+        index=["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"],
+    )
+    fu.log_optimal_threshold_value_stats(otv, "p", 1, 500, 1.0, mock_log)
+    captured = capsys.readouterr()
+    assert captured.out == (
+        "MockLog: For 8 / 10 contigs, there exist values of p (at least, "
+        "considering the range from p = 1 to p = 500) that yield estimated "
+        "FDRs \u2264 1.0%.\nMockLog: These values range from p = 1 (H) to p "
+        "= 19 (J).\nMockLog: The mean of these values is p = 6.38.\n"
+    )
+
+
+def test_log_optimal_threshold_value_stats_same_thresh_extrema(capsys):
+    otv = pd.Series(
+        [np.nan, 5, 5, np.nan, 5, 5], index=["A", "B", "C", "D", "E", "F"]
+    )
+    fu.log_optimal_threshold_value_stats(otv, "r", 5, 5, 12.5, mock_log)
+    captured = capsys.readouterr()
+    # Yeah, this log message looks weird, but it's correct. I don't think it's
+    # worth the effort to make a new case for this pathological scenario
+    assert captured.out == (
+        "MockLog: For 4 / 6 contigs, there exist values of r (at least, "
+        "considering the range from r = 5 to r = 5) that yield estimated "
+        "FDRs \u2264 12.5%.\nMockLog: These values range from r = 5 (B) to r "
+        "= 5 (B).\nMockLog: The mean of these values is r = 5.00.\n"
+    )
+
+
+def test_log_optimal_threshold_value_stats_allnan(capsys):
+    otv = pd.Series([np.nan, np.nan, np.nan], index=["A", "B", "C"])
+    fu.log_optimal_threshold_value_stats(otv, "r", 1, 500, 1.0, mock_log)
+    captured = capsys.readouterr()
+    assert captured.out == (
+        "MockLog: Warning: No values of r resulted in estimated FDRs \u2264 "
+        "the fixed FDR, for all 3 contigs.\n"
+    )
