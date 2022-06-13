@@ -23,13 +23,16 @@ def test_make_output_dir_exists():
 
 
 def test_make_output_dir_notexists_multilevel():
-    tdname = os.path.join(
-        tempfile.gettempdir(), "_strainflye_td1", "_strainflye_td2"
+    tdname_top = os.path.join(
+        tempfile.gettempdir(), "_strainflye_td1"
     )
+    tdname_bot = os.path.join(tdname_top, "_strainflye_td2")
     try:
-        assert not os.path.exists(tdname)
-        mu.make_output_dir(tdname)
-        assert os.path.exists(tdname)
+        assert not os.path.exists(tdname_top)
+        assert not os.path.exists(tdname_bot)
+        mu.make_output_dir(tdname_bot)
+        assert os.path.exists(tdname_top)
+        assert os.path.exists(tdname_bot)
     finally:
         # https://stackoverflow.com/a/13118112
-        shutil.rmtree(tdname)
+        shutil.rmtree(tdname_top)
