@@ -23,9 +23,7 @@ def test_make_output_dir_exists():
 
 
 def test_make_output_dir_notexists_multilevel():
-    tdname_top = os.path.join(
-        tempfile.gettempdir(), "_strainflye_td1"
-    )
+    tdname_top = os.path.join(tempfile.gettempdir(), "_strainflye_td1")
     tdname_bot = os.path.join(tdname_top, "_strainflye_td2")
     try:
         assert not os.path.exists(tdname_top)

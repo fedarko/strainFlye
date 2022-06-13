@@ -2,6 +2,8 @@
 
 
 import re
+import tempfile
+import subprocess
 import pysam
 import numpy as np
 import pandas as pd
@@ -1466,6 +1468,10 @@ def run_fix(bcf, fdr_info, fdr, output_bcf, fancylog, verbose):
     )
 
     # Figure out the "indisputable" mutation cutoff.
+    # At this point, we already know that the FDR info file is structured as
+    # expected (e.g. columns are all formatted like "p15", "p16", etc.), so we
+    # can slice off the first character from the last column without worrying
+    # about the file being structured incorrectly.
     thresh_max = int(fi.columns[-1][1:])
     thresh_high = thresh_max + 1
     fancylog(
@@ -1495,24 +1501,66 @@ def run_fix(bcf, fdr_info, fdr, output_bcf, fancylog, verbose):
         optimal_thresh_vals, thresh_type, thresh_min, thresh_max, fdr, fancylog
     )
 
-    fancylog(
-        "Writing a filtered BCF file including both (1) indisputable "
-        "mutations from all contigs and (2) non-indisputable mutations from "
-        f"the target contigs that result in a FDR \u2264 {fdr}%..."
-    )
-    # Filter mutations for each contig to those that pass these thresholds (in
-    # addition to indisputable mutations, using thresh_high from above).
-    write_filtered_bcf(
-        bcf_obj,
-        output_bcf,
-        decoy_contig,
-        optimal_thresh_vals,
-        thresh_type,
-        thresh_high,
-        fancylog,
-        verbose,
-    )
-    fancylog("Done.", prefix="")
+    # VCF / BCF headers aren't (currently) editable using pysam
+    # (https://github.com/pysam-developers/pysam/issues/668), but we can
+    # fortunately use "bcftools annotate" to do this the long(ish) way -- write
+    # the "first" BCF file to a temporary file, then annotate it, and output
+    # the annotated BCF to the final "output BCF" location. (Annotation doesn't
+    # seem to be doable "in place" using bcftools.)
+    with tempfile.NamedTemporaryFile(
+        mode="w+b"
+    ) as temp_bcf_file, tempfile.NamedTemporaryFile(mode="w+") as header_file:
+        fancylog(
+            "Writing a filtered BCF file (to a temporary location, for now) "
+            "including both "
+            "(1) indisputable mutations from all contigs and "
+            "(2) non-indisputable mutations from the target contigs that "
+            f"result in a FDR \u2264 {fdr}%..."
+        )
+        # Filter mutations for each contig to those that pass these thresholds
+        # (in addition to indisputable mutations that pass thresh_high).
+        write_filtered_bcf(
+            bcf_obj,
+            temp_bcf_file.name,
+            decoy_contig,
+            optimal_thresh_vals,
+            thresh_type,
+            thresh_high,
+            fancylog,
+            verbose,
+        )
+        fancylog("Done.", prefix="")
 
-    # ... Then, just make sure to index the output BCF file, and we're done!
-    call_utils.index_bcf(output_bcf, fancylog)
+        fancylog(
+            "Updating the filtered BCF file's header to indicate that FDR "
+            "fixing was done..."
+        )
+        # We don't have information about the decoy context (Full, CP2, ...)
+        # but that's not a big deal. the main thing is just making it clear
+        # that this file has been updated from the naive calls
+        new_header_line = (
+            f"##FILTER=<ID=strainFlye_fdr_fix_fdr_{fdr}_decoy_{decoy_contig}_"
+            f'high_{thresh_type}_{thresh_high}, description="Mutations '
+            'filtered to a fixed FDR">'
+        )
+        with open(header_file.name, "w") as hf:
+            hf.write(new_header_line)
+        # Update the header in the temp BCF file, and -- while this is
+        # happening -- write out the updated BCF file to the output location
+        subprocess.run(
+            [
+                "bcftools",
+                "annotate",
+                "-h",
+                header_file.name,
+                "-O",
+                "b",
+                "-o",
+                output_bcf,
+                temp_bcf_file.name,
+            ]
+        )
+        fancylog("Done.", prefix="")
+
+        # just gotta index the BCF, then we're done!
+        call_utils.index_bcf(output_bcf, fancylog)
