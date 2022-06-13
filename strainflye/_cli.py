@@ -701,11 +701,19 @@ def estimate(
 def fix(bcf, fdr_info, fdr, output_bcf, verbose):
     """Fixes contigs' mutation calls' FDRs to an upper limit.
 
-    This takes as input the outputs of "strainFlye fdr estimate" to guide us on
-    how to fix the FDR for each contig. Note that mutations that passed the
-    "high" p or r threshold specified for "strainFlye fdr estimate", which were
-    not used for FDR estimation, will all be included in the output BCF file
-    from this command; these mutations are considered indisputable.
+    This takes as input the estimated FDRs from "strainFlye fdr estimate" to
+    guide us on how to fix the FDR for each contig. Note that mutations that
+    passed the "high" p or r threshold specified for "strainFlye fdr
+    estimate", and thus were not used for FDR estimation, will all be
+    included in the output BCF file from this command; these mutations are
+    considered "indisputable."
+
+    We include indisputable mutations from the decoy contig and from all
+    target contigs our output BCF file. We will only consider including
+    non-indisputable mutations from the target contigs: the decision of
+    which non-indisputable mutations will be included is based on the lowest
+    p or r parameter for a target contig that yields an estimated FDR \u2264
+    the fixed FDR given here.
     """
     fancylog = cli_utils.fancystart(
         "strainFlye fdr fix",
