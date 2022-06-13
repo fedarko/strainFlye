@@ -151,7 +151,7 @@ def gfa_to_fasta(gfa_fp, fasta_file, chunk_size=500):
                     )
                 fout += f">{split[1]}\n{split[2]}\n"
                 num_seqs += 1
-                if num_seqs == chunk_size:
+                if num_seqs % chunk_size == 0:
                     fasta_file.write(fout)
                     fout = ""
     if fout != "":

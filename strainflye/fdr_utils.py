@@ -547,6 +547,10 @@ def compute_target_contig_fdr_curve_info(
 
     fdr_line = target_contig
     num_line = target_contig
+    # TODO: Maybe speed this up by first creating a pandas DataFrame of all
+    # contigs and their num_muts, then using vectorization or apply() to do
+    # this stuff on all contigs at once? But this runs in ~2 minutes on the
+    # entire SheepGut dataset, so it's not a substantial bottleneck.
     for i, n in enumerate(num_muts):
         if n == 0:
             # The FDR is undefined if the target's mutation rate is zero
@@ -655,6 +659,7 @@ def run_estimate(
     output_fdr_info,
     output_num_info,
     fancylog,
+    chunk_size=500,
 ):
     """Runs the pipeline for decoy selection and FDR estimation.
 
@@ -712,6 +717,10 @@ def run_estimate(
 
     fancylog: function
         Logging function.
+
+    chunk_size: int
+        After seeing this many target contigs, we'll write out their FDR and (#
+        mutations per Mb) information to the corresponding files.
 
     Returns
     -------
@@ -895,21 +904,39 @@ def run_estimate(
     # Compute FDR estimates for each target contig.
     # This is analogous to the "Full" context-dependent option for the decoy
     # genome comptuation, so we can reuse a lot of code from that.
-    for target_contig in bcf_contigs - {used_decoy_contig}:
-        fdr_line, numpermb_line = compute_target_contig_fdr_curve_info(
-            bcf_obj,
-            thresh_type,
-            thresh_vals,
-            target_contig,
-            contig_name2len[target_contig],
-            decoy_mut_rates,
-        )
+    target_contigs = bcf_contigs - {used_decoy_contig}
 
-        # TODO chunk outputs?
-        with open(output_fdr_info, "a") as fdr_file:
-            fdr_file.write(fdr_line)
-        with open(output_num_info, "a") as num_file:
-            num_file.write(numpermb_line)
+    with open(output_fdr_info, "a") as ff, open(output_num_info, "a") as nf:
+        fdr_out = ""
+        num_out = ""
+        for tc_ct, target_contig in enumerate(target_contigs, 1):
+            fdr_line, num_line = compute_target_contig_fdr_curve_info(
+                bcf_obj,
+                thresh_type,
+                thresh_vals,
+                target_contig,
+                contig_name2len[target_contig],
+                decoy_mut_rates,
+            )
+
+            fdr_out += fdr_line
+            num_out += num_line
+
+            # We'll "chunk" outputs -- we'll only perform a write operation
+            # every (chunk_size) lines. This way, we don't need to perform
+            # |TargetContigs| write operations (which I thought was a
+            # bottleneck here, but after implementing this I don't notice a
+            # speedup... well, whatever, now this code at least looks a bit
+            # nicer).
+            if tc_ct % chunk_size == 0:
+                ff.write(fdr_out)
+                nf.write(num_out)
+                fdr_out = ""
+                num_out = ""
+
+        if fdr_out != "":
+            ff.write(fdr_out)
+            nf.write(num_out)
 
     fancylog("Done.", prefix="")
 
