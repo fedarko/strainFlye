@@ -902,7 +902,7 @@ def run_estimate(
             thresh_vals,
             target_contig,
             contig_name2len[target_contig],
-            decoy_mut_rates=decoy_mut_rates,
+            decoy_mut_rates,
         )
 
         # TODO chunk outputs?
@@ -1057,6 +1057,7 @@ def write_filtered_bcf(
     thresh_type,
     thresh_high,
     fancylog,
+    verbose,
 ):
     """Writes out a filtered BCF based on optimal threshold values.
 
@@ -1113,6 +1114,10 @@ def write_filtered_bcf(
     fancylog: function
         Logging function.
 
+    verbose: bool
+        If True, logs information about the number of mutations preserved for
+        each contig.
+
     Returns
     -------
     None
@@ -1163,14 +1168,14 @@ def write_filtered_bcf(
 
             num_original_muts += 1
 
-        # TODO: Only output if a verbose flag is set.
-        fancylog(
-            (
-                f"Wrote out {num_written_muts:,} / {num_original_muts:,} "
-                f"mutations for {contig}."
-            ),
-            prefix="",
-        )
+        if verbose:
+            fancylog(
+                (
+                    f"Wrote out {num_written_muts:,} / {num_original_muts:,} "
+                    f"mutations for {contig}."
+                ),
+                prefix="",
+            )
 
 
 def load_and_sanity_check_fdr_file(fdr_info, thresh_type):
@@ -1353,7 +1358,7 @@ def log_optimal_threshold_value_stats(
         )
 
 
-def run_fix(bcf, fdr_info, fdr, output_bcf, fancylog):
+def run_fix(bcf, fdr_info, fdr, output_bcf, fancylog, verbose):
     """Runs the pipeline for FDR fixing.
 
     Parameters
@@ -1376,6 +1381,11 @@ def run_fix(bcf, fdr_info, fdr, output_bcf, fancylog):
 
     fancylog: function
         Logging function.
+
+    verbose: bool
+        If True, display information about each contig while writing the
+        filtered BCF. At least on the SheepGut dataset, this step takes the
+        longest, and it can be useful to allow verbosity there.
 
     Returns
     -------
@@ -1470,6 +1480,7 @@ def run_fix(bcf, fdr_info, fdr, output_bcf, fancylog):
         thresh_type,
         thresh_high,
         fancylog,
+        verbose,
     )
     fancylog("Done.", prefix="")
 

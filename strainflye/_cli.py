@@ -689,7 +689,16 @@ def estimate(
         "parameter used for strainFlye fdr estimate) will be written."
     ),
 )
-def fix(bcf, fdr_info, fdr, output_bcf):
+@click.option(
+    "--verbose/--no-verbose",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help=(
+        "Display extra details for each contig while writing the filtered BCF."
+    ),
+)
+def fix(bcf, fdr_info, fdr, output_bcf, verbose):
     """Fixes contigs' mutation calls' FDRs to an upper limit.
 
     This takes as input the outputs of "strainFlye fdr estimate" to guide us on
@@ -707,7 +716,7 @@ def fix(bcf, fdr_info, fdr, output_bcf):
         ),
         (("BCF file with mutation calls at the fixed FDR", output_bcf),),
     )
-    fdr_utils.run_fix(bcf, fdr_info, fdr, output_bcf, fancylog)
+    fdr_utils.run_fix(bcf, fdr_info, fdr, output_bcf, fancylog, verbose)
     fancylog("Done.")
 
 
