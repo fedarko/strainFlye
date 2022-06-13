@@ -906,6 +906,9 @@ def run_estimate(
     # genome comptuation, so we can reuse a lot of code from that.
     target_contigs = bcf_contigs - {used_decoy_contig}
 
+    # Open both files within a single "with" block:
+    # https://stackoverflow.com/a/4617069 (requires Python 3.1, but... we're
+    # already using f-strings [which require Python 3.6] so whatevs lol)
     with open(output_fdr_info, "a") as ff, open(output_num_info, "a") as nf:
         fdr_out = ""
         num_out = ""
