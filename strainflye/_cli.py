@@ -730,7 +730,12 @@ def fix(bcf, fdr_info, fdr, output_bcf, verbose):
 
 @click.group(name="spot", **grp_params, **cmd_params)
 def spot():
-    """[+] Identify hotspots or coldspots in contigs."""
+    """[+] Identify hotspots or coldspots in contigs.
+
+    There exist other methods for identifying hotspots or coldspots; these
+    methods are intended mostly as a quick proof-of-concept, and are not
+    extremely robust quite yet.
+    """
 
 
 strainflye.add_command(spot)
