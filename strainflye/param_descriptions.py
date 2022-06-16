@@ -21,3 +21,10 @@ OUTPUT_DIR_NAIVE_CALL = (
 )
 
 VERBOSE_CALL = "Display extra details for each contig while running."
+
+INPUT_CONTIGS = "FASTA file of contigs."
+
+INPUT_BCF_DOWNSTREAM = (
+    "Indexed BCF file describing single-nucleotide mutations in the FASTA "
+    "file's contigs."
+)

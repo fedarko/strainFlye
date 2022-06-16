@@ -91,7 +91,7 @@ def strainflye():
 # apparently needed to get the formatting to look the way I want (otherwise all
 # of the four steps are smooshed into a paragraph)
 def align(reads, contigs, graph, output_dir, verbose):
-    """Aligns reads to contigs, then filters this alignment.
+    """Align reads to contigs, and filter the resulting alignment.
 
     Files of reads should be in the FASTA or FASTQ formats; GZIP'd files
     are allowed.
@@ -131,7 +131,7 @@ def align(reads, contigs, graph, output_dir, verbose):
 
 @click.group(name="call", **grp_params, **cmd_params)
 def call():
-    """[+] Na\u00efve mutation calling and diversity index computation.
+    """[+] Call mutations na\u00efvely, and compute diversity indices.
 
     Consider a position "pos" in a contig. A given read with a (mis)match
     operation at "pos" must have one of four nucleotides (A, C, G, T) aligned
@@ -414,7 +414,7 @@ def r_mutation(
 
 @click.group(name="fdr", **grp_params, **cmd_params)
 def fdr():
-    """[+] FDR estimation and fixing for contigs' mutation calls."""
+    """[+] Estimate and fix FDRs for contigs' na\u00efve mutation calls."""
 
 
 strainflye.add_command(fdr)
@@ -426,7 +426,7 @@ strainflye.add_command(fdr)
     "--contigs",
     required=True,
     type=click.Path(exists=True),
-    help="FASTA file of contigs.",
+    help=desc.INPUT_CONTIGS,
 )
 @click.option(
     "-b",
@@ -728,12 +728,157 @@ def fix(bcf, fdr_info, fdr, output_bcf, verbose):
     fancylog("Done.")
 
 
-# @strainflye.command(**cmd_params)
-# def spots():
-#     """Identifies hot- and/or cold-spots in MAGs."""
-#     print("H")
-#
-#
+@click.group(name="spot", **grp_params, **cmd_params)
+def spot():
+    """[+] Identify hotspots or coldspots in contigs."""
+
+
+strainflye.add_command(spot)
+
+
+@spot.command(**cmd_params)
+@click.option(
+    "-c",
+    "--contigs",
+    required=True,
+    type=click.Path(exists=True),
+    help=desc.INPUT_CONTIGS,
+)
+@click.option(
+    "-b",
+    "--bcf",
+    required=True,
+    type=click.Path(exists=True),
+    help=desc.INPUT_BCF_DOWNSTREAM,
+)
+@click.option(
+    "-og",
+    "--output-hotspot-genes",
+    required=True,
+    type=click.Path(dir_okay=False),
+    help=(
+        "Filepath to which an output tab-separated values (TSV) file "
+        "describing hotspot genes across all contigs will be written."
+    ),
+)
+@click.option(
+    "-oi",
+    "--output-hotspot-intergenic-regions",
+    required=True,
+    type=click.Path(dir_okay=False),
+    help=(
+        "Filepath to which an output tab-separated values (TSV) file "
+        "describing hotspot intergenic regions across all contigs will be "
+        "written."
+    ),
+)
+def hot_all(
+    contigs, bcf, output_hotspot_genes, output_hotspot_intergenic_regions
+):
+    """Identify hotspot genes and IRs in many contigs at once."""
+    # - Go through each contig
+    #   - Predict genes with prodigal (maybe output to sep file(s)?)
+    #   - Go through predicted genes and IRs; count mutations in each
+    #   - Report all genes and IRs where mutation frequencies exceed some
+    #     threshold (user-configurable?) -- or just sort genes and IRs in
+    #     descending order by mutation frequencies or counts
+    print("H")
+
+
+@spot.command(**cmd_params)
+@click.option(
+    "-c",
+    "--contigs",
+    required=True,
+    type=click.Path(exists=True),
+    help=desc.INPUT_CONTIGS,
+)
+@click.option(
+    "-b",
+    "--bcf",
+    required=True,
+    type=click.Path(exists=True),
+    help=desc.INPUT_BCF_DOWNSTREAM,
+)
+@click.option(
+    "-cn",
+    "--contig-name",
+    help="Name of the specific contig for which we will identify hotspots.",
+)
+@click.option(
+    "-g",
+    "--genes",
+    required=True,
+    type=click.Path(exists=True),
+    # TODO maybe accept GFF instead? That seems more commonly used
+    help=(
+        "Simple coordinate output (SCO) file describing predicted "
+        "protein-coding genes for the specific contig."
+    ),
+)
+@click.option(
+    "-og",
+    "--output-hotspot-genes",
+    required=True,
+    type=click.Path(dir_okay=False),
+    help=(
+        "Filepath to which an output tab-separated values (TSV) file "
+        "describing hotspot genes in this contig will be written."
+    ),
+)
+@click.option(
+    "-oi",
+    "--output-hotspot-intergenic-regions",
+    required=True,
+    type=click.Path(dir_okay=False),
+    help=(
+        "Filepath to which an output tab-separated values (TSV) file "
+        "describing hotspot intergenic regions in this contig will be written."
+    ),
+)
+def hot_one(
+    contigs, bcf, output_hotspot_genes, output_hotspot_intergenic_regions
+):
+    """Identify hotspot genes and IRs in a single contig.
+
+    This functions identically to "strainFlye spot hot-all". The reason this is
+    its own command is so that you have the option to specify your own gene
+    predictions.
+    """
+    print("H")
+
+
+@spot.command(**cmd_params)
+@click.option(
+    "-c",
+    "--contigs",
+    required=True,
+    type=click.Path(exists=True),
+    help=desc.INPUT_CONTIGS,
+)
+@click.option(
+    "-b",
+    "--bcf",
+    required=True,
+    type=click.Path(exists=True),
+    help=desc.INPUT_BCF_DOWNSTREAM,
+)
+@click.option(
+    "-o",
+    "--output-coldspot-regions",
+    required=True,
+    type=click.Path(dir_okay=False),
+    help=(
+        "Filepath to which an output tab-separated values (TSV) file "
+        "describing coldspot regions will be written."
+    ),
+)
+def cold():
+    """Identify coldspot regions in many contigs at once."""
+    # Simple strat -- just go through contigs, identify mutations
+    print("C")
+
+
 # @strainflye.command(**cmd_params)
 # def covskew():
 #     """Visualizes MAG coverage and GC skew."""

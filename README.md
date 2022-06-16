@@ -90,9 +90,10 @@ Options:
   -h, --help  Show this message and exit.
 
 Commands:
-  align  Aligns reads to contigs, then filters this alignment.
-  call   [+] Naïve mutation calling and diversity index computation.
-  fdr    [+] FDR estimation and fixing for contigs' mutation calls.
+  align  Align reads to contigs, and filter the resulting alignment.
+  call   [+] Call mutations naïvely, and compute diversity indices.
+  fdr    [+] Estimate and fix FDRs for contigs' naïve mutation calls.
+  spot   [+] Identify hotspots or coldspots in contigs.
   utils  [+] Various utility commands provided with strainFlye.
 ```
 
