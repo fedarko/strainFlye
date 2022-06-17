@@ -757,6 +757,46 @@ strainflye.add_command(spot)
     help=desc.INPUT_BCF_DOWNSTREAM,
 )
 @click.option(
+    "-g",
+    "--genes",
+    required=True,
+    type=click.Path(exists=True),
+    help=(
+        "Generic Feature Format version 3 (GFF3) file describing predicted "
+        "protein-coding genes across the contigs."
+    ),
+)
+@click.option(
+    "-mn",
+    "--min-num-mutations",
+    required=False,
+    type=click.IntRange(min=0),
+    default=5,
+    show_default=True,
+    help=(
+        'Label a gene or IR as a "hotspot" if it contains at least this many '
+        "mutations. If you'd prefer to only define hotspots based on the "
+        "percentage of mutations within a region, you can set this to 0 to "
+        "turn off this check."
+    ),
+)
+@click.option(
+    "-mp",
+    "--min-perc-mutations",
+    required=False,
+    type=click.FloatRange(min=0, max=100),
+    default=1,
+    show_default=True,
+    help=(
+        'Label a gene or IR as a "hotspot" if its percentage of mutations ((# '
+        "mutations / region length) \u00d7 100) is at least "
+        "this value. This is interpreted as a percentage, so the default of 1 "
+        "corresponds to a percentage of 1%. If you'd prefer to only define "
+        "hotspots based on the number of mutations within a region, you can "
+        "set this to 0 to turn off this check."
+    ),
+)
+@click.option(
     "-og",
     "--output-hotspot-genes",
     required=True,
@@ -777,80 +817,56 @@ strainflye.add_command(spot)
         "written."
     ),
 )
-def hot_all(
-    contigs, bcf, output_hotspot_genes, output_hotspot_intergenic_regions
+def hot_genic(
+    contigs,
+    bcf,
+    genes,
+    min_num_mutations,
+    min_perc_mutations,
+    output_hotspot_genes,
+    output_hotspot_intergenic_regions,
 ):
-    """Identify hotspot genes and IRs in many contigs at once."""
+    """Identify hotspot genes and IRs in many contigs at once.
+
+    (By "IRs", we mean "intergenic regions.")
+
+    You can configure how we define a hotspot by adjusting the
+    --min-num-mutations and --min-perc-mutations parameters above. Only one of
+    these checks (number of mutations in a region vs. percentage of mutations
+    in a region) needs to pass in order for us to label a region as a hotspot.
+    """
+    fancylog = cli_utils.fancystart(
+        "strainFlye spot hot-genic",
+        (
+            ("contig file", contigs),
+            ("BCF file", bcf),
+            ("predicted genes (GFF3) file", genes),
+            (
+                (
+                    "minimum number of mutations needed to call a region a "
+                    "hotspot"
+                ),
+                min_num_mutations,
+            ),
+            (
+                "minimum % of mutations needed to call a region a hotspot",
+                min_perc_mutations,
+            ),
+        ),
+        (
+            ("file describing hotspot genes", output_hotspot_genes),
+            (
+                "file describing hotspot intergenic regions",
+                output_hotspot_intergenic_regions,
+            ),
+        ),
+    )
+    fancylog("Done.")
     # - Go through each contig
-    #   - Predict genes with prodigal (maybe output to sep file(s)?)
     #   - Go through predicted genes and IRs; count mutations in each
     #   - Report all genes and IRs where mutation frequencies exceed some
     #     threshold (user-configurable?) -- or just sort genes and IRs in
     #     descending order by mutation frequencies or counts
-    print("H")
-
-
-@spot.command(**cmd_params)
-@click.option(
-    "-c",
-    "--contigs",
-    required=True,
-    type=click.Path(exists=True),
-    help=desc.INPUT_CONTIGS,
-)
-@click.option(
-    "-b",
-    "--bcf",
-    required=True,
-    type=click.Path(exists=True),
-    help=desc.INPUT_BCF_DOWNSTREAM,
-)
-@click.option(
-    "-cn",
-    "--contig-name",
-    help="Name of the specific contig for which we will identify hotspots.",
-)
-@click.option(
-    "-g",
-    "--genes",
-    required=True,
-    type=click.Path(exists=True),
-    # TODO maybe accept GFF instead? That seems more commonly used
-    help=(
-        "Simple coordinate output (SCO) file describing predicted "
-        "protein-coding genes for the specific contig."
-    ),
-)
-@click.option(
-    "-og",
-    "--output-hotspot-genes",
-    required=True,
-    type=click.Path(dir_okay=False),
-    help=(
-        "Filepath to which an output tab-separated values (TSV) file "
-        "describing hotspot genes in this contig will be written."
-    ),
-)
-@click.option(
-    "-oi",
-    "--output-hotspot-intergenic-regions",
-    required=True,
-    type=click.Path(dir_okay=False),
-    help=(
-        "Filepath to which an output tab-separated values (TSV) file "
-        "describing hotspot intergenic regions in this contig will be written."
-    ),
-)
-def hot_one(
-    contigs, bcf, output_hotspot_genes, output_hotspot_intergenic_regions
-):
-    """Identify hotspot genes and IRs in a single contig.
-
-    This functions identically to "strainFlye spot hot-all". The reason this is
-    its own command is so that you have the option to specify your own gene
-    predictions.
-    """
-    print("H")
 
 
 @spot.command(**cmd_params)
