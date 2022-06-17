@@ -733,8 +733,8 @@ def spot():
     """[+] Identify hotspots or coldspots in contigs.
 
     There exist other methods for identifying hotspots or coldspots; these
-    methods are intended mostly as a quick proof-of-concept, and are not
-    extremely robust quite yet.
+    methods are intended mostly as a quick proof-of-concept for replicating
+    the results shown in our paper, and are not extremely robust quite yet.
     """
 
 
@@ -757,13 +757,13 @@ strainflye.add_command(spot)
     help=desc.INPUT_BCF_DOWNSTREAM,
 )
 @click.option(
-    "-g",
-    "--genes",
+    "-f",
+    "--features",
     required=True,
     type=click.Path(exists=True),
     help=(
-        "Generic Feature Format version 3 (GFF3) file describing predicted "
-        "protein-coding genes across the contigs."
+        'Generic Feature Format version 3 (GFF3) file describing "features" '
+        "(e.g. predicted protein-coding genes) in the contigs."
     ),
 )
 @click.option(
@@ -774,7 +774,7 @@ strainflye.add_command(spot)
     default=None,
     show_default="no check",
     help=(
-        'Label a gene or IR as a "hotspot" if it contains at least this many '
+        'Label a feature as a "hotspot" if it contains at least this many '
         "mutations."
     ),
 )
@@ -786,76 +786,63 @@ strainflye.add_command(spot)
     default=None,
     show_default="no check",
     help=(
-        'Label a gene or IR as a "hotspot" if its percentage of mutations ((# '
-        "mutations / region length) \u00d7 100) is at least "
+        'Label a feature as a "hotspot" if its percentage of mutations ((# '
+        "mutations / feature length) \u00d7 100) is at least "
         "this value."
     ),
 )
 @click.option(
-    "-og",
-    "--output-hotspot-genes",
+    "-o",
+    "--output-hotspot-features",
     required=True,
     type=click.Path(dir_okay=False),
     help=(
         "Filepath to which an output tab-separated values (TSV) file "
-        "describing hotspot genes across all contigs will be written."
+        "describing hotspot features across all contigs will be written."
     ),
 )
-@click.option(
-    "-oi",
-    "--output-hotspot-intergenic-regions",
-    required=True,
-    type=click.Path(dir_okay=False),
-    help=(
-        "Filepath to which an output tab-separated values (TSV) file "
-        "describing hotspot intergenic regions across all contigs will be "
-        "written."
-    ),
-)
-def hot_genic(
+def hot_features(
     contigs,
     bcf,
-    genes,
+    features,
     min_num_mutations,
     min_perc_mutations,
-    output_hotspot_genes,
-    output_hotspot_intergenic_regions,
+    output_hotspot_features,
 ):
-    """Identify hotspot genes and IRs in many contigs at once.
+    """Identify hotspot features (for example, genes).
 
-    (By "IRs", we mean "intergenic regions.")
+    By "feature", we refer to a region within a contig, as described in the
+    file given for --features. For prokaryotic genomes, "features" will usually
+    refer to genes, but you could imagine other things being described here
+    (exons, intergenic regions of interest, etc).
 
-    You can configure how we define a hotspot by adjusting the
-    --min-num-mutations and --min-perc-mutations parameters; at least one of
-    these parameters must be specified. If both parameters are specified,
-    then both checks (number of mutations in a region vs. percentage of
-    mutations in a region) will need to pass in order for us to label a region
-    as a hotspot.
+    You can configure whether or not we classify a feature as a hotspot by
+    adjusting the --min-num-mutations and --min-perc-mutations parameters; at
+    least one of these parameters must be specified. If both parameters are
+    specified, then both checks (number of mutations in a feature vs.
+    percentage of mutations in a feature) will need to pass in order for us to
+    label a feature as a hotspot.
     """
     fancylog = cli_utils.fancystart(
         "strainFlye spot hot-genic",
         (
             ("contig file", contigs),
             ("BCF file", bcf),
-            ("predicted genes (GFF3) file", genes),
+            ("feature file", genes),
             (
                 (
-                    "minimum number of mutations needed to call a region a "
+                    "minimum number of mutations needed to call a feature a "
                     "hotspot"
                 ),
                 min_num_mutations,
             ),
             (
-                "minimum % of mutations needed to call a region a hotspot",
+                "minimum % of mutations needed to call a feature a hotspot",
                 min_perc_mutations,
             ),
         ),
         (
-            ("file describing hotspot genes", output_hotspot_genes),
-            (
-                "file describing hotspot intergenic regions",
-                output_hotspot_intergenic_regions,
-            ),
+            ("file describing hotspot features", output_hotspot_features),
         ),
     )
     fancylog("Done.")
@@ -891,8 +878,8 @@ def hot_genic(
         "describing coldspot regions will be written."
     ),
 )
-def cold():
-    """Identify coldspot regions in many contigs at once."""
+def cold_gaps():
+    """Identify coldspot "gaps" without any mutations."""
     # Simple strat -- just go through contigs, identify mutations
     print("C")
 
