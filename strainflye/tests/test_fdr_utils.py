@@ -1,185 +1,13 @@
 import os
-import tempfile
-import subprocess
 import pytest
 import pandas as pd
 import numpy as np
 import strainflye.fdr_utils as fu
+import strainflye.bcf_utils as bu
 from io import StringIO
 from strainflye.errors import ParameterError, SequencingDataError
 from strainflye.config import DI_PREF
-from .utils_for_testing import mock_log
-
-
-def write_vcf_tempfile(text):
-    fh = tempfile.NamedTemporaryFile(suffix=".vcf")
-    with open(fh.name, "w") as f:
-        f.write(text)
-    return fh
-
-
-def write_indexed_bcf(vcf_text):
-    # When we're testing stuff like mutation rate computation (for which a VCF
-    # / BCF index needs to be present), we actually need to write out a BCF and
-    # index it -- we can't just use a VCF file instead. Notably: the ##contig
-    # line needs to be there, otherwise we can't convert to BCF.
-    fh = write_vcf_tempfile(vcf_text)
-    bcf_name = fh.name[:-4] + ".bcf"
-    subprocess.run(["bcftools", "view", "-O", "b", fh.name, "-o", bcf_name])
-    subprocess.run(["bcftools", "index", bcf_name])
-    return bcf_name
-
-
-def test_parse_bcf_good():
-    # Header + first four mutations called on SheepGut using p = 0.15%
-    # ... just for reference, using StringIO didn't seem to work with pysam's
-    # BCF reader, hence the use of tempfiles here
-    # NOTE FROM MARCUS: pysam accepts either VCF or BCF files, and -- since we
-    # just recently switched from working with VCF to BCF, mainly -- these
-    # tests still output VCF files.
-    fh = write_vcf_tempfile(
-        "##fileformat=VCFv4.3\n"
-        "##fileDate=20220526\n"
-        '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
-        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
-        '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
-        '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
-        '##FILTER=<ID=strainflye_minp_15, Description="min p threshold (scaled up by 100)">\n'  # noqa: E501
-        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
-        "edge_1\t43\t.\tA\tT\t.\t.\tMDP=380;AAD=2\n"
-        "edge_1\t255\t.\tT\tC\t.\t.\tMDP=385;AAD=2\n"
-        "edge_1\t356\t.\tA\tT\t.\t.\tMDP=403;AAD=2\n"
-        "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
-    )
-    bcf_obj, thresh_type, thresh_min = fu.parse_bcf(fh.name)
-
-    # Let's get the easy checks out of the way first...
-    assert thresh_type == "p"
-    assert thresh_min == 15
-    # This part of things -- parsing the BCF -- pysam handles, so we don't go
-    # too in depth. Just verify it gets the positions, alleles, and info right.
-    correct_pos = [43, 255, 356, 387]
-    correct_mdp = [380, 385, 403, 395]
-    correct_aad = [2, 2, 2, 2]
-    correct_ref = ["A", "T", "A", "T"]
-    correct_alt = ["T", "C", "T", "C"]
-    for ri, rec in enumerate(bcf_obj.fetch()):
-        assert rec.pos == correct_pos[ri]
-        assert rec.info.get("MDP") == correct_mdp[ri]
-        assert rec.ref == correct_ref[ri]
-
-        # this part we'll have to change if we start calling multiple mutations
-        # at a single position
-        assert len(rec.alts) == 1
-        assert rec.alts[0] == correct_alt[ri]
-
-        # AAD is treated as a tuple containing one element by pysam, not as a
-        # single value. This is because I've labelled the AAD INFO field with a
-        # Number of "A", meaning that there is one of these per alternate
-        # allele. Currently we don't call more than one mutation at a position,
-        # so this doesn't do anything, but -- in case we modify this in the
-        # future -- this leaves the door open for us to add this in.
-        rec_aad = rec.info.get("AAD")
-        assert len(rec_aad) == 1
-        assert rec_aad[0] == correct_aad[ri]
-
-
-def test_parse_bcf_multi_sf_header():
-    # Header + first four mutations called on SheepGut using p = 0.15%
-    fh = write_vcf_tempfile(
-        "##fileformat=VCFv4.3\n"
-        "##fileDate=20220526\n"
-        '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
-        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
-        '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
-        '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
-        '##FILTER=<ID=strainflye_minp_15, Description="min p threshold (scaled up by 100)">\n'  # noqa: E501
-        '##FILTER=<ID=strainflye_minp_20, Description="min p threshold (scaled up by 100)">\n'  # noqa: E501
-        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
-        "edge_1\t43\t.\tA\tT\t.\t.\tMDP=380;AAD=2\n"
-        "edge_1\t255\t.\tT\tC\t.\t.\tMDP=385;AAD=2\n"
-        "edge_1\t356\t.\tA\tT\t.\t.\tMDP=403;AAD=2\n"
-        "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
-    )
-    with pytest.raises(ParameterError) as ei:
-        fu.parse_bcf(fh.name)
-    exp_patt = (
-        f"BCF file {fh.name} has multiple strainFlye threshold filter headers."
-    )
-    assert str(ei.value) == exp_patt
-
-
-def test_parse_bcf_no_sf_header():
-    # Header + first four mutations called on SheepGut using p = 0.15%
-    fh = write_vcf_tempfile(
-        "##fileformat=VCFv4.3\n"
-        "##fileDate=20220526\n"
-        '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
-        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
-        '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
-        '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
-        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
-        "edge_1\t43\t.\tA\tT\t.\t.\tMDP=380;AAD=2\n"
-        "edge_1\t255\t.\tT\tC\t.\t.\tMDP=385;AAD=2\n"
-        "edge_1\t356\t.\tA\tT\t.\t.\tMDP=403;AAD=2\n"
-        "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
-    )
-    with pytest.raises(ParameterError) as ei:
-        fu.parse_bcf(fh.name)
-    exp_patt = (
-        f"BCF file {fh.name} doesn't seem to be from strainFlye: no threshold "
-        "filter headers."
-    )
-    assert str(ei.value) == exp_patt
-
-
-def test_parse_bcf_missing_info_fields():
-    # Header + first four mutations called on SheepGut using p = 0.15%
-    # kind of a gross way of doing this -- should ideally set this up as a list
-    # from the start, theeen join it up, rather than going from string to list
-    # to string again. but whatevs
-    text = (
-        "##fileformat=VCFv4.3\n"
-        "##fileDate=20220526\n"
-        '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
-        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
-        '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
-        '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
-        '##FILTER=<ID=strainflye_minp_15, Description="min p threshold (scaled up by 100)">\n'  # noqa: E501
-        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
-        "edge_1\t43\t.\tA\tT\t.\t.\tMDP=380;AAD=2\n"
-        "edge_1\t255\t.\tT\tC\t.\t.\tMDP=385;AAD=2\n"
-        "edge_1\t356\t.\tA\tT\t.\t.\tMDP=403;AAD=2\n"
-        "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
-    )
-    split_text = text.splitlines()
-
-    # remove just the MDP line
-    fh = write_vcf_tempfile("\n".join(split_text[:4] + split_text[5:]))
-    with pytest.raises(ParameterError) as ei:
-        fu.parse_bcf(fh.name)
-    exp_patt = f"BCF file {fh.name} needs to have MDP and AAD info fields."
-    assert str(ei.value) == exp_patt
-
-    # remove just the AAD line
-    fh = write_vcf_tempfile("\n".join(split_text[:5] + split_text[6:]))
-    with pytest.raises(ParameterError) as ei:
-        fu.parse_bcf(fh.name)
-    exp_patt = f"BCF file {fh.name} needs to have MDP and AAD info fields."
-    assert str(ei.value) == exp_patt
-
-    # remove both the MDP and AAD lines
-    fh = write_vcf_tempfile("\n".join(split_text[:4] + split_text[6:]))
-    with pytest.raises(ParameterError) as ei:
-        fu.parse_bcf(fh.name)
-    exp_patt = f"BCF file {fh.name} needs to have MDP and AAD info fields."
-    assert str(ei.value) == exp_patt
-
-    # finally, sanity check that putting back in all the lines works (doesn't
-    # throw an error) -- we check this dataset in detail above, so no need to
-    # do that again here
-    fh = write_vcf_tempfile("\n".join(split_text))
-    fu.parse_bcf(fh.name)
+from .utils_for_testing import mock_log, write_indexed_bcf
 
 
 def test_check_decoy_selection():
@@ -423,7 +251,7 @@ def test_compute_full_decoy_contig_mut_rates_p_simple():
         "edge_1\t356\t.\tA\tT\t.\t.\tMDP=10000;AAD=16\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=19\n"
     )
-    bcf_obj, thresh_type, thresh_min = fu.parse_bcf(bcf_name)
+    bcf_obj, thresh_type, thresh_min = bu.parse_bcf(bcf_name)
     mut_rates = fu.compute_full_decoy_contig_mut_rates(
         bcf_obj, thresh_type, range(15, 21), "edge_1", 500
     )
@@ -466,7 +294,7 @@ def test_compute_full_decoy_contig_mut_rates_r_simple():
         "edge_1\t356\t.\tA\tT\t.\t.\tMDP=10000;AAD=5\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
     )
-    bcf_obj, thresh_type, thresh_min = fu.parse_bcf(bcf_name)
+    bcf_obj, thresh_type, thresh_min = bu.parse_bcf(bcf_name)
     mut_rates = fu.compute_full_decoy_contig_mut_rates(
         bcf_obj, thresh_type, range(5, 13), "edge_1", 500
     )
@@ -509,7 +337,7 @@ def test_compute_number_of_mutations_in_full_contig_p_with_indisputable():
         "edge_1\t304\t.\tA\tT\t.\t.\tMDP=100000;AAD=5001\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=100000;AAD=5000\n"
     )
-    bcf_obj, thresh_type, thresh_min = fu.parse_bcf(bcf_name)
+    bcf_obj, thresh_type, thresh_min = bu.parse_bcf(bcf_name)
     num_muts = fu.compute_number_of_mutations_in_full_contig(
         bcf_obj, thresh_type, range(15, 500), "edge_1"
     )
@@ -561,7 +389,7 @@ def test_compute_number_of_mutations_in_full_contig_thresh_val_errors():
         "edge_1\t356\t.\tA\tT\t.\t.\tMDP=10000;AAD=5\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
     )
-    bcf_obj, thresh_type, thresh_min = fu.parse_bcf(bcf_name)
+    bcf_obj, thresh_type, thresh_min = bu.parse_bcf(bcf_name)
     try:
         with pytest.raises(ParameterError) as ei:
             fu.compute_number_of_mutations_in_full_contig(
@@ -604,7 +432,7 @@ def test_compute_target_contig_fdr_curve_info():
         "edge_1\t51\t.\tA\tT\t.\t.\tMDP=10000;AAD=5\n"
         "edge_1\t90\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
     )
-    bcf_obj, thresh_type, thresh_min = fu.parse_bcf(bcf_name)
+    bcf_obj, thresh_type, thresh_min = bu.parse_bcf(bcf_name)
     try:
         fdr_line, num_line = fu.compute_target_contig_fdr_curve_info(
             bcf_obj,
@@ -645,7 +473,7 @@ def test_compute_decoy_contig_mut_rates_full_r_simple():
         "edge_1\t356\t.\tA\tT\t.\t.\tMDP=10000;AAD=5\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
     )
-    bcf_obj, thresh_type, thresh_min = fu.parse_bcf(bcf_name)
+    bcf_obj, thresh_type, thresh_min = bu.parse_bcf(bcf_name)
     # where we're going, we don't need other nucleotides
     contigs_file = StringIO(f">edge_1\n{'A' * 500}")
     mut_rates = fu.compute_decoy_contig_mut_rates(

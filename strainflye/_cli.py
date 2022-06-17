@@ -2,7 +2,14 @@
 # This lets the user do things like "strainFlye align", "strainFlye call",
 # etc. See https://click.palletsprojects.com/en/8.0.x/commands/ for details.
 import click
-from . import cli_utils, align_utils, graph_utils, call_utils, fdr_utils
+from . import (
+    cli_utils,
+    align_utils,
+    graph_utils,
+    call_utils,
+    fdr_utils,
+    spot_utils,
+)
 from . import param_descriptions as desc
 
 
@@ -743,13 +750,6 @@ strainflye.add_command(spot)
 
 @spot.command(**cmd_params)
 @click.option(
-    "-c",
-    "--contigs",
-    required=True,
-    type=click.Path(exists=True),
-    help=desc.INPUT_CONTIGS,
-)
-@click.option(
     "-b",
     "--bcf",
     required=True,
@@ -802,7 +802,6 @@ strainflye.add_command(spot)
     ),
 )
 def hot_features(
-    contigs,
     bcf,
     features,
     min_num_mutations,
@@ -824,9 +823,8 @@ def hot_features(
     label a feature as a hotspot.
     """
     fancylog = cli_utils.fancystart(
-        "strainFlye spot hot-genic",
+        "strainFlye spot hot-features",
         (
-            ("contig file", contigs),
             ("BCF file", bcf),
             ("feature file", features),
             (
@@ -841,9 +839,14 @@ def hot_features(
                 min_perc_mutations,
             ),
         ),
-        (
-            ("file describing hotspot features", output_hotspot_features),
-        ),
+        (("file describing hotspot features", output_hotspot_features),),
+    )
+    spot_utils.find_hotspot_features(
+        bcf,
+        features,
+        min_num_mutations,
+        min_perc_mutations,
+        output_hotspot_features,
     )
     fancylog("Done.")
     # - Go through each contig
