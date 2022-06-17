@@ -131,7 +131,7 @@ def align(reads, contigs, graph, output_dir, verbose):
 
 @click.group(name="call", **grp_params, **cmd_params)
 def call():
-    """[+] Call mutations na\u00efvely, and compute diversity indices.
+    """[+] Call mutations in contigs na\u00efvely & compute diversity indices.
 
     Consider a position "pos" in a contig. A given read with a (mis)match
     operation at "pos" must have one of four nucleotides (A, C, G, T) aligned
@@ -273,7 +273,7 @@ def p_mutation(
     output_dir,
     verbose,
 ):
-    """Calls p-mutations and computes diversity indices.
+    """Call p-mutations and compute diversity indices.
 
     The primary parameter for this command is the lower bound of p, defined by
     --min-p. The BCF output will include "mutations" for all positions that
@@ -380,7 +380,7 @@ def r_mutation(
     output_dir,
     verbose,
 ):
-    """Calls r-mutations and computes diversity indices.
+    """Call r-mutations and compute diversity indices.
 
     The primary parameter for this command is the lower bound of r, defined by
     --min-r. The BCF output will include "mutations" for all positions that
@@ -575,7 +575,7 @@ def estimate(
     output_fdr_info,
     output_num_info,
 ):
-    """Estimates contigs' mutation calls' FDRs.
+    """Estimate the FDRs of contigs' na\u00efve mutation calls.
 
     We do this using the target-decoy approach (TDA). Given a set of C contigs,
     we select a "decoy contig" with relatively few called mutations. We then
@@ -699,7 +699,7 @@ def estimate(
     ),
 )
 def fix(bcf, fdr_info, fdr, output_bcf, verbose):
-    """Fixes contigs' mutation calls' FDRs to an upper limit.
+    """Fix contigs' na\u00efve mutation calls' FDRs to an upper limit.
 
     This takes as input the estimated FDRs from "strainFlye fdr estimate" to
     guide us on how to fix the FDR for each contig. Note that mutations that
@@ -955,7 +955,7 @@ strainflye.add_command(utils)
     help="Output FASTA file containing the contigs in this input graph.",
 )
 def gfa_to_fasta(graph, output_fasta):
-    """Converts a GFA 1 file to a FASTA file.
+    """Convert a GFA 1 file to a FASTA file.
 
     Many of strainFlye's analyses accept a FASTA file as input (rather
     than a graph), and this is a small command that performs this conversion.

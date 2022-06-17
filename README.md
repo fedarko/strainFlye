@@ -79,7 +79,7 @@ strainFlye (e.g. `conda activate strainflye`).
 
 <!-- STARTDOCS -->
 ```
-Usage: strainflye [OPTIONS] COMMAND [ARGS]...
+Usage: strainFlye [OPTIONS] COMMAND [ARGS]...
 
   Pipeline for the analysis of rare mutations in metagenomes.
 
@@ -91,7 +91,7 @@ Options:
 
 Commands:
   align  Align reads to contigs, and filter the resulting alignment.
-  call   [+] Call mutations naïvely, and compute diversity indices.
+  call   [+] Call mutations in contigs naïvely & compute diversity indices.
   fdr    [+] Estimate and fix FDRs for contigs' naïve mutation calls.
   spot   [+] Identify hotspots or coldspots in contigs.
   utils  [+] Various utility commands provided with strainFlye.
