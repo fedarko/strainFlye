@@ -770,30 +770,25 @@ strainflye.add_command(spot)
     "-mn",
     "--min-num-mutations",
     required=False,
-    type=click.IntRange(min=0),
-    default=5,
-    show_default=True,
+    type=click.IntRange(min=0, min_open=True),
+    default=None,
+    show_default="no check",
     help=(
         'Label a gene or IR as a "hotspot" if it contains at least this many '
-        "mutations. If you'd prefer to only define hotspots based on the "
-        "percentage of mutations within a region, you can set this to 0 to "
-        "turn off this check."
+        "mutations."
     ),
 )
 @click.option(
     "-mp",
     "--min-perc-mutations",
     required=False,
-    type=click.FloatRange(min=0, max=100),
-    default=1,
-    show_default=True,
+    type=click.FloatRange(min=0, max=100, min_open=True),
+    default=None,
+    show_default="no check",
     help=(
         'Label a gene or IR as a "hotspot" if its percentage of mutations ((# '
         "mutations / region length) \u00d7 100) is at least "
-        "this value. This is interpreted as a percentage, so the default of 1 "
-        "corresponds to a percentage of 1%. If you'd prefer to only define "
-        "hotspots based on the number of mutations within a region, you can "
-        "set this to 0 to turn off this check."
+        "this value."
     ),
 )
 @click.option(
@@ -831,9 +826,11 @@ def hot_genic(
     (By "IRs", we mean "intergenic regions.")
 
     You can configure how we define a hotspot by adjusting the
-    --min-num-mutations and --min-perc-mutations parameters above. Only one of
-    these checks (number of mutations in a region vs. percentage of mutations
-    in a region) needs to pass in order for us to label a region as a hotspot.
+    --min-num-mutations and --min-perc-mutations parameters; at least one of
+    these parameters must be specified. If both parameters are specified,
+    then both checks (number of mutations in a region vs. percentage of
+    mutations in a region) will need to pass in order for us to label a region
+    as a hotspot.
     """
     fancylog = cli_utils.fancystart(
         "strainFlye spot hot-genic",
