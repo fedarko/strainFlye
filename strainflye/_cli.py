@@ -828,7 +828,7 @@ def hot_features(
         (
             ("contig file", contigs),
             ("BCF file", bcf),
-            ("feature file", genes),
+            ("feature file", features),
             (
                 (
                     "minimum number of mutations needed to call a feature a "
