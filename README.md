@@ -1,11 +1,12 @@
 # strainFlye
-
-[![strainFlye CI](https://github.com/fedarko/strainFlye/actions/workflows/main.yml/badge.svg)](https://github.com/fedarko/strainFlye/actions/workflows/main.yml) [![Code Coverage](https://codecov.io/gh/fedarko/strainFlye/branch/main/graph/badge.svg)](https://codecov.io/gh/fedarko/strainFlye)
-
 strainFlye is a pipeline for calling, analyzing, and phasing rare mutations
 in metagenome-assembled genomes produced from HiFi sequencing data.
 
-![strainFlye pipeline diagram](https://github.com/fedarko/strainFlye/raw/main/docs/strainflye-pipeline.png)
+<div align="center">
+<a href="https://github.com/fedarko/strainFlye/actions/workflows/main.yml"><img src="https://github.com/fedarko/strainFlye/actions/workflows/main.yml/badge.svg" alt="strainFlye CI" /></a>
+<a href="https://codecov.io/gh/fedarko/strainFlye"><img src="https://codecov.io/gh/fedarko/strainFlye/branch/main/graph/badge.svg" alt="Code Coverage" /></a>
+<img src="https://github.com/fedarko/strainFlye/raw/main/docs/strainflye-pipeline.png" alt="strainFlye pipeline diagram" />
+</div>
 
 ## Note about this source code
 
