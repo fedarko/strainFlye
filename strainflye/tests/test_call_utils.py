@@ -272,7 +272,7 @@ def test_run_p_r_conflict():
     assert "Either p or r needs to be specified." == str(errorinfo.value)
 
 
-def test_run_small_dataset(capsys):
+def test_run_small_dataset_r(capsys):
     # "Yeah integration tests are good I guess" -- Sun Tzu
     with tempfile.TemporaryDirectory() as td:
         run(
@@ -405,6 +405,109 @@ def test_run_small_dataset(capsys):
     exp_out += (
         "MockLog: Done running r-mutation calling (--min-r = 2) and computing "
         "diversity indices.\n"
+        "PREFIX\nMockLog: Converting the VCF file we just created to a "
+        "compressed BCF file...\n"
+        "MockLog: Done.\n"
+        "PREFIX\nMockLog: Indexing the BCF file...\n"
+        "MockLog: Done indexing the BCF file.\n"
+    )
+
+    captured = capsys.readouterr()
+    assert captured.out == exp_out
+
+
+def test_run_small_dataset_p(capsys):
+    # "More integration tests are also nice too" -- Barack Obama
+    #
+    # A lot of test code here is reused from test_run_small_dataset_r() above.
+    # Sorry this code is a bit gross.
+    with tempfile.TemporaryDirectory() as td:
+        run(
+            "strainflye/tests/inputs/small/contigs.fasta",
+            "strainflye/tests/inputs/small/alignment.bam",
+            td,
+            mock_log,
+            True,
+            min_p=20,
+            div_index_p_list=[1, 50, 500, 5000],
+            # This min_alt_pos value causes us to miss out on two of the
+            # r-mutations found in the above integration test
+            min_alt_pos=4,
+            min_read_number=5,
+        )
+
+        # Check BCF
+        bcf_obj, tt, tm = parse_bcf(os.path.join(td, "naive-calls.bcf"))
+        assert tt == "p"
+        assert tm == 20
+        exp_contigs = ["c1", "c1", "c3"]
+        exp_pos = [11, 13, 7]
+        exp_ref = ["G", "G", "A"]
+        exp_mdp = [12, 12, 13]
+        exp_alt = ["A", "A", "T"]
+        exp_aad = [5, 5, 6]
+        for ri, rec in enumerate(bcf_obj.fetch()):
+            assert rec.contig == exp_contigs[ri]
+            assert rec.pos == exp_pos[ri]
+            assert rec.ref == exp_ref[ri]
+            assert rec.info.get("MDP") == exp_mdp[ri]
+
+            # Contingent upon the whole only-1-mut-at-a-position thing
+            assert len(rec.alts) == 1
+            assert rec.alts[0] == exp_alt[ri]
+            rec_aad = rec.info.get("AAD")
+            assert len(rec_aad) == 1
+            assert rec_aad[0] == exp_aad[ri]
+
+        # Check diversity index file
+        obs_di_df = pd.read_csv(
+            os.path.join(td, "diversity-indices.tsv"), sep="\t", index_col=0
+        )
+        c1_avg_cov = 12.0
+        c2_avg_cov = ((11 * 10) + (10 * 2)) / 12
+        c3_avg_cov = ((13 * 15) + 2) / 16
+        exp_di_df = pd.DataFrame(
+            {
+                "AverageCoverage": [c1_avg_cov, c2_avg_cov, c3_avg_cov],
+                "Length": [23, 12, 16],
+                "DivIdx(p=1,minSuffCov=50000.0)": [np.nan, np.nan, np.nan],
+                "DivIdx(p=50,minSuffCov=1000.0)": [np.nan, np.nan, np.nan],
+                "DivIdx(p=500,minSuffCov=100.0)": [np.nan, np.nan, np.nan],
+                "DivIdx(p=5000,minSuffCov=10.0)": [0.0, 0.0, 0.0],
+            },
+            index=pd.Index(["c1", "c2", "c3"], name="Contig"),
+        )
+        pd.testing.assert_frame_equal(obs_di_df, exp_di_df)
+
+    exp_out = (
+        "PREFIX\nMockLog: Loading and checking contig information...\n"
+        "MockLog: The FASTA file describes 3 contigs.\n"
+        "MockLog: All of these are included in the BAM file (which has 3 "
+        "references).\n"
+        "PREFIX\nMockLog: Creating and writing diversity index and VCF file "
+        "headers...\n"
+        "MockLog: Wrote out diversity index and VCF file headers.\n"
+        "MockLog: (We'll convert the VCF file to an indexed BCF afterwards.)\n"
+    )
+    exp_out += (
+        "PREFIX\nMockLog: Running p-mutation calling (--min-p = 0.20%) and "
+        "computing diversity indices...\n"
+        "MockLog: On contig c1 (23 bp) (1 / 3 = 33.33% done).\n"
+        "MockLog: Called 2 p-mutation(s) (using --min-p = 0.20%) in contig c1."
+        "\n"
+        "MockLog: 1 / 4 diversity indices were defined for contig c1.\n"
+        "MockLog: On contig c2 (12 bp) (2 / 3 = 66.67% done).\n"
+        "MockLog: Called 0 p-mutation(s) (using --min-p = 0.20%) in contig c2."
+        "\n"
+        "MockLog: 1 / 4 diversity indices were defined for contig c2.\n"
+        "MockLog: On contig c3 (16 bp) (3 / 3 = 100.00% done).\n"
+        "MockLog: Called 1 p-mutation(s) (using --min-p = 0.20%) in contig c3."
+        "\n"
+        "MockLog: 1 / 4 diversity indices were defined for contig c3.\n"
+    )
+    exp_out += (
+        "MockLog: Done running p-mutation calling (--min-p = 0.20%) and "
+        "computing diversity indices.\n"
         "PREFIX\nMockLog: Converting the VCF file we just created to a "
         "compressed BCF file...\n"
         "MockLog: Done.\n"
