@@ -308,7 +308,7 @@ def run(
         raise ParameterError(
             "p and r can't be specified at the same time. Please choose one."
         )
-    elif not using_p and not using_r:
+    if not using_p and not using_r:
         raise ParameterError("Either p or r needs to be specified.")
 
     fancylog("Loading and checking contig information...")
