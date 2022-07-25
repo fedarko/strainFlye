@@ -1,6 +1,8 @@
 import os
 import tempfile
 import pytest
+import numpy as np
+import pandas as pd
 from strainflye.errors import ParameterError
 from strainflye.call_utils import (
     get_alt_pos_info,
@@ -280,7 +282,7 @@ def test_run_small_dataset(capsys):
             mock_log,
             True,
             min_r=2,
-            div_index_r_list=[2, 3, 4, 5, 6],
+            div_index_r_list=[1, 2, 3, 4, 5, 6, 7],
             min_cov_factor=2,
         )
 
@@ -316,7 +318,37 @@ def test_run_small_dataset(capsys):
             assert len(rec_aad) == 1
             assert rec_aad[0] == exp_aad[ri]
 
-        # Read Div Idx file
+        # Check diversity index file
+        obs_di_df = pd.read_csv(
+            os.path.join(td, "diversity-indices.tsv"), sep="\t", index_col=0
+        )
+
+        # All of c1's positions are covered at 12x.
+        c1_avg_cov = 12.0
+
+        # Out of c2's 12 positions, 10 are covered at 11x, and the first two
+        # are covered at just 10x (one of the reads doesn't cover them).
+        c2_avg_cov = ((11 * 10) + (10 * 2)) / 12
+
+        # Out of c3's 16 positions, 15 are covered at 13x; the last position is
+        # covered at just 2x.
+        c3_avg_cov = ((13 * 15) + 2) / 16
+
+        exp_di_df = pd.DataFrame(
+            {
+                "AverageCoverage": [c1_avg_cov, c2_avg_cov, c3_avg_cov],
+                "Length": [23, 12, 16],
+                "DivIdx(r=1,minSuffCov=2)": [3 / 23, 0, 3 / 16],
+                "DivIdx(r=2,minSuffCov=4)": [3 / 23, 0, 2 / 15],
+                "DivIdx(r=3,minSuffCov=6)": [3 / 23, 0, 2 / 15],
+                "DivIdx(r=4,minSuffCov=8)": [2 / 23, 0, 1 / 15],
+                "DivIdx(r=5,minSuffCov=10)": [2 / 23, 0, 1 / 15],
+                "DivIdx(r=6,minSuffCov=12)": [0, np.nan, 1 / 15],
+                "DivIdx(r=7,minSuffCov=14)": [np.nan, np.nan, np.nan],
+            },
+            index=pd.Index(["c1", "c2", "c3"], name="Contig"),
+        )
+        pd.testing.assert_frame_equal(obs_di_df, exp_di_df)
 
     # Verify that the log messages written out match up with our expectations.
     # This is, of course, very brittle -- any changes to these messages will
@@ -359,13 +391,13 @@ def test_run_small_dataset(capsys):
         "computing diversity indices...\n"
         "MockLog: On contig c1 (23 bp) (1 / 3 = 33.33% done).\n"
         "MockLog: Called 3 r-mutation(s) (using --min-r = 2) in contig c1.\n"
-        "MockLog: 5 / 5 diversity indices were defined for contig c1.\n"
+        "MockLog: 6 / 7 diversity indices were defined for contig c1.\n"
         "MockLog: On contig c2 (12 bp) (2 / 3 = 66.67% done).\n"
         "MockLog: Called 0 r-mutation(s) (using --min-r = 2) in contig c2.\n"
-        "MockLog: 4 / 5 diversity indices were defined for contig c2.\n"
+        "MockLog: 5 / 7 diversity indices were defined for contig c2.\n"
         "MockLog: On contig c3 (16 bp) (3 / 3 = 100.00% done).\n"
         "MockLog: Called 2 r-mutation(s) (using --min-r = 2) in contig c3.\n"
-        "MockLog: 5 / 5 diversity indices were defined for contig c3.\n"
+        "MockLog: 6 / 7 diversity indices were defined for contig c3.\n"
     )
 
     # Basic wrap-up stuff (making sure to include the logging statements from
