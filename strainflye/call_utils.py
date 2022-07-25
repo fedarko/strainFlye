@@ -645,31 +645,11 @@ def run(
     index_bcf(output_bcf, fancylog)
 
 
-def is_position_rare_direct(alt_pos, cov):
-    """Determines if a p-mutated position is a "rare" mutation.
-
-    Parameters
-    ----------
-    alt_pos: int
-
-    cov: int
-
-    Returns
-    -------
-    bool
-        True if this position is "rare" (aka its mutation frequency is less
-        than config.HIGH_FREQUENCY_MIN_PCT), False otherwise.
-    """
-    lhs = 100 * alt_pos
-    rhs_upper = config.HIGH_FREQUENCY_MIN_PCT * cov
-    return lhs < rhs_upper
-
-
 def get_pos_info_str(alt_pos, cov):
     return f"MDP={cov};AAD={alt_pos}"
 
 
-def call_p_mutation(alt_pos, cov, p, min_alt_pos, only_call_if_rare=False):
+def call_p_mutation(alt_pos, cov, p, min_alt_pos):
     """Calls a p-mutation at a position.
 
     Parameters
@@ -683,14 +663,12 @@ def call_p_mutation(alt_pos, cov, p, min_alt_pos, only_call_if_rare=False):
 
     min_alt_pos: int >= 1
 
-    only_call_if_rare: bool
-
     Returns
     -------
     bool
     """
     # This implicitly avoids the messed-up case where alt(pos) and cov are both
-    # zero, since min_alt_pos must be at least 1
+    # zero, since min_alt_pos must be at least 1.
     if alt_pos >= min_alt_pos:
         # We call a p-mutation if alt(pos) / coverage(pos) >= p / 10,000.
         # (The 10,000 is because p is scaled up by 100, then by 100 again,
@@ -701,21 +679,10 @@ def call_p_mutation(alt_pos, cov, p, min_alt_pos, only_call_if_rare=False):
         #
         # This way, we avoid division and mucking around with floats.
         # The numbers might be large ints, but they're not THAT large.
-
         lhs = 10000 * alt_pos
         rhs = p * cov
-
-        is_mut = False
-
         if lhs >= rhs:
-            # This position counts as a p-mutation, but we may still need
-            # to make the "is this a rare mutation?" check.
-            if only_call_if_rare:
-                is_mut = is_position_rare_direct(alt_pos, cov)
-            else:
-                is_mut = True
-
-        return is_mut
+            return True
     return False
 
 
