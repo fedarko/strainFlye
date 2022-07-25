@@ -1,3 +1,4 @@
+import tempfile
 import pytest
 from strainflye.errors import ParameterError
 from strainflye.call_utils import (
@@ -265,3 +266,84 @@ def test_run_p_r_conflict():
     with pytest.raises(ParameterError) as errorinfo:
         run("c", "b", "od", mock_log, True)
     assert "Either p or r needs to be specified." == str(errorinfo.value)
+
+
+def test_run_small_dataset(capsys):
+    with tempfile.TemporaryDirectory() as td:
+        run(
+            "strainflye/tests/inputs/small/contigs.fasta",
+            "strainflye/tests/inputs/small/alignment.bam",
+            td,
+            mock_log,
+            True,
+            min_r=2,
+            div_index_r_list=[2, 3, 4, 5, 6],
+            min_cov_factor=2,
+        )
+        # Read BCF
+        # Read Div Idx file
+
+    # Verify that the log messages written out match up with our expectations.
+    # This is, of course, very brittle -- any changes to these messages will
+    # break this test. But I don't imagine these messages will need to change
+    # too much (knock on wood).
+
+    # Basic intro stuff
+    exp_out = (
+        "PREFIX\nMockLog: Loading and checking contig information...\n"
+        "MockLog: The FASTA file describes 3 contigs.\n"
+        "MockLog: All of these are included in the BAM file (which has 3 "
+        "references).\n"
+        "PREFIX\nMockLog: Creating and writing diversity index and VCF file "
+        "headers...\n"
+        "MockLog: Wrote out diversity index and VCF file headers.\n"
+        "MockLog: (We'll convert the VCF file to an indexed BCF afterwards.)\n"
+    )
+    # Messages from during calling.
+    # For reference, here's some info about the mutated positions in these
+    # contigs (using 1-indexing).
+    #
+    # -c1 has three mutated positions:
+    #  -Position  4: 1 A, 2 C, 3 T, 6 G
+    #  -Position 11: 5 A, 7 G
+    #  -Position 13: 5 A, 7 G
+    #
+    # -c2 has no mutated positions. It does, however, have an "unreasonable"
+    #  position at its position 1: this position is an A in the reference c2
+    #  sequence, but it is completely a T in the alignment. strainFlye should
+    #  categorize this as not a mutation.
+    #
+    # -c3 has two mutated positions:
+    #  -Position 7: 6 T,  7 A
+    #  -Position 8: 3 C, 10 T
+    #  -Additionally, the final position in c3 (16) is skipped with a deletion
+    #   in most of the alignments to c3; only two alignments cover this
+    #   position (1 G, 1 T). This doesn't pass the min r threshold that we set.
+    exp_out += (
+        "PREFIX\nMockLog: Running r-mutation calling (--min-r = 2) and "
+        "computing diversity indices...\n"
+        "MockLog: On contig c1 (23 bp) (1 / 3 = 33.33% done).\n"
+        "MockLog: Called 3 r-mutation(s) (using --min-r = 2) in contig c1.\n"
+        "MockLog: 5 / 5 diversity indices were defined for contig c1.\n"
+        "MockLog: On contig c2 (12 bp) (2 / 3 = 66.67% done).\n"
+        "MockLog: Called 0 r-mutation(s) (using --min-r = 2) in contig c2.\n"
+        "MockLog: 4 / 5 diversity indices were defined for contig c2.\n"
+        "MockLog: On contig c3 (16 bp) (3 / 3 = 100.00% done).\n"
+        "MockLog: Called 2 r-mutation(s) (using --min-r = 2) in contig c3.\n"
+        "MockLog: 5 / 5 diversity indices were defined for contig c3.\n"
+    )
+
+    # Basic wrap-up stuff (making sure to include the logging statements from
+    # index_bcf())
+    exp_out += (
+        "MockLog: Done running r-mutation calling (--min-r = 2) and computing "
+        "diversity indices.\n"
+        "PREFIX\nMockLog: Converting the VCF file we just created to a "
+        "compressed BCF file...\n"
+        "MockLog: Done.\n"
+        "PREFIX\nMockLog: Indexing the BCF file...\n"
+        "MockLog: Done indexing the BCF file.\n"
+    )
+
+    captured = capsys.readouterr()
+    assert captured.out == exp_out
