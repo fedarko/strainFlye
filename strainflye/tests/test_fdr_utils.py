@@ -692,14 +692,18 @@ def test_log_optimal_threshold_value_stats_allnan(capsys):
     )
 
 
-def test_run_estimate_small_dataset():
+def test_run_estimate_both_dividx_and_decoy_specified():
+    # Integration test version of a unit test from above
     with tempfile.TemporaryDirectory() as td:
 
+        ti_dir = os.path.join("strainflye", "tests", "inputs", "small")
         with pytest.raises(ParameterError) as ei:
             fu.run_estimate(
-                "strainflye/tests/inputs/small/contigs.fasta",
-                "strainflye/tests/inputs/small/call-r-minr3-di12345/naive-calls.bcf",
-                "strainflye/tests/inputs/small/call-r-minr3-di12345/diversity-indices.tsv",
+                os.path.join(ti_dir, "contigs.fasta"),
+                os.path.join(ti_dir, "call-r-min3-di12345", "naive-calls.bcf"),
+                os.path.join(
+                    ti_dir, "call-r-min3-di12345", "diversity-indices.tsv"
+                ),
                 "c1",
                 # decoy context
                 "Full",
@@ -717,6 +721,6 @@ def test_run_estimate_small_dataset():
             )
 
         assert str(ei.value) == (
-            "Both the diversity indices file and a decoy contig are specified. "
-            "These options are mutually exclusive."
+            "Both the diversity indices file and a decoy contig are "
+            "specified. These options are mutually exclusive."
         )
