@@ -138,7 +138,11 @@ def parse_di_list(di_list_str, param):
     di_list = []
     for s in split:
         # We proooobably don't need to do this because int() is ok with
-        # surrounding whitespace, but I'm paranoid
+        # surrounding whitespace, but I'm paranoid.
+        # (For reference, if the user passes the list of numbers in quotes
+        # like --div-index-r-list "1, 2, 3, 4, 5" then spaces are possible.
+        # However, if quotes aren't used, then -- at least in the fish terminal
+        # -- there won't be any spaces. We can handle either scenario.)
         stripped_s = s.strip()
         try:
             val = int(stripped_s)
