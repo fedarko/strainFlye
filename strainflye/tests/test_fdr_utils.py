@@ -1,4 +1,5 @@
 import os
+import tempfile
 import pytest
 import pandas as pd
 import numpy as np
@@ -689,3 +690,33 @@ def test_log_optimal_threshold_value_stats_allnan(capsys):
         "MockLog: Warning: No values of r resulted in estimated FDRs \u2264 "
         "the fixed FDR, for all 3 contigs.\n"
     )
+
+
+def test_run_estimate_small_dataset():
+    with tempfile.TemporaryDirectory() as td:
+
+        with pytest.raises(ParameterError) as ei:
+            fu.run_estimate(
+                "strainflye/tests/inputs/small/contigs.fasta",
+                "strainflye/tests/inputs/small/call-r-minr3-di12345/naive-calls.bcf",
+                "strainflye/tests/inputs/small/call-r-minr3-di12345/diversity-indices.tsv",
+                "c1",
+                # decoy context
+                "Full",
+                # high p
+                500,
+                # high r
+                100,
+                # decoy min length
+                10,
+                # decoy avg coverage
+                5,
+                os.path.join(td, "fdr-info.tsv"),
+                os.path.join(td, "num-info.tsv"),
+                mock_log,
+            )
+
+        assert str(ei.value) == (
+            "Both the diversity indices file and a decoy contig are specified. "
+            "These options are mutually exclusive."
+        )
