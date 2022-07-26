@@ -9,7 +9,7 @@
 # --cov-report term is needed in order to print a fancy table on the terminal
 # (useful when testing locally).
 test:
-	python3 -B -m pytest strainflye/tests --cov-report xml --cov-report term --cov strainflye
+	python3 -B -m pytest strainflye/tests --cov-report xml --cov-report term --cov-report html --cov strainflye
 
 stylecheck:
 	flake8 --ignore=W503 strainflye/ setup.py
