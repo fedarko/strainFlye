@@ -1,0 +1,4 @@
+##gff-version 3
+c1	marcus	cds	5	18	.	+	0	ID=first_feature_that_i_made_up
+c2	marcus	polyA_site	1	6	50	+	.	ID=another_thing
+c2	marcus	gene	6	7	100	-	.	ID=worlds_shittiest_gene

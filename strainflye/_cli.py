@@ -737,11 +737,12 @@ def fix(bcf, fdr_info, fdr, output_bcf, verbose):
 
 @click.group(name="spot", **grp_params, **cmd_params)
 def spot():
-    """[+] Identify hotspots or coldspots in contigs.
+    """[+] Identify putative mutational hotspots or coldspots in contigs.
 
-    There exist other methods for identifying hotspots or coldspots; these
-    methods are intended mostly as a quick proof-of-concept for replicating
-    the results shown in our paper, and are not extremely robust quite yet.
+    Many methods exist for identifying these sorts of hotspots or coldspots;
+    so, strainFlye's implementations of these methods are intended mostly
+    as a quick proof-of-concept for replicating the results shown in our
+    paper, and are not extremely robust quite yet.
     """
 
 
@@ -811,9 +812,8 @@ def hot_features(
     """Identify hotspot features (for example, genes).
 
     By "feature", we refer to a region within a contig, as described in the
-    file given for --features. For prokaryotic genomes, "features" will usually
-    refer to genes, but you could imagine other things being described here
-    (exons, intergenic regions of interest, etc).
+    file given for --features. These regions could describe anything: predicted
+    genes, introns or exons, intergenic regions of interest, etc.
 
     You can configure whether or not we classify a feature as a hotspot by
     adjusting the --min-num-mutations and --min-perc-mutations parameters; at

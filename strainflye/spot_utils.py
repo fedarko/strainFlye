@@ -13,6 +13,12 @@ def find_hotspot_features(
     min_perc_mutations,
     output_hotspot_features,
 ):
+    if min_num_mutations is None and min_perc_mutations is None:
+        raise ParameterError(
+            "At least one of (--min-num-mutations, --min-perc-mutations) must "
+            "be specified."
+        )
+
     # Load BCF
     bcf_obj, thresh_type, thresh_min = bcf_utils.parse_bcf(bcf)
     bcf_contigs = set(bcf_obj.header.contigs)
