@@ -566,7 +566,7 @@ def run_estimate(
     fancylog,
     chunk_size=500,
 ):
-    """Runs the pipeline for decoy selection and FDR estimation.
+    """Performs decoy selection and FDR estimation.
 
     Notably, both high_p and high_r will be defined regardless of if the BCF
     was generated using p- or r-mutations, because (unlike strainFlye call)
@@ -731,7 +731,7 @@ def run_estimate(
     # (unless this ends up being a bottleneck, idk).
     #
     # NOTE 2: We do not produce an estimate for the exact high_p (or high_r)
-    # value. THe maximum threshold is that minus the step value (... which is
+    # value. The maximum threshold is that minus the step value (... which is
     # always 1, at least right now).
     fancylog(f"Determining range of values of {thresh_type} to consider...")
     if thresh_type == "p":
@@ -1294,7 +1294,7 @@ def log_optimal_threshold_value_stats(
 
 
 def run_fix(bcf, fdr_info, fdr, output_bcf, fancylog, verbose):
-    """Runs the pipeline for FDR fixing.
+    """Performs FDR fixing.
 
     Parameters
     ----------

@@ -11,7 +11,7 @@ def parse_bcf(bcf):
 
     Thankfully, pysam has the ability to read BCF files, so the main thing
     we do here is checking that the meta-information of the BCF file seems
-    seems kosher (i.e. was produced by strainFlye).
+    kosher (i.e. was produced by strainFlye).
 
     Possible TODO: add another return value, indicating whether or not a header
     indicating FDR fixing was done is present in this BCF. The caller could

@@ -850,13 +850,9 @@ def hot_features(
         min_num_mutations,
         min_perc_mutations,
         output_hotspot_features,
+        fancylog,
     )
     fancylog("Done.")
-    # - Go through each contig
-    #   - Go through predicted genes and IRs; count mutations in each
-    #   - Report all genes and IRs where mutation frequencies exceed some
-    #     threshold (user-configurable?) -- or just sort genes and IRs in
-    #     descending order by mutation frequencies or counts
 
 
 @spot.command(**cmd_params)
