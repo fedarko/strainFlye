@@ -844,7 +844,7 @@ def hot_features(
         ),
         (("file describing hotspot features", output_hotspot_features),),
     )
-    spot_utils.find_hotspot_features(
+    spot_utils.run_hotspot_detection(
         bcf,
         features,
         min_num_mutations,
