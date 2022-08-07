@@ -25,8 +25,8 @@ def find_hotspot_features(
 
     # Load features. skbio.io.read() with GFF3 files defaults to a generator of
     # tuples, where the first entry is the sequence ID (e.g. "edge_1") and the
-    # second entry is a skbio.metadata.IntervalMetadata object describing this
-    # feature.
+    # second entry is a skbio.metadata.IntervalMetadata object describing all
+    # features within this sequence.
     contig_and_im_tuples = skbio.io.read(features, format="gff3")
     for contig, im in contig_and_im_tuples:
         if contig not in bcf_contigs:
@@ -35,10 +35,11 @@ def find_hotspot_features(
                 f"{contig}, but this contig is not described in the BCF file."
             )
 
-        # TODO: record all mutated positions in this contig
+        # TODO: Using the BCF file, record all mutated positions in this contig
 
-        # HACK: iterate through all features that belong to this contig.
-        # See https://github.com/biocore/scikit-bio/issues/1817 regarding why
+        # Next, iterate through all features that belong to this contig.
+        # Our use of im.query(metadata={}) to do this is kind of a hack: see
+        # https://github.com/biocore/scikit-bio/issues/1817 regarding why
         # we can't just say im.query(), at least at the moment.
         for feature in im.query(metadata={}):
             if len(feature.bounds) < 1:
@@ -47,7 +48,16 @@ def find_hotspot_features(
                     f"bounds: {feature}"
                 )
 
-            # TODO: assert that bounds don't overlap with each other, right?
-            # or just compute a set of positions correspodning to all positions
-            # in this feature, then "&" that with the set of mutated positions.
-            # could be sped up but probs good enough for now
+            # TODO: The minimal required functionality here is just figuring
+            # out how many of the mutated positions in this contig lie within
+            # this feature's bounds, and then using the min_num / min_perc
+            # parameters to classify this feature as a "hotspot" or not.
+            #
+            # Ideally, we would make this really sophisticated (so that we
+            # could do things like use the "Parent" GFF3 attribute to link
+            # together exon features from the same gene, or something) ... but
+            # I don't think there is demand for that here yet, so for now we
+            # will just treat each "feature" in the GFF3 file as separate from
+            # all other features.
+
+    # TODO: write out classified hotspots

@@ -811,9 +811,12 @@ def hot_features(
 ):
     """Identify hotspot features (for example, genes).
 
-    By "feature", we refer to a region within a contig, as described in the
-    file given for --features. These regions could describe anything: predicted
-    genes, introns or exons, intergenic regions of interest, etc.
+    By "feature", we refer to a single continuous region within a contig,
+    as described in the file given for --features. These regions could describe
+    anything: predicted protein-coding genes, introns or exons, intergenic
+    regions of interest, etc. For now, we treat each feature independently
+    (e.g. we don't lump together exons from the same Parent gene; each feature
+    is considered as a "hotspot" separately).
 
     You can configure whether or not we classify a feature as a hotspot by
     adjusting the --min-num-mutations and --min-perc-mutations parameters; at
