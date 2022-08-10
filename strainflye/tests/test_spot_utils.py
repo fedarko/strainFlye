@@ -8,13 +8,13 @@ from .utils_for_testing import mock_log
 
 
 TEST_BCF_PATH = os.path.join(
-        "strainflye",
-        "tests",
-        "inputs",
-        "small",
-        "call-r-min3-di12345",
-        "naive-calls.bcf",
-    )
+    "strainflye",
+    "tests",
+    "inputs",
+    "small",
+    "call-r-min3-di12345",
+    "naive-calls.bcf",
+)
 
 
 def test_hotspot_no_mins_specified():
