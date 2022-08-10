@@ -131,3 +131,19 @@ c3	marcus	exon	9	9	.	+	.	ID=single_nt_feature"""
             "The GFF3 file describes feature(s) located on contig c9, but "
             "this contig is not described in the BCF file."
         )
+
+
+def test_hotspot_empty_gff3():
+    with tempfile.NamedTemporaryFile() as out_fh:
+        with pytest.raises(ParameterError) as ei:
+            su.run_hotspot_detection(
+                TEST_BCF_PATH,
+                io.StringIO(""),
+                1,
+                None,
+                out_fh.name,
+                mock_log,
+            )
+        assert str(ei.value) == (
+            "The GFF3 file doesn't seem to describe any features."
+        )

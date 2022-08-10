@@ -116,7 +116,9 @@ def run_hotspot_detection(
     # second entry is a skbio.metadata.IntervalMetadata object describing all
     # features within this sequence.
     contig_and_im_tuples = skbio.io.read(features, format="gff3")
+    at_least_one_feature_seen = False
     for contig, im in contig_and_im_tuples:
+        at_least_one_feature_seen = True
         if contig not in bcf_contigs:
             raise ParameterError(
                 "The GFF3 file describes feature(s) located on contig "
@@ -233,6 +235,11 @@ def run_hotspot_detection(
 
             # If we've made it here, this feature is a hotspot. Yay!
             hotspots.append((contig, feature, num_mp, perc_mp))
+
+    if not at_least_one_feature_seen:
+        raise ParameterError(
+            "The GFF3 file doesn't seem to describe any features."
+        )
 
     fancylog(
         f"Identified {len(hotspots):,} hotspots across all contigs.", prefix=""
