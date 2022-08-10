@@ -147,6 +147,13 @@ def run_hotspot_detection(
             # if multiple rows share the same ID, we'll raise an error.
             # See "Nesting Features" and "Discontinuous Features",
             # respectively, at http://gmod.org/wiki/GFF3.
+            #
+            # (NOTE: as of writing, skbio's GFF3 parser doesn't seem to output
+            # any features [Intervals] with multiple bounds at once, so this
+            # branch is technically untested. Maybe we could move this to
+            # another function that takes as input an Interval object [which
+            # would simplify unit-testing], but ... that's probs not necessary
+            # right now.)
             if len(feature.bounds) != 1:
                 raise ParameterError(
                     f"A feature in the GFF3 file on contig {contig} exists "
