@@ -6,15 +6,6 @@ from strainflye import bcf_utils
 from strainflye.errors import ParameterError
 
 
-def get_mutated_positions_in_contig(bcf_obj, contig):
-    mutated_positions = set()
-    for mut in bcf_obj.fetch(contig):
-        # "positions" in pysam are 1-based; to be compatible with scikit-bio's
-        # 0-based positions (from parsing GFF files), subtract 1
-        mutated_positions.add(mut.pos - 1)
-    return mutated_positions
-
-
 def run_hotspot_detection(
     bcf,
     features,
@@ -126,7 +117,9 @@ def run_hotspot_detection(
             )
 
         # Using the BCF file, record all mutated positions in this contig
-        mutated_positions = get_mutated_positions_in_contig(bcf_obj, contig)
+        mutated_positions = bcf_utils.get_mutated_positions_in_contig(
+            bcf_obj, contig
+        )
 
         seen_feature_ids = set()
 

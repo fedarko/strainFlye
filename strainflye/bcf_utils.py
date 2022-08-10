@@ -105,3 +105,33 @@ def parse_bcf(bcf):
         )
 
     return f, thresh_type, thresh_min
+
+
+def get_mutated_positions_in_contig(bcf_obj, contig):
+    """Identifies positions containing mutations in a contig.
+
+    We use the same definition of "mutation" (a single-nucleotide,
+    single-allelic variant) defined elsewhere in our paper and code, although
+    we don't explicitly check this here -- we just assume that the input BCF
+    file only contains these "simple" mutations.
+
+    Parameters
+    ----------
+    bcf_obj: pysam.VariantFile
+        Object describing a BCF file (for example, produced by parse_bcf()).
+
+    contig: str
+        Name of a contig for which we will fetch mutations in bcf_obj.
+
+    Returns
+    -------
+    mutated_positions: set
+        Set of 0-indexed positions (integers), corresponding to the positions
+        on the contig at which mutations are defined in the BCF file.
+    """
+    mutated_positions = set()
+    for mut in bcf_obj.fetch(contig):
+        # "positions" in pysam are 1-based; to be compatible with scikit-bio's
+        # 0-based positions (from parsing GFF files), subtract 1
+        mutated_positions.add(mut.pos - 1)
+    return mutated_positions
