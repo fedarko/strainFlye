@@ -351,3 +351,44 @@ c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
     )
     captured = capsys.readouterr()
     assert captured.out == exp_out
+
+
+def test_hotspot_good_same_fid_diff_contigs(capsys):
+    gff_text = """##gff-version 3
+c1	marcus	cds	5	19	.	+	0	ID=doppelganger
+c3	marcus	exon	8	8	.	+	.	ID=doppelganger"""
+    with tempfile.NamedTemporaryFile() as out_fh:
+        su.run_hotspot_detection(
+            TEST_BCF_PATH,
+            io.StringIO(gff_text),
+            1,
+            None,
+            out_fh.name,
+            mock_log,
+        )
+        obs_df = pd.read_csv(out_fh, sep="\t")
+        exp_df = pd.DataFrame(
+            {
+                "Contig": ["c1", "c3"],
+                "FeatureID": ["doppelganger", "doppelganger"],
+                "FeatureStart_1IndexedInclusive": [5, 8],
+                "FeatureEnd_1IndexedInclusive": [19, 8],
+                "NumberMutatedPositions": [2, 1],
+                "PercentMutatedPositions": ["13.33%", "100.00%"],
+            }
+        )
+        pd.testing.assert_frame_equal(obs_df, exp_df)
+    exp_out = (
+        "PREFIX\nMockLog: Loading and checking the BCF file...\n"
+        "MockLog: Looks good so far.\n"
+        "PREFIX\nMockLog: Going through features in the GFF3 file and "
+        "identifying hotspots...\n"
+        "MockLog: Warning: feature doppelganger on contig c3 has equal "
+        "start and end coordinates. We assume this refers to a feature of "
+        "length 1 spanning this single position, rather than a feature of "
+        "length 0.\n"
+        "MockLog: Identified 2 hotspots across all contigs.\n"
+        "PREFIX\nMockLog: Writing out this information to a file...\n"
+    )
+    captured = capsys.readouterr()
+    assert captured.out == exp_out
