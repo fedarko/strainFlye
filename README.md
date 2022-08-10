@@ -23,8 +23,8 @@ SAMtools) which it is probably easiest to install via
 [conda](https://conda.io).
 
 Assuming that you already have conda installed, the following installation
-instructions should work for most Linux or macOS systems. (However, please let
-me know if you encounter any problems.)
+instructions should work for most Linux or macOS systems. (However, please feel
+free to open an issue if you encounter any problems.)
 
 ```bash
 # Download the YAML file describing the conda packages we'll install

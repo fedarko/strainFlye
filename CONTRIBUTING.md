@@ -45,6 +45,18 @@ You can run these tests using:
 make test
 ```
 
+Thanks to our use of `pytest-cov`, this command will create a few formats
+of coverage report after running:
+
+1. it'll display a summary on the terminal,
+2. it'll create an XML file in the root of strainFlye's repository that is
+   useful for passing coverage information to CodeCov,
+3. and it'll create a directory in the root of strainFlye's repository
+   called `htmlcov`.
+
+The last of these (`htmlcov`) is probably the most useful for local
+development.
+
 ### Linting, style-checking, and auto-formatting
 
 strainFlye uses `flake8` to lint and style-check its source code, and `black`
