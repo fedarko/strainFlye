@@ -2,6 +2,7 @@ import io
 import os
 import tempfile
 import pytest
+import pandas as pd
 import strainflye.spot_utils as su
 from strainflye.errors import ParameterError
 from .utils_for_testing import mock_log
@@ -167,6 +168,29 @@ c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
             out_fh.name,
             mock_log,
         )
+        # Notably, we don't use index_col=0 here -- because the first column
+        # (contig) can be the same for multiple features, and the second column
+        # (feature ID) can be the same across different contigs. So, we just
+        # fall back on pandas' default of a RangeIndex (as of writing).
+        # If this is a huge deal, we can modify the hotspot code to enforce
+        # that feature IDs must be unique across ALL contigs in the file. But I
+        # don't think anyone will really care, tbh.
+        obs_df = pd.read_csv(out_fh, sep="\t")
+        exp_df = pd.DataFrame(
+            {
+                "Contig": ["c1", "c1", "c3"],
+                "FeatureID": [
+                    "first_feature_that_i_made_up",
+                    "2",
+                    "single_nt_feature",
+                ],
+                "FeatureStart_1IndexedInclusive": [5, 1, 8],
+                "FeatureEnd_1IndexedInclusive": [19, 5, 8],
+                "NumberMutatedPositions": [2, 1, 1],
+                "PercentMutatedPositions": ["13.33%", "20.00%", "100.00%"],
+            }
+        )
+        pd.testing.assert_frame_equal(obs_df, exp_df)
 
     # The test BCF file we use includes all naive r-mutations for r = 3.
     # We should thus see three hotspots (defined here as features with >= 1
