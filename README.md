@@ -22,19 +22,13 @@ dependends on a few external non-Python tools (e.g. minimap2, Prodigal,
 SAMtools) which it is probably easiest to install via
 [conda](https://conda.io).
 
-We offer two sets of instructions for installing strainFlye, depending on
-if you want to just use the tool (Scenario 1) or if you would like to also
-develop its code (Scenario 2). For most users, Scenario 1 is probably the
-easiest option. (You can always install strainFlye from source later, if you'd
-like!)
-
-Both sets of installation steps below should work for most Linux or macOS
-systems, but please let me know if you encounter any problems.
-
-### Scenario 1: I just want to use strainFlye on my data!
+Assuming that you already have conda installed, the following installation
+instructions should work for most Linux or macOS systems. (However, please let
+me know if you encounter any problems.)
 
 ```bash
 # Download the YAML file describing the conda packages we'll install
+# (if you don't have wget, you could also just download this file manually)
 wget https://raw.githubusercontent.com/fedarko/strainFlye/main/environment.yml
 
 # Create a new conda environment based on this YAML file
@@ -46,22 +40,6 @@ conda activate strainflye
 
 # Install the actual strainFlye package
 pip install git+https://github.com/fedarko/strainFlye.git
-```
-
-### Scenario 2: I'm interested in developing strainFlye's source code
-
-```bash
-# Clone strainFlye's source code
-# (It's probably best to fork the repository first, and then clone your fork)
-git clone https://github.com/fedarko/strainFlye.git
-
-# Create and activate a conda environment, like in Scenario 1
-cd strainFlye
-conda env create -f environment.yml
-conda activate strainflye
-
-# Install strainFlye from the cloned source in "editable mode"
-pip install -e .[dev]
 ```
 
 ## Documentation
