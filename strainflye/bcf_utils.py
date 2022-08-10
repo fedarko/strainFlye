@@ -128,7 +128,16 @@ def get_mutated_positions_in_contig(bcf_obj, contig):
     mutated_positions: set
         Set of 0-indexed positions (integers), corresponding to the positions
         on the contig at which mutations are defined in the BCF file.
+
+    Raises
+    ------
+    ValueError
+        If contig is not described in the header of bcf_obj.
     """
+    if contig not in bcf_obj.header.contigs:
+        raise ValueError(
+            f"Contig {contig} is not described in the BCF object's header."
+        )
     mutated_positions = set()
     for mut in bcf_obj.fetch(contig):
         # "positions" in pysam are 1-based; to be compatible with scikit-bio's

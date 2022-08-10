@@ -1,3 +1,4 @@
+import os
 import pytest
 import strainflye.bcf_utils as bu
 from strainflye.errors import ParameterError
@@ -154,3 +155,43 @@ def test_parse_bcf_missing_info_fields():
     # do that again here
     fh = write_vcf_tempfile("\n".join(split_text))
     bu.parse_bcf(fh.name)
+
+
+def test_get_mutated_positions_in_contig_good():
+    test_bcf_path = os.path.join(
+        "strainflye",
+        "tests",
+        "inputs",
+        "small",
+        "call-r-min3-di12345",
+        "naive-calls.bcf",
+    )
+    bcf_obj, _, _ = bu.parse_bcf(test_bcf_path)
+
+    mp_c1 = bu.get_mutated_positions_in_contig(bcf_obj, "c1")
+    assert mp_c1 == set([3, 10, 12])
+
+    mp_c2 = bu.get_mutated_positions_in_contig(bcf_obj, "c2")
+    assert mp_c2 == set()
+
+    mp_c3 = bu.get_mutated_positions_in_contig(bcf_obj, "c3")
+    assert mp_c3 == set([6, 7])
+
+
+def test_get_mutated_positions_in_contig_not_in_bcf():
+    test_bcf_path = os.path.join(
+        "strainflye",
+        "tests",
+        "inputs",
+        "small",
+        "call-r-min3-di12345",
+        "naive-calls.bcf",
+    )
+    bcf_obj, _, _ = bu.parse_bcf(test_bcf_path)
+
+    with pytest.raises(ValueError) as ei:
+        bu.get_mutated_positions_in_contig(bcf_obj, "c4")
+
+    assert str(ei.value) == (
+        "Contig c4 is not described in the BCF object's header."
+    )
