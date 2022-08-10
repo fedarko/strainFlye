@@ -175,9 +175,11 @@ def run_hotspot_detection(
                 raise ParameterError(
                     f"The feature ID {fid} is used in multiple GFF3 rows for "
                     f"contig {contig}. Features of a contig must have unique "
-                    "IDs; please note that strainFlye does not support "
+                    "IDs; this command does not support "
                     '"discontinuous features" at the moment.'
                 )
+            else:
+                seen_feature_ids.add(fid)
 
             # scikit-bio's GFF3 parser ensures that the start coordinate of a
             # feature must be <= the end coordinate. So we can safely create
