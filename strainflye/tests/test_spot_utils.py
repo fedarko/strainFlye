@@ -221,7 +221,7 @@ c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
     assert captured.out == exp_out
 
 
-def test_hotspot_good_min_num_10(capsys):
+def test_hotspot_good_min_num_10_no_hotspots(capsys):
     # (so, no hotspots)
     gff_text = """##gff-version 3
 c1	marcus	cds	5	19	.	+	0	ID=first_feature_that_i_made_up
@@ -257,6 +257,54 @@ c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
         "length 1 spanning this single position, rather than a feature of "
         "length 0.\n"
         "MockLog: Identified 0 hotspots across all contigs.\n"
+        "PREFIX\nMockLog: Writing out this information to a file...\n"
+    )
+    captured = capsys.readouterr()
+    assert captured.out == exp_out
+
+
+def test_hotspot_good_min_perc_20(capsys):
+    # (so, no hotspots)
+    gff_text = """##gff-version 3
+c1	marcus	cds	5	19	.	+	0	ID=first_feature_that_i_made_up
+c1	marcus	gene	1	5	.	+	0	ID=2
+c2	marcus	polyA_site	1	6	50	+	.	ID=another_thing
+c2	marcus	gene	6	7	100	-	.	ID=worlds_shittiest_gene
+c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
+    with tempfile.NamedTemporaryFile() as out_fh:
+        su.run_hotspot_detection(
+            TEST_BCF_PATH,
+            io.StringIO(gff_text),
+            None,
+            20,
+            out_fh.name,
+            mock_log,
+        )
+        obs_df = pd.read_csv(out_fh, sep="\t")
+        exp_df = pd.DataFrame(
+            {
+                "Contig": ["c1", "c3"],
+                "FeatureID": [
+                    "2",
+                    "single_nt_feature",
+                ],
+                "FeatureStart_1IndexedInclusive": [1, 8],
+                "FeatureEnd_1IndexedInclusive": [5, 8],
+                "NumberMutatedPositions": [1, 1],
+                "PercentMutatedPositions": ["20.00%", "100.00%"],
+            }
+        )
+        pd.testing.assert_frame_equal(obs_df, exp_df)
+    exp_out = (
+        "PREFIX\nMockLog: Loading and checking the BCF file...\n"
+        "MockLog: Looks good so far.\n"
+        "PREFIX\nMockLog: Going through features in the GFF3 file and "
+        "identifying hotspots...\n"
+        "MockLog: Warning: feature single_nt_feature on contig c3 has equal "
+        "start and end coordinates. We assume this refers to a feature of "
+        "length 1 spanning this single position, rather than a feature of "
+        "length 0.\n"
+        "MockLog: Identified 2 hotspots across all contigs.\n"
         "PREFIX\nMockLog: Writing out this information to a file...\n"
     )
     captured = capsys.readouterr()
