@@ -119,7 +119,7 @@ def run_hotspot_detection(
     for contig, im in contig_and_im_tuples:
         if contig not in bcf_contigs:
             raise ParameterError(
-                "The features file describes feature(s) located on contig "
+                "The GFF3 file describes feature(s) located on contig "
                 f"{contig}, but this contig is not described in the BCF file."
             )
 
@@ -154,14 +154,23 @@ def run_hotspot_detection(
             # respectively, at http://gmod.org/wiki/GFF3.
             if len(feature.bounds) != 1:
                 raise ParameterError(
-                    "A feature exists that doesn't have exactly one set of "
-                    f"bounds: {feature}"
+                    f"A feature in the GFF3 file on contig {contig} exists "
+                    f"without exactly one set of bounds: {feature}"
                 )
 
+            # This should rarely happen. scikit-bio's GFF3 parser makes the
+            # implicit assumption that at least one key=value pair is defined
+            # in the final "attributes" column in each row -- so, if this
+            # column is a "." for any feature, then scikit-bio will fail at
+            # this line:
+            # https://github.com/biocore/scikit-bio/blob/541498807b67554353fc8aeb65bb66c28966a1f6/skbio/io/format/gff3.py#L446
+            # ... However, if a row has attributes defined, but if none of
+            # these defined attributes is "ID", then yeah -- we'll run into
+            # this problem. And *this* case is something we test against.
             if "ID" not in feature.metadata:
                 raise ParameterError(
-                    "A feature in the GFF file doesn't have a defined ID: "
-                    f"{feature}"
+                    f"A feature in the GFF3 file on contig {contig} exists "
+                    f"without a defined ID: {feature}"
                 )
 
             # Enforce that feature IDs are unique with respect to their contig
