@@ -42,8 +42,11 @@ def test_fancylogging_extrainfo(capsys):
         (("in1", "Input #1"), ("in2", "Input #2")),
         (("out1", "Output #1"),),
     )
-    fancylog = fancystart(*test_params, prefix="PREFIX ",
-        extra_info=("Verbose?: Yes", "Sus?: Yeet"))
+    fancylog = fancystart(
+        *test_params,
+        prefix="PREFIX ",
+        extra_info=("Verbose?: Yes", "Sus?: Yeet")
+    )
     exp_out = (
         "PREFIX strainFlye testing @ 0.00 sec: Starting...\n"
         "Input in1: Input #1\nInput in2: Input #2\n"
