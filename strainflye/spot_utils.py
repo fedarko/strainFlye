@@ -315,6 +315,8 @@ def run_hotspot_feature_detection(
             "PercentMutatedPositions\n"
         )
         for contig, feature, num_mp, perc_mp in hotspots:
+            # Note that we output feature boundaries in 1-indexed coordinates,
+            # to be consistent with the input GFF3 start and end
             start = feature.bounds[0][0] + 1
             end = feature.bounds[0][1]
             of.write(
