@@ -6,7 +6,7 @@ from strainflye import bcf_utils
 from strainflye.errors import ParameterError
 
 
-def run_hotspot_detection(
+def run_hotspot_feature_detection(
     bcf,
     features,
     min_num_mutations,
@@ -31,7 +31,7 @@ def run_hotspot_detection(
 
     min_num_mutations: int or None
         Minimum number of mutations that a feature must have to be considered
-        a hotspot. Should be greater than 0.
+        a hotspot. Should be > 0.
 
     min_perc_mutations: float or None
         Minimum percentage of mutations that a feature must have to be
@@ -48,6 +48,12 @@ def run_hotspot_detection(
     Returns
     -------
     None
+
+    Raises
+    ------
+    ParameterError
+        - If min_num_mutations and min_perc_mutations are both None
+        - If various things are invalid in the GFF3 file
 
     References
     ----------
@@ -120,6 +126,17 @@ def run_hotspot_detection(
         mutated_positions = bcf_utils.get_mutated_positions_in_contig(
             bcf_obj, contig
         )
+
+        # Also, get its length -- this'll be useful for checking that the
+        # feature coordinates are sane later.
+        # (NOTE: We implicitly make the assumption here that the input BCF file
+        # has lengths given in its header contig tags, even though the VCF 4.3
+        # specification -- as of writing -- only says that these tags
+        # "typically" include this information. So, if this starts leading to
+        # AttributeErrors, we can handle this another way -- likely just by
+        # having the users pass contigs to this command, so we can extract
+        # lengths from there. But eesh.)
+        contig_length = bcf_obj.header.contigs[contig].length
 
         seen_feature_ids = set()
 
@@ -194,12 +211,15 @@ def run_hotspot_detection(
 
             # scikit-bio's GFF3 parser ensures that the start coordinate of a
             # feature must be <= the end coordinate. So we can safely create
-            # ranges, etc. based on these coordinates.
+            # ranges, etc. based on these coordinates. (Also, these bounds are
+            # 0-indexed and half-open, like Python intervals, so they can be
+            # directly be used as the inputs to range().)
             #
             # (Just for clarity: we access .bounds[0] because there should
             # only be one [start, end] interval per feature -- otherwise our
             # check above on len(feature.bounds) would have thrown an error.)
-            feature_range = range(*feature.bounds[0])
+            fs, fe = feature.bounds[0]
+            feature_range = range(fs, fe)
 
             # See https://standage.github.io/on-genomic-interval-notation.html,
             # and the references above. This is what we in the business refer
@@ -215,6 +235,33 @@ def run_hotspot_detection(
                     ),
                     prefix="",
                 )
+
+            # This indicates that the GFF3 file is malformed, or maybe designed
+            # for a different contig with this same name.
+            if fs > contig_length:
+                raise ParameterError(
+                    f"Feature {fid} on contig {contig} has a start coordinate "
+                    f"of {fs:,}, which is greater than the contig's length of "
+                    f"{contig_length:,}."
+                )
+
+            # Unlike the above case (feature start > contig length), having the
+            # feature end > contig length is actually possible in valid GFF3
+            # files. This indicates that this feature is circular, and "loops
+            # around" the contig.
+            # TODO: add support for this eventually? Since this is explicitly
+            # allowed in the GFF spec, and could conceivably happen with
+            # prokaryotic gene predictions or whatevs.
+            if fe > contig_length:
+                raise ParameterError(
+                    f"Feature {fid} on contig {contig} has an end coordinate "
+                    f"of {fe:,}, which is greater than the contig's length of "
+                    f"{contig_length:,}. We do not support 'circular' "
+                    "features yet."
+                )
+
+            # This does the main work -- figure out what positions within the
+            # "range" given by this feature are mutated.
             num_mp = len(set(feature_range) & mutated_positions)
             perc_mp = 100 * (num_mp / len(feature_range))
 
@@ -259,3 +306,51 @@ def run_hotspot_detection(
                 f"{contig}\t{feature.metadata['ID']}\t{start}\t{end}\t"
                 f"{num_mp}\t{perc_mp:.2f}%\n"
             )
+
+
+def run_coldspot_gap_detection(
+    bcf,
+    min_length,
+    circular,
+    output_coldspot_gaps,
+    fancylog,
+):
+    """Identifies "coldspot gaps" based on a user-defined threshold.
+
+    Writes out information about these coldspots to a TSV file.
+
+    This is exactly what it says on the tin. There are definitely more
+    sophisticated ways to do this, but it's faster for me to just briefly write
+    up and test this command than it is to perform a thorough literature
+    search. Something something reinventing the wheel.
+
+    Parameters
+    ----------
+    bcf: str
+        Filepath to a BCF file describing single-nucleotide mutations.
+
+    min_length: int
+        Minimum length of a gap to be considered a coldspot. Should be > 0.
+
+    circular: bool
+        If True, assume that each contig is circular, and examine the presence
+        of a potential gap between the rightmost mutation and the leftmost
+        mutation in the contig. (If the contig has length N, then we'd treat
+        the first position of the contig as N + 1, etc.) If False, don't do
+        this. (This is a lazy way to handle this, since not all contigs will be
+        circular -- ideally, we'd handle this on a contig-by-contig basis,
+        maybe by consulting the assembly graph to see which contigs actually
+        are circular.)
+
+    output_coldspot_gaps: str
+        Filepath to which we'll write a TSV file describing identified
+        coldspots.
+
+    fancylog: function
+        Logging function.
+
+    Returns
+    -------
+    None
+    """
+    fancylog("Marcus needs to stop being lazy and implement this.")

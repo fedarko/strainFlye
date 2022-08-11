@@ -27,7 +27,7 @@ c2	marcus	gene	6	7	100	-	.	ID=worlds_shittiest_gene
 c3	marcus	exon	9	9	.	+	.	ID=single_nt_feature"""
     with tempfile.NamedTemporaryFile() as out_fh:
         with pytest.raises(ParameterError) as ei:
-            su.run_hotspot_detection(
+            su.run_hotspot_feature_detection(
                 TEST_BCF_PATH,
                 io.StringIO(gff_text),
                 None,
@@ -54,7 +54,7 @@ c2	marcus	gene	6	7	100	-	.	ID=worlds_shittiest_gene
 c3	marcus	exon	9	9	.	+	.	ID=single_nt_feature"""
     with tempfile.NamedTemporaryFile() as out_fh:
         with pytest.raises(ParameterError) as ei:
-            su.run_hotspot_detection(
+            su.run_hotspot_feature_detection(
                 TEST_BCF_PATH,
                 io.StringIO(gff_text),
                 1,
@@ -78,7 +78,7 @@ c2	marcus	gene	6	7	100	-	.	ID=worlds_shittiest_gene
 c3	marcus	exon	9	9	.	+	.	ID=single_nt_feature"""
     with tempfile.NamedTemporaryFile() as out_fh:
         with pytest.raises(ParameterError) as ei:
-            su.run_hotspot_detection(
+            su.run_hotspot_feature_detection(
                 TEST_BCF_PATH,
                 io.StringIO(gff_text),
                 1,
@@ -120,7 +120,7 @@ c9	marcus	gene	6	7	100	-	.	ID=sus_feature
 c3	marcus	exon	9	9	.	+	.	ID=single_nt_feature"""
     with tempfile.NamedTemporaryFile() as out_fh:
         with pytest.raises(ParameterError) as ei:
-            su.run_hotspot_detection(
+            su.run_hotspot_feature_detection(
                 TEST_BCF_PATH,
                 io.StringIO(gff_text),
                 1,
@@ -137,7 +137,7 @@ c3	marcus	exon	9	9	.	+	.	ID=single_nt_feature"""
 def test_hotspot_empty_gff3():
     with tempfile.NamedTemporaryFile() as out_fh:
         with pytest.raises(ParameterError) as ei:
-            su.run_hotspot_detection(
+            su.run_hotspot_feature_detection(
                 TEST_BCF_PATH,
                 io.StringIO(""),
                 1,
@@ -160,7 +160,7 @@ c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
     with tempfile.NamedTemporaryFile() as out_fh:
         # A feature is a "hotspot" if it has at least 1 mutation
         # (translator's note: this is silly lol)
-        su.run_hotspot_detection(
+        su.run_hotspot_feature_detection(
             TEST_BCF_PATH,
             io.StringIO(gff_text),
             1,
@@ -215,7 +215,7 @@ c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
         "PREFIX\nMockLog: Writing out this information to a file...\n"
     )
     # (The very last "Done.\n" is printed out by _cli.py, not by
-    # run_hotspot_detection().)
+    # run_hotspot_feature_detection().)
 
     captured = capsys.readouterr()
     assert captured.out == exp_out
@@ -230,7 +230,7 @@ c2	marcus	polyA_site	1	6	50	+	.	ID=another_thing
 c2	marcus	gene	6	7	100	-	.	ID=worlds_shittiest_gene
 c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
     with tempfile.NamedTemporaryFile() as out_fh:
-        su.run_hotspot_detection(
+        su.run_hotspot_feature_detection(
             TEST_BCF_PATH,
             io.StringIO(gff_text),
             10,
@@ -272,7 +272,7 @@ c2	marcus	polyA_site	1	6	50	+	.	ID=another_thing
 c2	marcus	gene	6	7	100	-	.	ID=worlds_shittiest_gene
 c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
     with tempfile.NamedTemporaryFile() as out_fh:
-        su.run_hotspot_detection(
+        su.run_hotspot_feature_detection(
             TEST_BCF_PATH,
             io.StringIO(gff_text),
             None,
@@ -320,7 +320,7 @@ c2	marcus	polyA_site	1	6	50	+	.	ID=another_thing
 c2	marcus	gene	6	7	100	-	.	ID=worlds_shittiest_gene
 c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
     with tempfile.NamedTemporaryFile() as out_fh:
-        su.run_hotspot_detection(
+        su.run_hotspot_feature_detection(
             TEST_BCF_PATH,
             io.StringIO(gff_text),
             2,
@@ -358,7 +358,7 @@ def test_hotspot_good_same_fid_diff_contigs(capsys):
 c1	marcus	cds	5	19	.	+	0	ID=doppelganger
 c3	marcus	exon	8	8	.	+	.	ID=doppelganger"""
     with tempfile.NamedTemporaryFile() as out_fh:
-        su.run_hotspot_detection(
+        su.run_hotspot_feature_detection(
             TEST_BCF_PATH,
             io.StringIO(gff_text),
             1,

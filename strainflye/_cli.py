@@ -131,6 +131,7 @@ def align(reads, contigs, graph, output_dir, verbose):
             ("graph file", graph),
         ),
         (("directory", output_dir),),
+        extra_info=(f"Verbose?: {cli_utils.b2y(verbose)}",),
     )
     align_utils.run(reads, contigs, graph, output_dir, fancylog, verbose)
     fancylog("Done.")
@@ -298,6 +299,7 @@ def p_mutation(
             ("minimum read number", min_read_number),
         ),
         (("directory", output_dir),),
+        extra_info=(f"Verbose?: {cli_utils.b2y(verbose)}",),
     )
     di_list = call_utils.parse_di_list(div_index_p_list, param="p")
     call_utils.run(
@@ -404,6 +406,7 @@ def r_mutation(
             ("minimum coverage factor", min_coverage_factor),
         ),
         (("directory", output_dir),),
+        extra_info=(f"Verbose?: {cli_utils.b2y(verbose)}",),
     )
     di_list = call_utils.parse_di_list(div_index_r_list, param="r")
     call_utils.run(
@@ -730,6 +733,7 @@ def fix(bcf, fdr_info, fdr, output_bcf, verbose):
             ("FDR to fix mutation calls at", fdr),
         ),
         (("BCF file with mutation calls at the fixed FDR", output_bcf),),
+        extra_info=(f"Verbose?: {cli_utils.b2y(verbose)}",),
     )
     fdr_utils.run_fix(bcf, fdr_info, fdr, output_bcf, fancylog, verbose)
     fancylog("Done.")
@@ -797,7 +801,7 @@ strainflye.add_command(spot)
 )
 @click.option(
     "-o",
-    "--output-hotspot-features",
+    "--output-hotspots",
     required=True,
     type=click.Path(dir_okay=False),
     help=(
@@ -810,7 +814,7 @@ def hot_features(
     features,
     min_num_mutations,
     min_perc_mutations,
-    output_hotspot_features,
+    output_hotspots,
 ):
     """Identify hotspot features (for example, genes).
 
@@ -818,13 +822,13 @@ def hot_features(
     as described in the file given for --features. These regions could describe
     anything: predicted protein-coding genes, introns or exons, intergenic
     regions of interest, etc. For now, we treat each feature independently
-    (e.g. we don't lump together exons from the same Parent gene; each feature
-    is considered as a "hotspot" separately).
+    (e.g. we don't lump together exons from the same "Parent" gene; each
+    feature is considered separately as a potential "hotspot").
 
     You can configure whether or not we classify a feature as a hotspot by
     adjusting the --min-num-mutations and --min-perc-mutations parameters; at
     least one of these parameters must be specified. If both parameters are
-    specified, then both checks (number of mutations in a feature vs.
+    specified, then both checks (number of mutations in a feature, and
     percentage of mutations in a feature) will need to pass in order for us to
     label a feature as a hotspot.
     """
@@ -845,27 +849,20 @@ def hot_features(
                 min_perc_mutations,
             ),
         ),
-        (("file describing hotspot features", output_hotspot_features),),
+        (("file describing hotspot features", output_hotspots),),
     )
-    spot_utils.run_hotspot_detection(
+    spot_utils.run_hotspot_feature_detection(
         bcf,
         features,
         min_num_mutations,
         min_perc_mutations,
-        output_hotspot_features,
+        output_hotspots,
         fancylog,
     )
     fancylog("Done.")
 
 
 @spot.command(**cmd_params)
-@click.option(
-    "-c",
-    "--contigs",
-    required=True,
-    type=click.Path(exists=True),
-    help=desc.INPUT_CONTIGS,
-)
 @click.option(
     "-b",
     "--bcf",
@@ -874,19 +871,58 @@ def hot_features(
     help=desc.INPUT_BCF_DOWNSTREAM,
 )
 @click.option(
+    "-l",
+    "--min-length",
+    required=True,
+    type=click.IntRange(min=0, min_open=True),
+    default=5000,
+    show_default=True,
+    help=(
+        'Label a gap between mutations in a contig as a "coldspot" if it '
+        "is at least this long."
+    ),
+)
+@click.option(
+    "--circular/--no-circular",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    required=False,
+    help=(
+        "If this flag is given, we'll assume that all contigs are circular: "
+        'we\'ll consider the gap "looping around" from the rightmost '
+        "mutation in each contig to the leftmost mutation in the contig as "
+        "a potential coldspot. Otherwise, we won't perform this check for any "
+        "contigs."
+    ),
+)
+@click.option(
     "-o",
-    "--output-coldspot-regions",
+    "--output-coldspots",
     required=True,
     type=click.Path(dir_okay=False),
     help=(
         "Filepath to which an output tab-separated values (TSV) file "
-        "describing coldspot regions will be written."
+        "describing coldspots will be written."
     ),
 )
-def cold_gaps():
+def cold_gaps(bcf, min_length, circular, output_coldspots):
     """Identify coldspot "gaps" without any mutations."""
-    # Simple strat -- just go through contigs, identify mutations
-    print("C")
+    fancylog = cli_utils.fancystart(
+        "strainFlye spot cold-gaps",
+        (
+            ("BCF file", bcf),
+            ("minimum length", min_length),
+        ),
+        (("file describing coldspot gaps", output_coldspots),),
+        extra_info=(
+            f"Check for circular coldspot gaps?: {cli_utils.b2y(circular)}",
+        ),
+    )
+    spot_utils.run_coldspot_gap_detection(
+        bcf, min_length, circular, output_coldspots, fancylog
+    )
+    fancylog("Done.")
 
 
 # @strainflye.command(**cmd_params)

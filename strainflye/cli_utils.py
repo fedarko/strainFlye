@@ -3,7 +3,9 @@
 import time
 
 
-def fancystart(cmd_name, inputs, outputs, quiet=False, prefix="--------\n"):
+def fancystart(
+    cmd_name, inputs, outputs, quiet=False, prefix="--------\n", extra_info=()
+):
     """Starts logging things for a given strainFlye command.
 
     Parameters
@@ -31,6 +33,13 @@ def fancystart(cmd_name, inputs, outputs, quiet=False, prefix="--------\n"):
 
     prefix: str
         Prefix to put before every logging message.
+
+    extra_info: tuple of str
+        A collection of extra parameter information; each str will be printed
+        on its own line (well, maybe multiple lines if these strings contain
+        newlines, but probably don't do that) after inputs but before outputs.
+        Useful for adding info for flags, etc. An example:
+        ("Check for circular coldspot gaps?: No", "Verbose?: Yes").
 
     Returns
     -------
@@ -68,17 +77,29 @@ def fancystart(cmd_name, inputs, outputs, quiet=False, prefix="--------\n"):
                 f"{prefix}{cmd_name} @ {t1 - t0:,.2f} sec: {msg}", flush=True
             )
 
-    # Report to the user about the inputs and outputs.
+    # Report to the user about the inputs, parameters / settings, and outputs.
     # ... This may be over-engineered.
     # Note that this should behave graciously if there are no inputs or
     # outputs, since these will then be empty collections (and nothing will be
     # printed). However, that probably shouldn't happen in practice.
 
     starting_info = "Starting..."
-    for paramtype in (("Input", inputs), ("Output", outputs)):
-        for ptuple in paramtype[1]:
-            starting_info += f"\n{paramtype[0]} {ptuple[0]}: {ptuple[1]}"
+
+    for ituple in inputs:
+        starting_info += f"\nInput {ituple[0]}: {ituple[1]}"
+    for eline in extra_info:
+        starting_info += f"\n{eline}"
+    for otuple in outputs:
+        starting_info += f"\nOutput {otuple[0]}: {otuple[1]}"
 
     fancylog(starting_info)
 
     return fancylog
+
+
+def b2y(b):
+    """I knew that Bachelor's degree was good for something."""
+    if b:
+        return "Yes"
+    else:
+        return "No"
