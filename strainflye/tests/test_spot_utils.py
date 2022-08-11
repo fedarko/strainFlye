@@ -198,6 +198,30 @@ c3	marcus	exon	9	9	.	+	.	ID=single_nt_feature"""
         )
 
 
+def test_hotspot_feature_ends_after_contig():
+    gff_text = """##gff-version 3
+c1	marcus	cds	5	10	.	+	0	ID=sus_feature
+c1	marcus	gene	1	5	.	+	0	ID=split_feature
+c2	marcus	polyA_site	1	6	50	+	.	ID=another_thing
+c2	marcus	gene	2	13	100	-	.	ID=worlds_shittiest_gene
+c3	marcus	exon	9	9	.	+	.	ID=single_nt_feature"""
+    with tempfile.NamedTemporaryFile() as out_fh:
+        with pytest.raises(ParameterError) as ei:
+            su.run_hotspot_feature_detection(
+                TEST_BCF_PATH,
+                io.StringIO(gff_text),
+                1,
+                None,
+                out_fh.name,
+                mock_log,
+            )
+        assert str(ei.value) == (
+            "Feature worlds_shittiest_gene on contig c2 has a (1-indexed) "
+            "end coordinate of 13, which is greater than the contig's "
+            "length of 12. We do not support 'circular' features yet."
+        )
+
+
 def test_hotspot_good_min_num_1(capsys):
     gff_text = """##gff-version 3
 c1	marcus	cds	5	19	.	+	0	ID=first_feature_that_i_made_up
@@ -442,7 +466,9 @@ c3	marcus	exon	8	8	.	+	.	ID=doppelganger"""
     assert captured.out == exp_out
 
 
-def test_hotspot_good_feature_on_last_position_of_contig(capsys):
+def test_hotspot_good_feature_starts_and_ends_on_last_position_of_contig(
+    capsys,
+):
     gff_text = """##gff-version 3
 c1	marcus	cds	5	19	.	+	0	ID=f1
 c3	marcus	exon	16	16	.	+	.	ID=f2"""
@@ -476,6 +502,46 @@ c3	marcus	exon	16	16	.	+	.	ID=f2"""
         "start and end coordinates. We assume this refers to a feature of "
         "length 1 spanning this single position, rather than a feature of "
         "length 0.\n"
+        "MockLog: Identified 1 hotspot feature(s) across all contigs.\n"
+        "PREFIX\nMockLog: Writing out this information to a file...\n"
+    )
+    captured = capsys.readouterr()
+    assert captured.out == exp_out
+
+
+def test_hotspot_good_feature_ends_on_last_position_of_contig(capsys):
+    # Basically, just decreasing the end coordinate of "worlds_shittiest_gene"
+    # from 13 (see test_hotspot_feature_ends_after_contig() above) to a
+    # 12 causes this to not fail.
+    gff_text = """##gff-version 3
+c1	marcus	cds	5	19	.	+	0	ID=f1
+c2	marcus	gene	2	12	100	-	.	ID=worlds_shittiest_gene"""
+    with tempfile.NamedTemporaryFile() as out_fh:
+        su.run_hotspot_feature_detection(
+            TEST_BCF_PATH,
+            io.StringIO(gff_text),
+            1,
+            None,
+            out_fh.name,
+            mock_log,
+        )
+        obs_df = pd.read_csv(out_fh, sep="\t")
+        exp_df = pd.DataFrame(
+            {
+                "Contig": ["c1"],
+                "FeatureID": ["f1"],
+                "FeatureStart_1IndexedInclusive": [5],
+                "FeatureEnd_1IndexedInclusive": [19],
+                "NumberMutatedPositions": [2],
+                "PercentMutatedPositions": ["13.33%"],
+            }
+        )
+        pd.testing.assert_frame_equal(obs_df, exp_df)
+    exp_out = (
+        "PREFIX\nMockLog: Loading and checking the BCF file...\n"
+        "MockLog: Looks good so far.\n"
+        "PREFIX\nMockLog: Going through features in the GFF3 file and "
+        "identifying hotspot features...\n"
         "MockLog: Identified 1 hotspot feature(s) across all contigs.\n"
         "PREFIX\nMockLog: Writing out this information to a file...\n"
     )

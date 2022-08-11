@@ -269,7 +269,7 @@ def run_hotspot_feature_detection(
             if fe > contig_length:
                 raise ParameterError(
                     f"Feature {fid} on contig {contig} has a (1-indexed) end "
-                    f"coordinate of {fe + 1:,}, which is greater than the "
+                    f"coordinate of {fe:,}, which is greater than the "
                     f"contig's length of {contig_length:,}. We do not support "
                     "'circular' features yet."
                 )
@@ -304,7 +304,7 @@ def run_hotspot_feature_detection(
 
     fancylog(
         f"Identified {len(hotspots):,} hotspot feature(s) across all contigs.",
-        prefix=""
+        prefix="",
     )
     fancylog("Writing out this information to a file...")
 
