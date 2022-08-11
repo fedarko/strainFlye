@@ -106,7 +106,8 @@ def run_hotspot_feature_detection(
     hotspots = []
 
     fancylog(
-        "Going through features in the GFF3 file and identifying hotspots..."
+        "Going through features in the GFF3 file and identifying "
+        "hotspot features..."
     )
     # Load features. skbio.io.read() with GFF3 files defaults to a generator of
     # tuples, where the first entry is the sequence ID (e.g. "edge_1") and the
@@ -212,7 +213,7 @@ def run_hotspot_feature_detection(
             # scikit-bio's GFF3 parser ensures that the start coordinate of a
             # feature must be <= the end coordinate. So we can safely create
             # ranges, etc. based on these coordinates. (Also, these bounds are
-            # 0-indexed and half-open, like Python intervals, so they can be
+            # zero-indexed and half-open, like Python intervals, so they can be
             # directly be used as the inputs to range().)
             #
             # (Just for clarity: we access .bounds[0] because there should
@@ -238,26 +239,39 @@ def run_hotspot_feature_detection(
 
             # This indicates that the GFF3 file is malformed, or maybe designed
             # for a different contig with this same name.
-            if fs > contig_length:
+            # Recall that fs and fe are zero-indexed and half-open -- since
+            # it's ok for a feature to start at the last position in a contig
+            # (if, for example, it has a length of one), the first "invalid"
+            # start position is at contig_length
+            if fs >= contig_length:
+                # Although we use 0-indexing internally, the user's GFF3 file
+                # uses 1-indexing. So let's make this easy for them to
+                # understand.
                 raise ParameterError(
-                    f"Feature {fid} on contig {contig} has a start coordinate "
-                    f"of {fs:,}, which is greater than the contig's length of "
-                    f"{contig_length:,}."
+                    f"Feature {fid} on contig {contig} has a (1-indexed) "
+                    f"start coordinate of {fs + 1:,}, which is greater than "
+                    f"the contig's length of {contig_length:,}."
                 )
 
-            # Unlike the above case (feature start > contig length), having the
-            # feature end > contig length is actually possible in valid GFF3
-            # files. This indicates that this feature is circular, and "loops
-            # around" the contig.
+            # Unlike the above case (feature start past the contig length),
+            # having the feature end past the contig length is actually
+            # possible in valid GFF3 files. This indicates that this
+            # feature is circular, and "loops around" the contig.
+            #
+            # (fe is zero-indexed and "half-open", so its first "past the
+            # contig length" position is at contig_length + 1. If, on the other
+            # hand, fe == contig_length, this just indicates that the feature
+            # ends exactly at the rightmost position in the contig.)
+            #
             # TODO: add support for this eventually? Since this is explicitly
             # allowed in the GFF spec, and could conceivably happen with
             # prokaryotic gene predictions or whatevs.
             if fe > contig_length:
                 raise ParameterError(
-                    f"Feature {fid} on contig {contig} has an end coordinate "
-                    f"of {fe:,}, which is greater than the contig's length of "
-                    f"{contig_length:,}. We do not support 'circular' "
-                    "features yet."
+                    f"Feature {fid} on contig {contig} has a (1-indexed) end "
+                    f"coordinate of {fe + 1:,}, which is greater than the "
+                    f"contig's length of {contig_length:,}. We do not support "
+                    "'circular' features yet."
                 )
 
             # This does the main work -- figure out what positions within the
@@ -289,7 +303,8 @@ def run_hotspot_feature_detection(
         )
 
     fancylog(
-        f"Identified {len(hotspots):,} hotspots across all contigs.", prefix=""
+        f"Identified {len(hotspots):,} hotspot feature(s) across all contigs.",
+        prefix=""
     )
     fancylog("Writing out this information to a file...")
 
