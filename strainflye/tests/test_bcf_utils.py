@@ -161,6 +161,53 @@ def test_parse_bcf_missing_info_fields():
     bu.parse_bcf(fh.name)
 
 
+def test_parse_bcf_no_contigs_in_header():
+    # Header + first four mutations called on SheepGut using p = 0.15%
+    fh = write_vcf_tempfile(
+        "##fileformat=VCFv4.3\n"
+        "##fileDate=20220526\n"
+        '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
+        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
+        '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
+        '##FILTER=<ID=strainflye_minp_15, Description="min p threshold (scaled up by 100)">\n'  # noqa: E501
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "edge_1\t43\t.\tA\tT\t.\t.\tMDP=380;AAD=2\n"
+        "edge_1\t255\t.\tT\tC\t.\t.\tMDP=385;AAD=2\n"
+        "edge_1\t356\t.\tA\tT\t.\t.\tMDP=403;AAD=2\n"
+        "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
+    )
+    with pytest.raises(ParameterError) as ei:
+        bu.parse_bcf(fh.name)
+    exp_patt = (
+        f"BCF file {fh.name} doesn't describe any contigs in its header."
+    )
+    assert str(ei.value) == exp_patt
+
+
+def test_parse_bcf_no_contig_length_in_header():
+    # Header + first four mutations called on SheepGut using p = 0.15%
+    fh = write_vcf_tempfile(
+        "##fileformat=VCFv4.3\n"
+        "##fileDate=20220526\n"
+        '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
+        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        "##contig=<ID=edge_1>\n"
+        '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
+        '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
+        '##FILTER=<ID=strainflye_minp_15, Description="min p threshold (scaled up by 100)">\n'  # noqa: E501
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "edge_1\t43\t.\tA\tT\t.\t.\tMDP=380;AAD=2\n"
+        "edge_1\t255\t.\tT\tC\t.\t.\tMDP=385;AAD=2\n"
+        "edge_1\t356\t.\tA\tT\t.\t.\tMDP=403;AAD=2\n"
+        "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
+    )
+    with pytest.raises(ParameterError) as ei:
+        bu.parse_bcf(fh.name)
+    exp_patt = f"BCF file {fh.name} has no length given for contig edge_1."
+    assert str(ei.value) == exp_patt
+
+
 def test_get_mutated_positions_in_contig_good():
     test_bcf_path = os.path.join(
         "strainflye",

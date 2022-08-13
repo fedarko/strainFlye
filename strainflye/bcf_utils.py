@@ -117,9 +117,15 @@ def parse_bcf(bcf):
     # "typically" include length information. So, let's guarantee the presence
     # of length info here to make life easier for us downstream.
     for contig in f.header.contigs:
-        if not hasattr(f.header.contigs[contig], "length"):
+        contig_entry = f.header.contigs[contig]
+        # From manual testing, it looks like pysam does actually set the length
+        # attribute of contigs without a given length -- but it sets it to
+        # None. Just to future-proof this a bit, we check both the case where a
+        # contig has no length attribute adn the case where a contig has a None
+        # length attribute. Both are invalid.
+        if not hasattr(contig_entry, "length") or contig_entry.length is None:
             raise ParameterError(
-                f"BCF file {bcf} has nolength given for contig {contig}."
+                f"BCF file {bcf} has no length given for contig {contig}."
             )
 
     return f, thresh_type, thresh_min
