@@ -743,3 +743,24 @@ def test_get_coldspot_gaps_many_mutations():
     assert su.get_coldspot_gaps_in_contig([50, 55, 60], 100, 5, True) == [
         (61, 49, 89)
     ]
+
+
+def test_get_coldspot_gaps_literal_docs_example():
+    # "better safe than sorry" -- not the guy who designed the titanic
+
+    assert su.get_coldspot_gaps_in_contig([4, 6], 9, 1, True) == [
+        (5, 5, 1),
+        (7, 3, 6),
+    ]
+
+    assert su.get_coldspot_gaps_in_contig([4, 6], 9, 1, False) == [
+        (5, 5, 1),
+        (1, 3, 3),
+        (7, 9, 3),
+    ]
+
+    # other stuff, just to be paranoid
+    assert su.get_coldspot_gaps_in_contig([4, 6], 9, 2, False) == [
+        (1, 3, 3),
+        (7, 9, 3),
+    ]

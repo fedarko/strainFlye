@@ -919,8 +919,8 @@ def cold_gaps(bcf, min_length, circular, output_coldspots):
     contig that has mutations at positions 4 and 6:
 
     \b
-                               M M
-                            123456789
+                               Mut.    Mut.
+                    1   2   3   4   5   6   7   8   9
 
     If --circular is provided, then this contig has two gaps: one gap of length
     1 (covering just position 5, between the two mutations), and another gap
