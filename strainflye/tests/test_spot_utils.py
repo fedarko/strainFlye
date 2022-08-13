@@ -565,6 +565,10 @@ def test_coldspot_good_nocircular(capsys):
             out_fh.name,
             mock_log,
         )
+        # For reference:
+        # c1 has len 23 and mutations at (1-indexed) pos 4, 11, 13
+        # c2 has len 12 and no mutations
+        # c3 has len 16 and mutations at (1-indexed) pos 7, 8
         obs_df = pd.read_csv(out_fh, sep="\t")
         exp_df = pd.DataFrame(
             {
@@ -581,6 +585,42 @@ def test_coldspot_good_nocircular(capsys):
         "PREFIX\nMockLog: Going through contigs and identifying coldspot "
         "gaps...\n"
         "MockLog: Identified 5 coldspot gap(s) across all 3 contigs in the "
+        "BCF file.\n"
+        "PREFIX\nMockLog: Writing out this information to a file...\n"
+    )
+    captured = capsys.readouterr()
+    assert captured.out == exp_out
+
+
+def test_coldspot_good_circular(capsys):
+    with tempfile.NamedTemporaryFile() as out_fh:
+        su.run_coldspot_gap_detection(
+            TEST_BCF_PATH,
+            5,
+            True,
+            out_fh.name,
+            mock_log,
+        )
+        # For reference:
+        # c1 has len 23 and mutations at (1-indexed) pos 4, 11, 13
+        # c2 has len 12 and no mutations
+        # c3 has len 16 and mutations at (1-indexed) pos 7, 8
+        obs_df = pd.read_csv(out_fh, sep="\t")
+        exp_df = pd.DataFrame(
+            {
+                "Contig": ["c1", "c1", "c2", "c3"],
+                "Start_1IndexedInclusive": [5, 14, 1, 9],
+                "End_1IndexedInclusive": [10, 3, 12, 6],
+                "Length": [6, 13, 12, 14],
+            }
+        )
+        pd.testing.assert_frame_equal(obs_df, exp_df)
+    exp_out = (
+        "PREFIX\nMockLog: Loading and checking the BCF file...\n"
+        "MockLog: Looks good so far.\n"
+        "PREFIX\nMockLog: Going through contigs and identifying coldspot "
+        "gaps...\n"
+        "MockLog: Identified 4 coldspot gap(s) across all 3 contigs in the "
         "BCF file.\n"
         "PREFIX\nMockLog: Writing out this information to a file...\n"
     )

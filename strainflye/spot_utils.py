@@ -441,7 +441,7 @@ def get_coldspot_gaps_in_contig(
             loop_gap_len = (contig_length + muts[0]) - muts[-1] - 1
             if loop_gap_len >= min_length:
                 coldspots.append(
-                    (contig, r1c(muts[-1]), l1c(muts[0], loop_gap_len))
+                    (contig, r1c(muts[-1]), l1c(muts[0]), loop_gap_len)
                 )
         else:
             # Test the gaps from 1 to muts[0] and
