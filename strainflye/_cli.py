@@ -924,9 +924,11 @@ def cold_gaps(bcf, min_length, circular, output_coldspots):
 
     If --circular is provided, then this contig has two gaps: one gap of length
     1 (covering just position 5, between the two mutations), and another gap
-    of length 6 (starting at position 7 and looping around to position 3).
-    If --circular is not provided, then this contig has three gaps: [1, 3],
-    [5], and [7, 9].
+    of length 6 (starting at position 7 and looping around to position 3:
+    [7, 8, 9, 1, 2, 3]).
+
+    If --circular is not provided, then this contig has three gaps: [1, 2, 3],
+    [5], and [7, 8, 9].
     """
     fancylog = cli_utils.fancystart(
         "strainFlye spot cold-gaps",
