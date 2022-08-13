@@ -556,7 +556,7 @@ c2	marcus	gene	2	12	100	-	.	ID=worlds_shittiest_gene"""
     assert captured.out == exp_out
 
 
-def test_coldspot_good(capsys):
+def test_coldspot_good_nocircular(capsys):
     with tempfile.NamedTemporaryFile() as out_fh:
         su.run_coldspot_gap_detection(
             TEST_BCF_PATH,
@@ -575,13 +575,13 @@ def test_coldspot_good(capsys):
             }
         )
         pd.testing.assert_frame_equal(obs_df, exp_df)
-    # exp_out = (
-    #    "PREFIX\nMockLog: Loading and checking the BCF file...\n"
-    #    "MockLog: Looks good so far.\n"
-    #    "PREFIX\nMockLog: Going through features in the GFF3 file and "
-    #    "identifying hotspot features...\n"
-    #    "MockLog: Identified 1 hotspot feature(s) across all contigs.\n"
-    #    "PREFIX\nMockLog: Writing out this information to a file...\n"
-    # )
-    # captured = capsys.readouterr()
-    # assert captured.out == exp_out
+    exp_out = (
+        "PREFIX\nMockLog: Loading and checking the BCF file...\n"
+        "MockLog: Looks good so far.\n"
+        "PREFIX\nMockLog: Going through contigs and identifying coldspot gaps...\n"
+        "MockLog: Identified 5 coldspot gap(s) across all 3 contigs in the BCF "
+        "file.\n"
+        "PREFIX\nMockLog: Writing out this information to a file...\n"
+    )
+    captured = capsys.readouterr()
+    assert captured.out == exp_out

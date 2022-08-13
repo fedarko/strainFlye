@@ -394,7 +394,7 @@ def run_coldspot_gap_detection(
     # be a little bit memory inefficient and store lengths from the get-go.
     coldspots = []
 
-    fancylog("Going through contigs and identifying coldspots...")
+    fancylog("Going through contigs and identifying coldspot gaps...")
     for contig in bcf_contigs:
 
         contig_length = bcf_obj.header.contigs[contig].length
