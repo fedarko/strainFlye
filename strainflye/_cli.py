@@ -1051,6 +1051,14 @@ def apply(
     help=("Directory produced by strainFlye smooth apply."),
 )
 @click.option(
+    "-t",
+    "--cov-threshold",
+    required=True,
+    default=10,
+    type=click.IntRange(min=0),
+    help="--Cov-threshold parameter to pass to LJA.",
+)
+@click.option(
     "-o",
     "--output-dir",
     required=True,
