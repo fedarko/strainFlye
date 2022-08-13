@@ -578,9 +578,10 @@ def test_coldspot_good_nocircular(capsys):
     exp_out = (
         "PREFIX\nMockLog: Loading and checking the BCF file...\n"
         "MockLog: Looks good so far.\n"
-        "PREFIX\nMockLog: Going through contigs and identifying coldspot gaps...\n"
-        "MockLog: Identified 5 coldspot gap(s) across all 3 contigs in the BCF "
-        "file.\n"
+        "PREFIX\nMockLog: Going through contigs and identifying coldspot "
+        "gaps...\n"
+        "MockLog: Identified 5 coldspot gap(s) across all 3 contigs in the "
+        "BCF file.\n"
         "PREFIX\nMockLog: Writing out this information to a file...\n"
     )
     captured = capsys.readouterr()
