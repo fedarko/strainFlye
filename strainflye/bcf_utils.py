@@ -15,7 +15,7 @@ def parse_bcf(bcf):
 
     Possible TODO: add another return value, indicating whether or not a header
     indicating FDR fixing was done is present in this BCF. The caller could
-    then optionally log a warning if so?
+    then optionally log a warning if this is or isn't the case?
 
     Parameters
     ----------
