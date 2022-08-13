@@ -907,22 +907,26 @@ def hot_features(
     ),
 )
 def cold_gaps(bcf, min_length, circular, output_coldspots):
-    """Identify coldspot "gaps" without any mutations.
+    """Identify long coldspot "gaps" without any mutations.
 
     To clarify, we define a "gap" of length L on a contig as
     a collection of continuous positions [N, N + 1, ... N + L - 2, N + L - 1]
     in which no positions are mutations (based on the input BCF file).
 
-    To give some extra intuition about the corner cases here:
-    If a contig of length C has no mutations, this contig only has one "gap,"
-    starting at position 1 and ending at position C.
+    If the --circular flag is provided, then we can loop around the contig
+    from right to left; otherwise, the left and right sides of the contig are
+    hard boundaries. To give an example of this, consider a 9-nucleotide
+    contig that has mutations at positions 4 and 6:
 
-    If this contig has one mutation (at position P, such that 1 ≤ P ≤ C),
-    then the number of gaps in this contig varies depending on the --circular
-    flag: if --circular is given, then this contig has one gap (starting at
-    position P + 1 and ending at position P - 1), and otherwise this contig has
-    two gaps (from 1 to P - 1, and from P + 1 to C). (We use modulo arithmetic
-    here to "loop around" the contig, so C + 1 = 1 and 1 - 1 = C.)
+    \b
+                               M M
+                            123456789
+
+    If --circular is provided, then this contig has two gaps: one gap of length
+    1 (covering just position 5, between the two mutations), and another gap
+    of length 6 (starting at position 7 and looping around to position 3).
+    If --circular is not provided, then this contig has three gaps: [1, 3],
+    [5], and [7, 9].
     """
     fancylog = cli_utils.fancystart(
         "strainFlye spot cold-gaps",
