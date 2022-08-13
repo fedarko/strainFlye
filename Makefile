@@ -8,6 +8,9 @@
 # --cov-report xml is needed to make this visible to Codecov, and
 # --cov-report term is needed in order to print a fancy table on the terminal
 # (useful when testing locally).
+#
+# Also, for reference -- if you wanna see all print output during testing, add
+# -s to the end of this command. Useful when debugging stuff.
 test:
 	python3 -B -m pytest strainflye/tests --cov-report xml --cov-report term --cov-report html --cov strainflye
 

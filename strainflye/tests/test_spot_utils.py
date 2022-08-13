@@ -283,7 +283,8 @@ c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
         "start and end coordinates. We assume this refers to a feature of "
         "length 1 spanning this single position, rather than a feature of "
         "length 0.\n"
-        "MockLog: Identified 3 hotspot feature(s) across all contigs.\n"
+        "MockLog: Identified 3 hotspot feature(s) across all 3 contigs in the "
+        "BCF file.\n"
         "PREFIX\nMockLog: Writing out this information to a file...\n"
     )
     # (The very last "Done.\n" is printed out by _cli.py, not by
@@ -328,7 +329,8 @@ c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
         "start and end coordinates. We assume this refers to a feature of "
         "length 1 spanning this single position, rather than a feature of "
         "length 0.\n"
-        "MockLog: Identified 0 hotspot feature(s) across all contigs.\n"
+        "MockLog: Identified 0 hotspot feature(s) across all 3 contigs in the "
+        "BCF file.\n"
         "PREFIX\nMockLog: Writing out this information to a file...\n"
     )
     captured = capsys.readouterr()
@@ -376,7 +378,8 @@ c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
         "start and end coordinates. We assume this refers to a feature of "
         "length 1 spanning this single position, rather than a feature of "
         "length 0.\n"
-        "MockLog: Identified 2 hotspot feature(s) across all contigs.\n"
+        "MockLog: Identified 2 hotspot feature(s) across all 3 contigs in the "
+        "BCF file.\n"
         "PREFIX\nMockLog: Writing out this information to a file...\n"
     )
     captured = capsys.readouterr()
@@ -418,7 +421,8 @@ c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
         "start and end coordinates. We assume this refers to a feature of "
         "length 1 spanning this single position, rather than a feature of "
         "length 0.\n"
-        "MockLog: Identified 0 hotspot feature(s) across all contigs.\n"
+        "MockLog: Identified 0 hotspot feature(s) across all 3 contigs in the "
+        "BCF file.\n"
         "PREFIX\nMockLog: Writing out this information to a file...\n"
     )
     captured = capsys.readouterr()
@@ -459,7 +463,8 @@ c3	marcus	exon	8	8	.	+	.	ID=doppelganger"""
         "start and end coordinates. We assume this refers to a feature of "
         "length 1 spanning this single position, rather than a feature of "
         "length 0.\n"
-        "MockLog: Identified 2 hotspot feature(s) across all contigs.\n"
+        "MockLog: Identified 2 hotspot feature(s) across all 3 contigs in the "
+        "BCF file.\n"
         "PREFIX\nMockLog: Writing out this information to a file...\n"
     )
     captured = capsys.readouterr()
@@ -502,7 +507,8 @@ c3	marcus	exon	16	16	.	+	.	ID=f2"""
         "start and end coordinates. We assume this refers to a feature of "
         "length 1 spanning this single position, rather than a feature of "
         "length 0.\n"
-        "MockLog: Identified 1 hotspot feature(s) across all contigs.\n"
+        "MockLog: Identified 1 hotspot feature(s) across all 3 contigs in the "
+        "BCF file.\n"
         "PREFIX\nMockLog: Writing out this information to a file...\n"
     )
     captured = capsys.readouterr()
@@ -542,8 +548,40 @@ c2	marcus	gene	2	12	100	-	.	ID=worlds_shittiest_gene"""
         "MockLog: Looks good so far.\n"
         "PREFIX\nMockLog: Going through features in the GFF3 file and "
         "identifying hotspot features...\n"
-        "MockLog: Identified 1 hotspot feature(s) across all contigs.\n"
+        "MockLog: Identified 1 hotspot feature(s) across all 3 contigs in the "
+        "BCF file.\n"
         "PREFIX\nMockLog: Writing out this information to a file...\n"
     )
     captured = capsys.readouterr()
     assert captured.out == exp_out
+
+
+def test_coldspot_good(capsys):
+    with tempfile.NamedTemporaryFile() as out_fh:
+        su.run_coldspot_gap_detection(
+            TEST_BCF_PATH,
+            5,
+            False,
+            out_fh.name,
+            mock_log,
+        )
+        obs_df = pd.read_csv(out_fh, sep="\t")
+        exp_df = pd.DataFrame(
+            {
+                "Contig": ["c1", "c1", "c2", "c3", "c3"],
+                "Start_1IndexedInclusive": [5, 14, 1, 1, 9],
+                "End_1IndexedInclusive": [10, 23, 12, 6, 16],
+                "Length": [6, 10, 12, 6, 8],
+            }
+        )
+        pd.testing.assert_frame_equal(obs_df, exp_df)
+    # exp_out = (
+    #    "PREFIX\nMockLog: Loading and checking the BCF file...\n"
+    #    "MockLog: Looks good so far.\n"
+    #    "PREFIX\nMockLog: Going through features in the GFF3 file and "
+    #    "identifying hotspot features...\n"
+    #    "MockLog: Identified 1 hotspot feature(s) across all contigs.\n"
+    #    "PREFIX\nMockLog: Writing out this information to a file...\n"
+    # )
+    # captured = capsys.readouterr()
+    # assert captured.out == exp_out

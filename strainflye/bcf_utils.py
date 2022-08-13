@@ -107,7 +107,7 @@ def parse_bcf(bcf):
     return f, thresh_type, thresh_min
 
 
-def get_mutated_positions_in_contig(bcf_obj, contig):
+def get_mutated_positions_in_contig(bcf_obj, contig, zero_indexed=True):
     """Identifies positions containing mutations in a contig.
 
     We use the same definition of "mutation" (a single-nucleotide,
@@ -123,11 +123,15 @@ def get_mutated_positions_in_contig(bcf_obj, contig):
     contig: str
         Name of a contig for which we will fetch mutations in bcf_obj.
 
+    zero_indexed: bool
+        If True, return zero-indexed positions; otherwise, return one-indexed
+        positions.
+
     Returns
     -------
     mutated_positions: set
-        Set of 0-indexed positions (integers), corresponding to the positions
-        on the contig at which mutations are defined in the BCF file.
+        Set of positions (integers), corresponding to the positions on the
+        contig at which mutations are defined in the BCF file.
 
     Raises
     ------
@@ -138,9 +142,24 @@ def get_mutated_positions_in_contig(bcf_obj, contig):
         raise ValueError(
             f"Contig {contig} is not described in the BCF object's header."
         )
+
+    # I guess we could return a list instead, but I am 100% not going to make
+    # the assumption that pysam.VariantFile.fetch() always returns positions in
+    # sorted order, so it's the caller's responsibility to call sorted() on
+    # this if they want a sorted list of these positions. Better slow and
+    # correct than fast and wrong.
     mutated_positions = set()
+
+    # pysam gives us 1-based positions, so if we want zero-indexed positions we
+    # gotta subtract 1 from everything. This is probably an inefficient way to
+    # do this but whatever if this is the bottleneck then god help us all
+    def index_position(pos):
+        if zero_indexed:
+            return pos - 1
+        else:
+            return pos
+
     for mut in bcf_obj.fetch(contig):
-        # "positions" in pysam are 1-based; to be compatible with scikit-bio's
-        # 0-based positions (from parsing GFF files), subtract 1
-        mutated_positions.add(mut.pos - 1)
+        mutated_positions.add(index_position(mut.pos))
+
     return mutated_positions
