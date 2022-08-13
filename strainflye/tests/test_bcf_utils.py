@@ -148,7 +148,7 @@ def test_parse_bcf_missing_info_fields():
     assert str(ei.value) == exp_patt
 
     # remove both the MDP and AAD lines
-    fh = write_vcf_tempfile("\n".join(split_text[:4] + split_text[6:]))
+    fh = write_vcf_tempfile("\n".join(split_text[:5] + split_text[7:]))
     with pytest.raises(ParameterError) as ei:
         bu.parse_bcf(fh.name)
     exp_patt = f"BCF file {fh.name} needs to have MDP and AAD info fields."
