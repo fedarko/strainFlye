@@ -889,11 +889,11 @@ def hot_features(
     show_default=True,
     required=False,
     help=(
-        "If this flag is given, we'll assume that all contigs are circular: "
-        'we\'ll consider the gap "looping around" from the rightmost '
-        "mutation in each contig to the leftmost mutation in the contig as "
-        "a potential coldspot. Otherwise, we will assume all contigs are "
-        "linear."
+        "If this flag is provided, we'll assume that all contigs are "
+        'circular: we\'ll consider the gap "looping around" from the '
+        "rightmost mutation in each contig to the leftmost mutation in "
+        "the contig as a potential coldspot. Otherwise, we will assume all "
+        "contigs are linear."
     ),
 )
 @click.option(
@@ -945,6 +945,127 @@ def cold_gaps(bcf, min_length, circular, output_coldspots):
         bcf, min_length, circular, output_coldspots, fancylog
     )
     fancylog("Done.")
+
+
+@click.group(name="smooth", **grp_params, **cmd_params)
+def smooth():
+    """[+] Generate and assemble smoothed and virtual reads."""
+
+
+strainflye.add_command(smooth)
+
+
+@smooth.command(**cmd_params)
+@click.option(
+    "-c",
+    "--contigs",
+    required=True,
+    type=click.Path(exists=True),
+    help=desc.INPUT_CONTIGS,
+)
+@click.option(
+    "--bam",
+    required=True,
+    type=click.Path(exists=True),
+    help=desc.INPUT_BAM,
+)
+@click.option(
+    "--bcf",
+    required=True,
+    type=click.Path(exists=True),
+    help=desc.INPUT_BCF_DOWNSTREAM,
+)
+@click.option(
+    "--virtual-reads/--no-virtual-reads",
+    is_flag=True,
+    default=True,
+    show_default=True,
+    required=False,
+    help=(
+        "If this flag is provided, we'll add virtual reads covering non-"
+        "well-covered regions in contigs."
+    ),
+)
+@click.option(
+    "-vres",
+    "--virtual-read-extra-span",
+    required=True,
+    type=click.IntRange(min=0, min_open=True),
+    default=100,
+    show_default=True,
+    help=(
+        "Only used if we are constructing virtual reads. Virtual read extra "
+        "span."
+    ),
+)
+@click.option(
+    "-vrwcp",
+    "--virtual-read-well-covered-perc",
+    required=True,
+    type=click.FloatRange(min=0, max=100),
+    default=95,
+    show_default=True,
+    help=(
+        "Only used if we are constructing virtual reads. Well covered "
+        "percentage."
+    ),
+)
+# TODO do we need this? maybe
+@click.option(
+    "-o",
+    "--output-dir",
+    required=True,
+    type=click.Path(dir_okay=True, file_okay=False),
+    help=(
+        "Directory to which one output gzipped FASTA file for each contig "
+        "(that is covered in the BAM file) will be written. Some temporary "
+        "files will also be written to this directory."
+    ),
+)
+@click.option(
+    "--verbose/--no-verbose",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Display extra details for each contig while generating reads.",
+)
+def apply(
+    contigs,
+    bam,
+    bcf,
+    virtual_reads,
+    virtual_read_extra_span,
+    well_covered_percentage,
+    output_dir,
+    verbose,
+):
+    """Generate smoothed and virtual reads."""
+
+
+@smooth.command(**cmd_params)
+@click.option(
+    "-r",
+    "--reads-dir",
+    required=True,
+    type=click.Path(exists=True, dir_okay=True, file_okay=False),
+    help=("Directory produced by strainFlye smooth apply."),
+)
+@click.option(
+    "-o",
+    "--output-dir",
+    required=True,
+    type=click.Path(dir_okay=True, file_okay=False),
+    help=("Directory to which output assemblies will be written."),
+)
+@click.option(
+    "--verbose/--no-verbose",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Display extra details for each contig during the assembly process.",
+)
+def assemble(reads_dir, output_dir, verbose):
+    """Assemble reads using LJA."""
 
 
 # @strainflye.command(**cmd_params)
