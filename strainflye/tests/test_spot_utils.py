@@ -639,4 +639,6 @@ def test_coldspot_zero_min_length():
                 mock_log,
             )
 
-        assert str(ei.value) == "Minimum coldspot gap length must be at least 1."
+        assert str(ei.value) == (
+            "Minimum coldspot gap length must be at least 1."
+        )
