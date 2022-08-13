@@ -642,3 +642,28 @@ def test_coldspot_zero_min_length():
         assert str(ei.value) == (
             "Minimum coldspot gap length must be at least 1."
         )
+
+
+def test_get_coldspot_gaps_len1():
+    # If there's just one position, and it is a mutation, then there are no
+    # gaps -- even of length 1.
+    assert su.get_coldspot_gaps_in_contig([1], 1, 1, False) == []
+    assert su.get_coldspot_gaps_in_contig([1], 1, 1, True) == []
+    # ... or of length 2.
+    assert su.get_coldspot_gaps_in_contig([1], 1, 2, False) == []
+    assert su.get_coldspot_gaps_in_contig([1], 1, 2, True) == []
+
+    # However, if this position isn't a mutation, it counts as a gap of len 1.
+    assert su.get_coldspot_gaps_in_contig([], 1, 1, False) == [(1, 1, 1)]
+    assert su.get_coldspot_gaps_in_contig([], 1, 1, True) == [(1, 1, 1)]
+
+
+def test_get_coldspot_gaps_1mut_at_2len_end():
+    # Contigs of length 2, where there is a single mutation at the left end...
+    assert su.get_coldspot_gaps_in_contig([1], 2, 1, True) == [(2, 2, 1)]
+    # ...or at the right end.
+    assert su.get_coldspot_gaps_in_contig([2], 2, 1, True) == [(1, 1, 1)]
+
+    # Increasing the minimum gap length to 2 causes us to not find anything.
+    assert su.get_coldspot_gaps_in_contig([1], 2, 2, True) == []
+    assert su.get_coldspot_gaps_in_contig([2], 2, 2, True) == []
