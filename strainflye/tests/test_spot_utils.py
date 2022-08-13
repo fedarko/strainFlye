@@ -667,3 +667,30 @@ def test_get_coldspot_gaps_1mut_at_2len_end():
     # Increasing the minimum gap length to 2 causes us to not find anything.
     assert su.get_coldspot_gaps_in_contig([1], 2, 2, True) == []
     assert su.get_coldspot_gaps_in_contig([2], 2, 2, True) == []
+
+
+def test_get_coldspot_gaps_weird_circular_3len():
+
+    # Zero mutations:
+    # NO NO NO
+    assert su.get_coldspot_gaps_in_contig([], 3, 1, True) == [(1, 3, 3)]
+
+    # One mutation:
+    # MUT NO NO
+    assert su.get_coldspot_gaps_in_contig([1], 3, 1, True) == [(2, 3, 2)]
+    # NO MUT NO
+    assert su.get_coldspot_gaps_in_contig([2], 3, 1, True) == [(3, 1, 2)]
+    # NO NO MUT
+    assert su.get_coldspot_gaps_in_contig([3], 3, 1, True) == [(1, 2, 2)]
+
+    # Two mutations:
+    # NO MUT MUT
+    assert su.get_coldspot_gaps_in_contig([2, 3], 3, 1, True) == [(1, 1, 1)]
+    # MUT NO MUT
+    assert su.get_coldspot_gaps_in_contig([1, 3], 3, 1, True) == [(2, 2, 1)]
+    # MUT MUT NO
+    assert su.get_coldspot_gaps_in_contig([1, 2], 3, 1, True) == [(3, 3, 1)]
+
+    # Three mutations:
+    # MUT MUT MUT
+    assert su.get_coldspot_gaps_in_contig([1, 2, 3], 3, 1, True) == []
