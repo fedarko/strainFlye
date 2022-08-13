@@ -17,6 +17,7 @@ def test_parse_bcf_good():
         "##fileDate=20220526\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
         "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        "##contig=<ID=edge_1,length=1000>\n"
         '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
         '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
         '##FILTER=<ID=strainflye_minp_15, Description="min p threshold (scaled up by 100)">\n'  # noqa: E501
@@ -66,6 +67,7 @@ def test_parse_bcf_multi_sf_header():
         "##fileDate=20220526\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
         "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        "##contig=<ID=edge_1,length=1000>\n"
         '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
         '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
         '##FILTER=<ID=strainflye_minp_15, Description="min p threshold (scaled up by 100)">\n'  # noqa: E501
@@ -91,6 +93,7 @@ def test_parse_bcf_no_sf_header():
         "##fileDate=20220526\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
         "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        "##contig=<ID=edge_1,length=1000>\n"
         '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
         '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
         "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
@@ -118,6 +121,7 @@ def test_parse_bcf_missing_info_fields():
         "##fileDate=20220526\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
         "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        "##contig=<ID=edge_1,length=1000>\n"
         '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
         '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
         '##FILTER=<ID=strainflye_minp_15, Description="min p threshold (scaled up by 100)">\n'  # noqa: E501
@@ -130,14 +134,14 @@ def test_parse_bcf_missing_info_fields():
     split_text = text.splitlines()
 
     # remove just the MDP line
-    fh = write_vcf_tempfile("\n".join(split_text[:4] + split_text[5:]))
+    fh = write_vcf_tempfile("\n".join(split_text[:5] + split_text[6:]))
     with pytest.raises(ParameterError) as ei:
         bu.parse_bcf(fh.name)
     exp_patt = f"BCF file {fh.name} needs to have MDP and AAD info fields."
     assert str(ei.value) == exp_patt
 
     # remove just the AAD line
-    fh = write_vcf_tempfile("\n".join(split_text[:5] + split_text[6:]))
+    fh = write_vcf_tempfile("\n".join(split_text[:6] + split_text[7:]))
     with pytest.raises(ParameterError) as ei:
         bu.parse_bcf(fh.name)
     exp_patt = f"BCF file {fh.name} needs to have MDP and AAD info fields."

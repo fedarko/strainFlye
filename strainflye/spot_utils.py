@@ -6,14 +6,6 @@ from strainflye import bcf_utils
 from strainflye.errors import ParameterError
 
 
-def loudly_load_bcf(bcf, fancylog):
-    fancylog("Loading and checking the BCF file...")
-    bcf_obj, thresh_type, thresh_min = bcf_utils.parse_bcf(bcf)
-    fancylog("Looks good so far.", prefix="")
-    bcf_contigs = bcf_obj.header.contigs
-    return bcf_obj, bcf_contigs
-
-
 def run_hotspot_feature_detection(
     bcf,
     features,
@@ -62,6 +54,7 @@ def run_hotspot_feature_detection(
     ParameterError
         - If min_num_mutations and min_perc_mutations are both None
         - If various things are invalid in the GFF3 file
+        - If various things are invalid in the BCF file
 
     References
     ----------
@@ -102,7 +95,7 @@ def run_hotspot_feature_detection(
             "be specified."
         )
 
-    bcf_obj, bcf_contigs = loudly_load_bcf(bcf, fancylog)
+    bcf_obj, bcf_contigs = bcf_utils.loudly_parse_bcf_and_contigs(bcf, fancylog)
 
     # List of tuples of
     # (contig ID, feature, # mutations in feature, % mutations in feature)
@@ -134,13 +127,8 @@ def run_hotspot_feature_detection(
 
         # Also, get its length -- this'll be useful for checking that the
         # feature coordinates are sane later.
-        # (NOTE: We implicitly make the assumption here that the input BCF file
-        # has lengths given in its header contig tags, even though the VCF 4.3
-        # specification -- as of writing -- only says that these tags
-        # "typically" include this information. So, if this starts leading to
-        # AttributeErrors, we can handle this another way -- likely just by
-        # having the users pass contigs to this command, so we can extract
-        # lengths from there. But eesh.)
+        # (bcf_utils.parse_bcf() should have already raised an error if length
+        # was unavailable in the BCF header for any contigs, so this is safe.)
         contig_length = bcf_obj.header.contigs[contig].length
 
         seen_feature_ids = set()
@@ -332,6 +320,145 @@ def run_hotspot_feature_detection(
             )
 
 
+def get_coldspot_gaps_in_contig(
+    muts, contig, contig_length, min_length, circular
+):
+    """Identifies "coldspot gaps" in a certain contig.
+
+    This is a utility function, to make testing coldspot stuff easier.
+
+    Parameters
+    ----------
+    muts: list
+        Sorted list of (1-indexed) mutated positions in a contig. We assume
+        that all of these are in the inclusive range [1, contig_length].
+
+    contig: str
+        Name of the contig we're considering.
+
+    contig_length: int
+        Length of the contig.
+
+    min_length: int
+        Minimum length of a gap to be considered a coldspot. We assume this is
+        greater than 0.
+
+    circular: bool
+        If True, assume that each contig is circular, and examine the presence
+        of a potential gap between the rightmost mutation and the leftmost
+        mutation in the contig. If False, don't do this.
+
+    Returns
+    -------
+    coldspots: list of (str, int, int, int)
+        Each entry in this list is a 4-tuple that describes a coldspot gap
+        identified in this contig. The four entries of each tuple are:
+
+          1. Contig name
+          2. Start position of the gap (1-indexed, inclusive)
+          3. End position of the gap (1-indexed, inclusive)
+          4. Length of the gap
+    """
+    coldspots = []
+
+    # There is almost certainly a big brain way to handle this elegantly
+    # but my brain is smooth and my coffee mug is empty
+    # These functions take care of modulo arithmetic for us when circular
+    # is True
+    def r1c(pos):
+        n = pos + 1
+        if n > contig_length:
+            return 1
+        else:
+            return n
+
+    def l1c(pos):
+        p = pos - 1
+        if p < 1:
+            return contig_length
+        else:
+            return p
+
+    # Silly corner cases
+    if len(muts) == 0:
+        if contig_length >= min_length:
+            coldspots.append((contig, 1, contig_length, contig_length))
+
+    elif len(muts) == 1:
+        # We can think of the contig as the following diagram:
+        #
+        #    L       R
+        # -------M-------
+        #
+        # Where M indicates the position of the one mutated position.
+        m = muts[0]
+        if circular:
+            # The only gap is from M + 1 to M - 1 -- spanning all R and L
+            # positions.
+            if (contig_length - 1) >= min_length:
+                start = r1c(m)
+                end = l1c(m)
+                coldspots.append((contig, start, end, contig_length - 1))
+
+        else:
+            # So, now we gotta treat L and R as two separate gaps.
+
+            # If m == 1, then m - 1 == 0, and we know that min_length > 0.
+            # So we'll automatically ignore a possible gap in this case.
+            llen = m - 1
+            if llen >= min_length:
+                coldspots.append((contig, 1, llen, llen))
+
+            # Similar idea: if m == contig_length, then (contig_length - m)
+            # == 0, and no possible gap is considered.
+            rlen = contig_length - m
+            if rlen >= min_length:
+                coldspots.append((contig, m + 1, contig_length, rlen))
+
+    else:
+        # Look for easy, "internal" gaps between mutations
+        for mpi in range(1, len(muts)):
+            prev_mut = muts[mpi - 1]
+            curr_mut = muts[mpi]
+
+            if prev_mut != curr_mut - 1:
+                # This is a gap of length (curr_mut - prev_mut - 1), since
+                # we exclude both the start and end point of the "gap."
+                # For example, if prev_mut = 4 and curr_mut = 6, then we
+                # have a gap of length 1 (including just position 5).
+                gap_len = curr_mut - prev_mut - 1
+
+                if gap_len >= min_length:
+                    gap_start = prev_mut + 1
+                    gap_end = curr_mut - 1
+                    coldspots.append((contig, gap_start, gap_end, gap_len))
+
+        if circular:
+            # Test the loop-around gap from the rightmost mutation to the
+            # leftmost # mutation
+            loop_gap_len = (contig_length + muts[0]) - muts[-1] - 1
+            if loop_gap_len >= min_length:
+                coldspots.append(
+                    (contig, r1c(muts[-1]), l1c(muts[0], loop_gap_len))
+                )
+        else:
+            # Test the gaps from 1 to muts[0] and
+            # from muts[-1] to contig_length. This is analogous to how we
+            # handle the 1-mutation case when circular is False above.
+            # (Maybe I should reuse that code here... whatevs.)
+
+            # Test the left gap
+            llen = muts[0] - 1
+            if llen >= min_length:
+                coldspots.append((contig, 1, llen, llen))
+
+            # Test the right gap
+            rlen = contig_length - muts[-1]
+            if rlen >= min_length:
+                coldspots.append((contig, muts[-1] + 1, contig_length, rlen))
+    return coldspots
+
+
 def run_coldspot_gap_detection(
     bcf,
     min_length,
@@ -360,9 +487,8 @@ def run_coldspot_gap_detection(
     circular: bool
         If True, assume that each contig is circular, and examine the presence
         of a potential gap between the rightmost mutation and the leftmost
-        mutation in the contig. (If the contig has length N, then we'd treat
-        the first position of the contig as N + 1, etc.) If False, don't do
-        this. (This is a lazy way to handle this, since not all contigs will be
+        mutation in the contig. If False, don't do this.
+        (This is a lazy way to handle this, since not all contigs will be
         circular -- ideally, we'd handle this on a contig-by-contig basis,
         maybe by consulting the assembly graph to see which contigs actually
         are circular.)
@@ -377,8 +503,19 @@ def run_coldspot_gap_detection(
     Returns
     -------
     None
+
+    Raises
+    ------
+    ParameterError
+        - If min_length < 1
+        - If various things are invalid in the BCF file
     """
-    bcf_obj, bcf_contigs = loudly_load_bcf(bcf, fancylog)
+    # Should never happen due to Click enforcing this, but some of our logic
+    # here breaks if min_length == 0 so we manually enforce this to be paranoid
+    if min_length < 1:
+        raise ParameterError("Minimum coldspot gap length must be at least 1.")
+
+    bcf_obj, bcf_contigs = bcf_utils.loudly_parse_bcf_and_contigs(bcf, fancylog)
 
     # List of 4-tuples of (contig ID, start, end, length)
     # ... where start/end are 1-indexed and inclusive
@@ -399,24 +536,6 @@ def run_coldspot_gap_detection(
 
         contig_length = bcf_obj.header.contigs[contig].length
 
-        # There is almost certainly a big brain way to handle this elegantly
-        # but my brain is smooth and my coffee mug is empty
-        # These functions take care of modulo arithmetic for us when circular
-        # is True
-        def r1c(pos):
-            n = pos + 1
-            if n > contig_length:
-                return 1
-            else:
-                return n
-
-        def l1c(pos):
-            p = pos - 1
-            if p < 1:
-                return contig_length
-            else:
-                return p
-
         # (These are 1-indexed positions)
         muts = sorted(
             bcf_utils.get_mutated_positions_in_contig(
@@ -424,85 +543,11 @@ def run_coldspot_gap_detection(
             )
         )
 
-        # Silly corner cases
-        if len(muts) == 0:
-            if contig_length >= min_length:
-                coldspots.append((contig, 1, contig_length, contig_length))
-
-        elif len(muts) == 1:
-            # We can think of the contig as the following diagram:
-            #
-            #    L       R
-            # -------M-------
-            #
-            # Where M indicates the position of the one mutated position.
-            m = muts[0]
-            if circular:
-                # The only gap is from M + 1 to M - 1 -- spanning all R and L
-                # positions.
-                if (contig_length - 1) >= min_length:
-                    start = r1c(m)
-                    end = l1c(m)
-                    coldspots.append((contig, start, end, contig_length - 1))
-
-            else:
-                # So, now we gotta treat L and R as two separate gaps.
-
-                # If m == 1, then m - 1 == 0, and we know that min_length > 0.
-                # So we'll automatically ignore a possible gap in this case.
-                llen = m - 1
-                if llen >= min_length:
-                    coldspots.append((contig, 1, llen, llen))
-
-                # Similar idea: if m == contig_length, then (contig_length - m)
-                # == 0, and no possible gap is considered.
-                rlen = contig_length - m
-                if rlen >= min_length:
-                    coldspots.append((contig, m + 1, contig_length, rlen))
-
-        else:
-            # Look for easy, "internal" gaps between mutations
-            for mpi in range(1, len(muts)):
-                prev_mut = muts[mpi - 1]
-                curr_mut = muts[mpi]
-
-                if prev_mut != curr_mut - 1:
-                    # This is a gap of length (curr_mut - prev_mut - 1), since
-                    # we exclude both the start and end point of the "gap."
-                    # For example, if prev_mut = 4 and curr_mut = 6, then we
-                    # have a gap of length 1 (including just position 5).
-                    gap_len = curr_mut - prev_mut - 1
-
-                    if gap_len >= min_length:
-                        gap_start = prev_mut + 1
-                        gap_end = curr_mut - 1
-                        coldspots.append((contig, gap_start, gap_end, gap_len))
-
-            if circular:
-                # Test the loop-around gap from the rightmost mutation to the
-                # leftmost # mutation
-                loop_gap_len = (contig_length + muts[0]) - muts[-1] - 1
-                if loop_gap_len >= min_length:
-                    coldspots.append(
-                        (contig, r1c(muts[-1]), l1c(muts[0], loop_gap_len))
-                    )
-            else:
-                # Test the gaps from 1 to muts[0] and
-                # from muts[-1] to contig_length. This is analogous to how we
-                # handle the 1-mutation case when circular is False above.
-                # (Maybe I should reuse that code here... whatevs.)
-
-                # Test the left gap
-                llen = muts[0] - 1
-                if llen >= min_length:
-                    coldspots.append((contig, 1, llen, llen))
-
-                # Test the right gap
-                rlen = contig_length - muts[-1]
-                if rlen >= min_length:
-                    coldspots.append(
-                        (contig, muts[-1] + 1, contig_length, rlen)
-                    )
+        # We defer the actual process of finding gaps to a utility function to
+        # make testing easier (also to make this code look pretty)
+        coldspots += get_coldspot_gaps_in_contig(
+            muts, contig, contig_length, min_length, circular
+        )
 
     fancylog(
         (

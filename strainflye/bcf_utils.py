@@ -1,4 +1,4 @@
-# Utilities for strainFlye fdr.
+# General BCF-related utilities.
 
 
 import re
@@ -56,6 +56,10 @@ def parse_bcf(bcf):
 
         If there isn't exactly one of these lines, then we will be very
         confused! Hence why we raise an error.
+
+        Also, we raise this sort of error if this file doesn't describe any
+        contigs (because in that case, you should consult a priest rather than
+        strainFlye).
     """
     # this will fail with a FileNotFoundError if "bcf" doesn't point to an
     # existing file (although we shouldn't need to worry about that much b/c
@@ -104,7 +108,56 @@ def parse_bcf(bcf):
             f"BCF file {bcf} needs to have MDP and AAD info fields."
         )
 
+    if len(f.header.contigs) < 1:
+        raise ParameterError(
+            f"BCF file {bcf} doesn't describe any contigs in its header."
+        )
+
+    # The VCF 4.3 specification -- as of writing -- only says that contig tags
+    # "typically" include length information. So, let's guarantee the presence
+    # of length info here to make life easier for us downstream.
+    for contig in f.header.contigs:
+        if not hasattr(f.header.contigs[contig], "length"):
+            raise ParameterError(
+                f"BCF file {bcf} has nolength given for contig {contig}."
+            )
+
     return f, thresh_type, thresh_min
+
+
+def loudly_parse_bcf_and_contigs(bcf, fancylog):
+    """Calls parse_bcf() on a BCF file while logging about it.
+
+    Encapsulated this to its own function because this was the same for both
+    "spot" commands.
+
+    Parameters
+    ----------
+    bcf: str
+        Filepath to a BCF file describing single-nucleotide mutations.
+
+    fancylog: function
+        Logging function.
+
+    Returns
+    -------
+    (bcf_obj, bcf_contigs): (pysam.VariantFile, list)
+        BCF object and collection of contigs described in its header.
+        (Presumably, the order of contigs matches the order of contigs in the
+        BCF header, but we probably can't rely on that in 100% of cases.)
+
+    Raises
+    ------
+    Any of the errors that parse_bcf() would raise; see that function's
+    documentation for details.
+    """
+    fancylog("Loading and checking the BCF file...")
+    bcf_obj, thresh_type, thresh_min = parse_bcf(bcf)
+    fancylog("Looks good so far.", prefix="")
+    # We don't really NEED to convert this to a list but we might as well just
+    # for peace of mind
+    bcf_contigs = list(bcf_obj.header.contigs)
+    return bcf_obj, bcf_contigs
 
 
 def get_mutated_positions_in_contig(bcf_obj, contig, zero_indexed=True):
