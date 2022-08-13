@@ -626,3 +626,17 @@ def test_coldspot_good_circular(capsys):
     )
     captured = capsys.readouterr()
     assert captured.out == exp_out
+
+
+def test_coldspot_zero_min_length():
+    with tempfile.NamedTemporaryFile() as out_fh:
+        with pytest.raises(ParameterError) as ei:
+            su.run_coldspot_gap_detection(
+                TEST_BCF_PATH,
+                0,
+                True,
+                out_fh.name,
+                mock_log,
+            )
+
+        assert str(ei.value) == "Minimum coldspot gap length must be at least 1."
