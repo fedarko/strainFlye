@@ -694,3 +694,52 @@ def test_get_coldspot_gaps_weird_circular_3len():
     # Three mutations:
     # MUT MUT MUT
     assert su.get_coldspot_gaps_in_contig([1, 2, 3], 3, 1, True) == []
+
+
+def test_get_coldspot_gaps_no_mutations():
+    # Cases where, despite there being no muts, the contig isn't long enough to
+    # qualify as a gap
+    for min_len in range(101, 201):
+        assert su.get_coldspot_gaps_in_contig([], 100, min_len, True) == []
+
+    # Cases where the contig is now long enough
+    for min_len in range(1, 101):
+        assert su.get_coldspot_gaps_in_contig([], 100, min_len, True) == [
+            (1, 100, 100)
+        ]
+
+
+def test_get_coldspot_gaps_one_mutation_no_circular():
+    # A contig has positions 1, 2, ..., 99, 100, with a mutation at pos 50.
+    #
+    # There are thus two gaps: [1, 49] (length 49) and [51, 100] (length 50).
+
+    # Both gaps are long enough
+    assert su.get_coldspot_gaps_in_contig([50], 100, 5, False) == [
+        (1, 49, 49),
+        (51, 100, 50),
+    ]
+
+    # Only one is long enough
+    assert su.get_coldspot_gaps_in_contig([50], 100, 50, False) == [
+        (51, 100, 50)
+    ]
+
+    # Neither is long enough
+    assert su.get_coldspot_gaps_in_contig([50], 100, 51, False) == []
+
+
+def test_get_coldspot_gaps_many_mutations():
+
+    assert su.get_coldspot_gaps_in_contig([50, 55, 60], 100, 5, False) == [
+        (1, 49, 49),
+        (61, 100, 40),
+    ]
+
+    assert su.get_coldspot_gaps_in_contig([50, 55, 60], 100, 49, False) == [
+        (1, 49, 49)
+    ]
+
+    assert su.get_coldspot_gaps_in_contig([50, 55, 60], 100, 5, True) == [
+        (61, 49, 89)
+    ]
