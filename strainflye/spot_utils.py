@@ -322,9 +322,7 @@ def run_hotspot_feature_detection(
             )
 
 
-def get_coldspot_gaps_in_contig(
-    muts, contig, contig_length, min_length, circular
-):
+def get_coldspot_gaps_in_contig(muts, contig_length, min_length, circular):
     """Identifies "coldspot gaps" in a certain contig.
 
     This is a utility function, to make testing coldspot stuff easier.
@@ -334,9 +332,6 @@ def get_coldspot_gaps_in_contig(
     muts: list
         Sorted list of (1-indexed) mutated positions in a contig. We assume
         that all of these are in the inclusive range [1, contig_length].
-
-    contig: str
-        Name of the contig we're considering.
 
     contig_length: int
         Length of the contig.
@@ -352,11 +347,10 @@ def get_coldspot_gaps_in_contig(
 
     Returns
     -------
-    coldspots: list of (str, int, int, int)
-        Each entry in this list is a 4-tuple that describes a coldspot gap
+    coldspots: list of (int, int, int)
+        Each entry in this list is a 3-tuple that describes a coldspot gap
         identified in this contig. The four entries of each tuple are:
 
-          1. Contig name
           2. Start position of the gap (1-indexed, inclusive)
           3. End position of the gap (1-indexed, inclusive)
           4. Length of the gap
@@ -384,7 +378,7 @@ def get_coldspot_gaps_in_contig(
     # Silly corner cases
     if len(muts) == 0:
         if contig_length >= min_length:
-            coldspots.append((contig, 1, contig_length, contig_length))
+            coldspots.append((1, contig_length, contig_length))
 
     elif len(muts) == 1:
         # We can think of the contig as the following diagram:
@@ -400,7 +394,7 @@ def get_coldspot_gaps_in_contig(
             if (contig_length - 1) >= min_length:
                 start = r1c(m)
                 end = l1c(m)
-                coldspots.append((contig, start, end, contig_length - 1))
+                coldspots.append((start, end, contig_length - 1))
 
         else:
             # So, now we gotta treat L and R as two separate gaps.
@@ -409,13 +403,13 @@ def get_coldspot_gaps_in_contig(
             # So we'll automatically ignore a possible gap in this case.
             llen = m - 1
             if llen >= min_length:
-                coldspots.append((contig, 1, llen, llen))
+                coldspots.append((1, llen, llen))
 
             # Similar idea: if m == contig_length, then (contig_length - m)
             # == 0, and no possible gap is considered.
             rlen = contig_length - m
             if rlen >= min_length:
-                coldspots.append((contig, m + 1, contig_length, rlen))
+                coldspots.append((m + 1, contig_length, rlen))
 
     else:
         # Look for easy, "internal" gaps between mutations
@@ -433,16 +427,14 @@ def get_coldspot_gaps_in_contig(
                 if gap_len >= min_length:
                     gap_start = prev_mut + 1
                     gap_end = curr_mut - 1
-                    coldspots.append((contig, gap_start, gap_end, gap_len))
+                    coldspots.append((gap_start, gap_end, gap_len))
 
         if circular:
             # Test the loop-around gap from the rightmost mutation to the
             # leftmost # mutation
             loop_gap_len = (contig_length + muts[0]) - muts[-1] - 1
             if loop_gap_len >= min_length:
-                coldspots.append(
-                    (contig, r1c(muts[-1]), l1c(muts[0]), loop_gap_len)
-                )
+                coldspots.append((r1c(muts[-1]), l1c(muts[0]), loop_gap_len))
         else:
             # Test the gaps from 1 to muts[0] and
             # from muts[-1] to contig_length. This is analogous to how we
@@ -452,12 +444,12 @@ def get_coldspot_gaps_in_contig(
             # Test the left gap
             llen = muts[0] - 1
             if llen >= min_length:
-                coldspots.append((contig, 1, llen, llen))
+                coldspots.append((1, llen, llen))
 
             # Test the right gap
             rlen = contig_length - muts[-1]
             if rlen >= min_length:
-                coldspots.append((contig, muts[-1] + 1, contig_length, rlen))
+                coldspots.append((muts[-1] + 1, contig_length, rlen))
     return coldspots
 
 
@@ -521,7 +513,7 @@ def run_coldspot_gap_detection(
         bcf, fancylog
     )
 
-    # List of 4-tuples of (contig ID, start, end, length)
+    # Maps contig IDs to a list of 3-tuples of (start, end, length)
     # ... where start/end are 1-indexed and inclusive
     # (i.e. the start should be the first position after a mutation, and the
     # end should be the last position before a mutation, assuming that this gap
@@ -533,7 +525,8 @@ def run_coldspot_gap_detection(
     # actually kind of annoying if it loops around the contig (b/c then we
     # gotta know the contig length, and it's a whole ordeal). Easier to just
     # be a little bit memory inefficient and store lengths from the get-go.
-    coldspots = []
+    contig2coldspots = {}
+    total_num_coldspots = 0
 
     fancylog("Going through contigs and identifying coldspot gaps...")
     for contig in bcf_contigs:
@@ -549,13 +542,15 @@ def run_coldspot_gap_detection(
 
         # We defer the actual process of finding gaps to a utility function to
         # make testing easier (also to make this code look pretty)
-        coldspots += get_coldspot_gaps_in_contig(
-            muts, contig, contig_length, min_length, circular
+        contig_coldspots = get_coldspot_gaps_in_contig(
+            muts, contig_length, min_length, circular
         )
+        contig2coldspots[contig] = contig_coldspots
+        total_num_coldspots += len(contig_coldspots)
 
     fancylog(
         (
-            f"Identified {len(coldspots):,} coldspot gap(s) across all "
+            f"Identified {total_num_coldspots:,} coldspot gap(s) across all "
             f"{len(bcf_contigs):,} contigs in the BCF file."
         ),
         prefix="",
@@ -566,5 +561,6 @@ def run_coldspot_gap_detection(
         of.write(
             "Contig\tStart_1IndexedInclusive\tEnd_1IndexedInclusive\tLength\n"
         )
-        for contig, start, end, length in coldspots:
-            of.write(f"{contig}\t{start}\t{end}\t{length}\n")
+        for contig in contig2coldspots.keys():
+            for start, end, length in contig2coldspots[contig]:
+                of.write(f"{contig}\t{start}\t{end}\t{length}\n")
