@@ -878,7 +878,7 @@ def hot_features(
     default=5000,
     show_default=True,
     help=(
-        'Label a gap between mutations in a contig as a "coldspot" if it '
+        'Label a gap between mutations in a contig as a "coldspot" if the gap '
         "is at least this long."
     ),
 )
@@ -892,8 +892,8 @@ def hot_features(
         "If this flag is given, we'll assume that all contigs are circular: "
         'we\'ll consider the gap "looping around" from the rightmost '
         "mutation in each contig to the leftmost mutation in the contig as "
-        "a potential coldspot. Otherwise, we won't perform this check for any "
-        "contigs."
+        "a potential coldspot. Otherwise, we will assume all contigs are "
+        "linear."
     ),
 )
 @click.option(
