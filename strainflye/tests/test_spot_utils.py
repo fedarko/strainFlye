@@ -288,8 +288,6 @@ c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
         "PREFIX\nMockLog: Writing out this information to a TSV file...\n"
         "MockLog: Done.\n"
     )
-    # (The very last "Done.\n" is printed out by _cli.py, not by
-    # run_hotspot_feature_detection().)
 
     captured = capsys.readouterr()
     assert captured.out == exp_out
