@@ -285,7 +285,8 @@ c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
         "length 0.\n"
         "MockLog: Identified 3 hotspot feature(s) across all 3 contigs in the "
         "BCF file.\n"
-        "PREFIX\nMockLog: Writing out this information to a file...\n"
+        "PREFIX\nMockLog: Writing out this information to a TSV file...\n"
+        "MockLog: Done.\n"
     )
     # (The very last "Done.\n" is printed out by _cli.py, not by
     # run_hotspot_feature_detection().)
@@ -331,7 +332,8 @@ c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
         "length 0.\n"
         "MockLog: Identified 0 hotspot feature(s) across all 3 contigs in the "
         "BCF file.\n"
-        "PREFIX\nMockLog: Writing out this information to a file...\n"
+        "PREFIX\nMockLog: Writing out this information to a TSV file...\n"
+        "MockLog: Done.\n"
     )
     captured = capsys.readouterr()
     assert captured.out == exp_out
@@ -380,7 +382,8 @@ c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
         "length 0.\n"
         "MockLog: Identified 2 hotspot feature(s) across all 3 contigs in the "
         "BCF file.\n"
-        "PREFIX\nMockLog: Writing out this information to a file...\n"
+        "PREFIX\nMockLog: Writing out this information to a TSV file...\n"
+        "MockLog: Done.\n"
     )
     captured = capsys.readouterr()
     assert captured.out == exp_out
@@ -423,7 +426,8 @@ c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
         "length 0.\n"
         "MockLog: Identified 0 hotspot feature(s) across all 3 contigs in the "
         "BCF file.\n"
-        "PREFIX\nMockLog: Writing out this information to a file...\n"
+        "PREFIX\nMockLog: Writing out this information to a TSV file...\n"
+        "MockLog: Done.\n"
     )
     captured = capsys.readouterr()
     assert captured.out == exp_out
@@ -465,7 +469,8 @@ c3	marcus	exon	8	8	.	+	.	ID=doppelganger"""
         "length 0.\n"
         "MockLog: Identified 2 hotspot feature(s) across all 3 contigs in the "
         "BCF file.\n"
-        "PREFIX\nMockLog: Writing out this information to a file...\n"
+        "PREFIX\nMockLog: Writing out this information to a TSV file...\n"
+        "MockLog: Done.\n"
     )
     captured = capsys.readouterr()
     assert captured.out == exp_out
@@ -509,7 +514,8 @@ c3	marcus	exon	16	16	.	+	.	ID=f2"""
         "length 0.\n"
         "MockLog: Identified 1 hotspot feature(s) across all 3 contigs in the "
         "BCF file.\n"
-        "PREFIX\nMockLog: Writing out this information to a file...\n"
+        "PREFIX\nMockLog: Writing out this information to a TSV file...\n"
+        "MockLog: Done.\n"
     )
     captured = capsys.readouterr()
     assert captured.out == exp_out
@@ -550,7 +556,8 @@ c2	marcus	gene	2	12	100	-	.	ID=worlds_shittiest_gene"""
         "identifying hotspot features...\n"
         "MockLog: Identified 1 hotspot feature(s) across all 3 contigs in the "
         "BCF file.\n"
-        "PREFIX\nMockLog: Writing out this information to a file...\n"
+        "PREFIX\nMockLog: Writing out this information to a TSV file...\n"
+        "MockLog: Done.\n"
     )
     captured = capsys.readouterr()
     assert captured.out == exp_out
@@ -586,7 +593,8 @@ def test_coldspot_good_nocircular(capsys):
         "gaps...\n"
         "MockLog: Identified 5 coldspot gap(s) across all 3 contigs in the "
         "BCF file.\n"
-        "PREFIX\nMockLog: Writing out this information to a file...\n"
+        "PREFIX\nMockLog: Writing out this information to a TSV file...\n"
+        "MockLog: Done.\n"
     )
     captured = capsys.readouterr()
     assert captured.out == exp_out
@@ -622,7 +630,8 @@ def test_coldspot_good_circular(capsys):
         "gaps...\n"
         "MockLog: Identified 4 coldspot gap(s) across all 3 contigs in the "
         "BCF file.\n"
-        "PREFIX\nMockLog: Writing out this information to a file...\n"
+        "PREFIX\nMockLog: Writing out this information to a TSV file...\n"
+        "MockLog: Done.\n"
     )
     captured = capsys.readouterr()
     assert captured.out == exp_out

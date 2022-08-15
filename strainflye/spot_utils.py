@@ -303,7 +303,7 @@ def run_hotspot_feature_detection(
         ),
         prefix="",
     )
-    fancylog("Writing out this information to a file...")
+    fancylog("Writing out this information to a TSV file...")
 
     with open(output_hotspot_features, "w") as of:
         of.write(
@@ -320,6 +320,7 @@ def run_hotspot_feature_detection(
                 f"{contig}\t{feature.metadata['ID']}\t{start}\t{end}\t"
                 f"{num_mp}\t{perc_mp:.2f}%\n"
             )
+    fancylog("Done.", prefix="")
 
 
 def get_coldspot_gaps_in_contig(muts, contig_length, min_length, circular):
@@ -555,7 +556,7 @@ def run_coldspot_gap_detection(
         ),
         prefix="",
     )
-    fancylog("Writing out this information to a file...")
+    fancylog("Writing out this information to a TSV file...")
 
     with open(output_coldspot_gaps, "w") as of:
         of.write(
@@ -564,3 +565,4 @@ def run_coldspot_gap_detection(
         for contig in contig2coldspots.keys():
             for start, end, length in contig2coldspots[contig]:
                 of.write(f"{contig}\t{start}\t{end}\t{length}\n")
+    fancylog("Done.", prefix="")
