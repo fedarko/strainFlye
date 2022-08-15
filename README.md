@@ -47,7 +47,7 @@ pip install git+https://github.com/fedarko/strainFlye.git
 ### Tutorial
 
 We provide a (work in progress) tutorial using the SheepGut dataset
-**[here](https://nbviewer.org/github/fedarko/strainFlye/blob/main/docs/SheepGutExample.ipynb)**.
+**[in this Jupyter Notebook](https://nbviewer.org/github/fedarko/strainFlye/blob/main/docs/SheepGutExample.ipynb)**.
 
 ### Command-line usage
 
@@ -69,11 +69,12 @@ Options:
   -h, --help  Show this message and exit.
 
 Commands:
-  align  Align reads to contigs, and filter the resulting alignment.
-  call   [+] Call mutations in contigs naïvely & compute diversity indices.
-  fdr    [+] Estimate and fix FDRs for contigs' naïve mutation calls.
-  spot   [+] Identify hotspots or coldspots in contigs.
-  utils  [+] Various utility commands provided with strainFlye.
+  align   Align reads to contigs, and filter the resulting alignment.
+  call    [+] Call mutations in contigs naïvely & compute diversity indices.
+  fdr     [+] Estimate and fix FDRs for contigs' naïve mutation calls.
+  spot    [+] Identify putative mutational hotspots or coldspots in contigs.
+  smooth  [+] Generate and assemble smoothed and virtual reads.
+  utils   [+] Various utility commands provided with strainFlye.
 ```
 
 ## Acknowledgements
