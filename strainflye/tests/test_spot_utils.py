@@ -222,6 +222,29 @@ c3	marcus	exon	9	9	.	+	.	ID=single_nt_feature"""
         )
 
 
+def test_hotspot_feature_starts_before_contig():
+    gff_text = """##gff-version 3
+c1	marcus	cds	0	10	.	+	0	ID=impostor
+c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
+    with tempfile.NamedTemporaryFile() as out_fh:
+        with pytest.raises(ValueError) as ei:
+            su.run_hotspot_feature_detection(
+                TEST_BCF_PATH,
+                io.StringIO(gff_text),
+                1,
+                None,
+                out_fh.name,
+                mock_log,
+            )
+        # skbio throws this error -- it knows that GFF3 files use one-indexing,
+        # so a feature that has a coordinate of zero (or of -1, -2, ...) will
+        # cause it to throw an error. Less work for us!
+        assert str(ei.value) == (
+            "Cannot set `bounds` ([(-1, 10)]) with coordinate smaller than "
+            "lower bound (0)."
+        )
+
+
 def test_hotspot_good_min_num_1(capsys):
     gff_text = """##gff-version 3
 c1	marcus	cds	5	19	.	+	0	ID=first_feature_that_i_made_up
