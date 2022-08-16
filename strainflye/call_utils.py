@@ -248,7 +248,7 @@ def run(
         Filepath to a FASTA file containing contigs in which to call mutations.
 
     bam: str
-        Filepath to a BAM file mapping reads to contigs.
+        Filepath to a (sorted and indexed) BAM file mapping reads to contigs.
 
     output_dir: str
         Directory to which BCF / BCF index / TSV diversity index outputs will

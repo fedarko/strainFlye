@@ -644,7 +644,7 @@ def run_estimate(
     - fasta_utils.get_name2len() can also raise errors if the input FASTA file
       of contigs is malformed.
     """
-    fancylog("Loading and checking contig information...")
+    fancylog("Loading and checking FASTA and BCF files...")
 
     # get name -> length mapping for the FASTA file; also sanity check it a bit
     contig_name2len = fasta_utils.get_name2len(contigs)
@@ -675,7 +675,7 @@ def run_estimate(
     # much easier to do later.
     fancylog(
         (
-            "The BCF and FASTA files describe the same "
+            "The FASTA and BCF files describe the same "
             f"{len(contig_name2len):,} contigs."
         ),
         prefix="",

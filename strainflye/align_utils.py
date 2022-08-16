@@ -736,8 +736,8 @@ def run(reads, contigs, graph, output_dir, fancylog, verbose):
     # See https://github.com/fedarko/strainFlye/issues/20
     if graph is not None:
         fancylog(
-            "Sanity-checking that the assembly graph and contigs describe the "
-            "same sequences..."
+            "Sanity-checking that the assembly graph and FASTA file describe "
+            "the same contigs..."
         )
         # TODO: Loading the entire graph topology is more work than we need to
         # do here; it'd be sufficient to just scan the segment names in the GFA
