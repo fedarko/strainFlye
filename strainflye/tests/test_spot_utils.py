@@ -245,6 +245,24 @@ c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
         )
 
 
+def test_hotspot_feature_fractional_coord():
+    gff_text = """##gff-version 3
+c1	marcus	cds	1.5	10	.	+	0	ID=impostor
+c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
+    with tempfile.NamedTemporaryFile() as out_fh:
+        with pytest.raises(ValueError) as ei:
+            su.run_hotspot_feature_detection(
+                TEST_BCF_PATH,
+                io.StringIO(gff_text),
+                1,
+                None,
+                out_fh.name,
+                mock_log,
+            )
+        # Another error caused by skbio that we verify happens
+        assert str(ei.value) == "invalid literal for int() with base 10: '1.5'"
+
+
 def test_hotspot_good_min_num_1(capsys):
     gff_text = """##gff-version 3
 c1	marcus	cds	5	19	.	+	0	ID=first_feature_that_i_made_up
