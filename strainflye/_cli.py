@@ -9,6 +9,7 @@ from . import (
     call_utils,
     fdr_utils,
     spot_utils,
+    smooth_utils,
 )
 from . import param_descriptions as desc
 
@@ -889,7 +890,7 @@ def hot_features(
     show_default=True,
     required=False,
     help=(
-        "If this flag is provided, we'll assume that all contigs are "
+        "If --circular is specified, we'll assume that all contigs are "
         'circular: we\'ll consider the gap "looping around" from the '
         "rightmost mutation in each contig to the leftmost mutation in "
         "the contig as a potential coldspot. Otherwise, we will assume all "
@@ -913,7 +914,7 @@ def cold_gaps(bcf, min_length, circular, output_coldspots):
     a collection of continuous positions [N, N + 1, ... N + L - 2, N + L - 1]
     in which no positions are mutations (based on the input BCF file).
 
-    If the --circular flag is provided, then we can loop around the contig
+    If the --circular flag is specified, then we can loop around the contig
     from right to left; otherwise, the left and right sides of the contig are
     hard boundaries. To give an example of this, consider a 9-nucleotide
     contig that has mutations at positions 4 and 6:
@@ -922,12 +923,12 @@ def cold_gaps(bcf, min_length, circular, output_coldspots):
                                Mut.    Mut.
                     1   2   3   4   5   6   7   8   9
 
-    If --circular is provided, then this contig has two gaps: one gap of length
-    1 (covering just position 5, between the two mutations), and another gap
-    of length 6 (starting at position 7 and looping around to position 3:
+    If --circular is specified, then this contig has two gaps: one gap of
+    length 1 (covering just position 5, between the two mutations), and another
+    gap of length 6 (starting at position 7 and looping around to position 3:
     [7, 8, 9, 1, 2, 3]).
 
-    If --circular is not provided, then this contig has three gaps: [1, 2, 3],
+    If --circular is not specified, then this contig has three gaps: [1, 2, 3],
     [5], and [7, 8, 9].
     """
     fancylog = cli_utils.fancystart(
@@ -982,35 +983,40 @@ strainflye.add_command(smooth)
     show_default=True,
     required=False,
     help=(
-        "If this flag is provided, we'll add virtual reads covering non-"
-        "well-covered regions in contigs."
+        "If --virtual-reads is specified, we'll construct virtual reads "
+        'covering "low-coverage" regions in contigs.'
     ),
 )
 @click.option(
-    "-vres",
-    "--virtual-read-extra-span",
-    required=True,
-    type=click.IntRange(min=0, min_open=True),
-    default=100,
-    show_default=True,
-    help=(
-        "Only used if we are constructing virtual reads. Virtual read extra "
-        "span."
-    ),
-)
-@click.option(
-    "-vrwcp",
+    "-vrp",
     "--virtual-read-well-covered-perc",
     required=True,
     type=click.FloatRange(min=0, max=100),
     default=95,
     show_default=True,
     help=(
-        "Only used if we are constructing virtual reads. Well covered "
-        "percentage."
+        "Only used if --virtual-reads is specified. In a contig with average "
+        "coverage (only considering match + mismatch counts) C, we will "
+        "define a position in this contig (with coverage P) as low-coverage "
+        "if ((P / C) \u00d7 100) is less than this percentage."
     ),
 )
-# TODO do we need this? maybe
+@click.option(
+    "-vrf",
+    "--virtual-read-flank",
+    required=True,
+    type=click.IntRange(min=0),
+    default=100,
+    show_default=True,
+    help=(
+        "Only used if --virtual-reads is specified. When we add virtual "
+        "reads spanning a single continuous low-coverage region, these reads "
+        "will start and end this many positions before and after the region. "
+        "(For example, the default of 100 means that the virtual reads "
+        "constructed for a low-coverage region of 5,000 bp will all be "
+        "5,200 bp.)"
+    ),
+)
 @click.option(
     "-o",
     "--output-dir",
@@ -1034,12 +1040,42 @@ def apply(
     bam,
     bcf,
     virtual_reads,
-    virtual_read_extra_span,
-    well_covered_percentage,
+    virtual_read_well_covered_perc,
+    virtual_read_flank,
     output_dir,
     verbose,
 ):
     """Generate smoothed and virtual reads."""
+    fancylog = cli_utils.fancystart(
+        "strainFlye smooth apply",
+        (
+            ("contig file", contigs),
+            ("BAM file", bam),
+            ("BCF file", bcf),
+            (
+                'virtual read "well-covered" percentage',
+                virtual_read_well_covered_perc,
+            ),
+            ("virtual read flank", virtual_read_flank),
+        ),
+        (("directory", output_dir),),
+        extra_info=(
+            f"Add virtual reads?: {cli_utils.b2y(virtual_reads)}",
+            f"Verbose?: {cli_utils.b2y(verbose)}",
+        ),
+    )
+    smooth_utils.run_apply(
+        contigs,
+        bam,
+        bcf,
+        virtual_reads,
+        virtual_read_well_covered_perc,
+        virtual_read_flank,
+        output_dir,
+        verbose,
+        fancylog,
+    )
+    fancylog("Done.")
 
 
 @smooth.command(**cmd_params)
