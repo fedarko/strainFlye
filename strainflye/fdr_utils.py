@@ -647,7 +647,7 @@ def run_estimate(
     fancylog("Loading and checking FASTA and BCF files...")
 
     # get name -> length mapping for the FASTA file; also sanity check it a bit
-    contig_name2len = fasta_utils.get_name2len(contigs)
+    contig_name2len = fasta_utils.get_name2len(contigs, min_num_contigs=2)
 
     # Load the BCF file, also
     bcf_obj, thresh_type, thresh_min = parse_bcf(bcf)

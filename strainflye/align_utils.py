@@ -727,7 +727,9 @@ def run(reads, contigs, graph, output_dir, fancylog, verbose):
         raise ParameterError("Collection of input reads should be a tuple.")
 
     # Note that get_name2len() does some sanity checking on the FASTA
-    fasta_name2len = fasta_utils.get_name2len(contigs)
+    # Also the < 2 contigs check is needed due to the target/decoy approach
+    # stuff requiring at least two contigs
+    fasta_name2len = fasta_utils.get_name2len(contigs, min_num_contigs=2)
 
     # Sanity-check that the GFA segments are identical to the FASTA contigs. If
     # not, we've got problems (in this case, it's probably easiest to just not

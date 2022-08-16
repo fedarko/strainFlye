@@ -1130,14 +1130,6 @@ def assemble(reads_dir, output_dir, verbose):
 # def link_graph():
 #     """Constructs the link graph structure for a MAG."""
 #     print("LG")
-#
-#
-# @strainflye.command(**cmd_params)
-# def smooth():
-#     """Generates smoothed haplotypes."""
-#     # input: contigs, reads, bcf of mutations
-#     # output: contigs / graph / etc. assembled by LJA
-#     print("SMOOTH")
 
 
 @click.group(name="utils", **grp_params, **cmd_params)

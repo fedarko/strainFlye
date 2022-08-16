@@ -8,7 +8,7 @@ from strainflye.errors import SequencingDataError, ParameterError
 APOLOGY = "This isn't supported at the moment, sorry."
 
 
-def get_name2len(fasta_fp, min_num_contigs=2):
+def get_name2len(fasta_fp, min_num_contigs=1):
     """Based on a FASTA file, creates a dict mapping sequence name to length.
 
     Parameters
@@ -95,7 +95,7 @@ def get_name2len(fasta_fp, min_num_contigs=2):
 
     if len(name2len) < min_num_contigs:
         raise SequencingDataError(
-            f"Less than {min_num_contigs:,} contigs are given in {fasta_fp}."
+            f"Less than {min_num_contigs:,} contig(s) are given in {fasta_fp}."
         )
 
     return name2len

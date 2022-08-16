@@ -5,7 +5,7 @@ import pysam
 from strainflye import fasta_utils, bcf_utils
 
 
-def load_and_check_fasta_bam_bcf(contigs, bam, bcf, fancylog):
+def load_triplet(contigs, bam, bcf, fancylog):
     """Loads and checks three files: FASTA, BAM, and BCF.
 
     Mainly, this ensures that the contigs in the FASTA file are all present in

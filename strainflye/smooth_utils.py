@@ -1,6 +1,6 @@
 # Utilities for strainFlye smooth.
 
-from strainflye.phasing_utils import load_and_check_fasta_bam_bcf
+from strainflye import phasing_utils
 
 
 def run_apply(
@@ -50,7 +50,7 @@ def run_apply(
     fancylog: function
         Logging function.
     """
-    contig_name2len, bam_obj, bcf_obj = load_and_check_fasta_bam_bcf(
+    contig_name2len, bam_obj, bcf_obj = phasing_utils.load_triplet(
         contigs, bam, bcf, fancylog
     )
     # misc_utils.make_output_dir(output_dir)

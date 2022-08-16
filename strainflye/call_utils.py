@@ -316,7 +316,12 @@ def run(
         raise ParameterError("Either p or r needs to be specified.")
 
     fancylog("Loading and checking contig information...")
-    contig_name2len = fasta_utils.get_name2len(contigs)
+    # get_name2len() will throw an error if there are < 2 contigs in the FASTA.
+    # The naive calling stuff requires the use of a decoy contig, so this is an
+    # ok restriction to enforce here -- I don't think this stuff would be super
+    # useful with just one contig (although if you really do only have one
+    # contig and want to use this script then let me know)
+    contig_name2len = fasta_utils.get_name2len(contigs, min_num_contigs=2)
     # Verify that all contigs in the FASTA are also references in the BAM
     # (this will throw an error if not)
     bf = pysam.AlignmentFile(bam, "rb")

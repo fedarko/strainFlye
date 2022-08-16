@@ -83,8 +83,12 @@ def test_get_name2len_gap():
 def test_get_name2len_min_num_contigs():
     sio = StringIO(">lonely\nGTAC\n")
     with pytest.raises(SequencingDataError) as ei:
-        utils.get_name2len(sio)
-    exp_pattern = f"Less than 2 contigs are given in {SIO_REPR}."
+        utils.get_name2len(sio, min_num_contigs=2)
+
+    # We've gotta escape the parentheses, since we're using re.match().
+    # This is kind of a hassl -- we have to use both the \( syntax as well as
+    # the raw string modifier, r. See https://stackoverflow.com/a/61497557.
+    exp_pattern = rf"Less than 2 contig\(s\) are given in {SIO_REPR}."
     assert re.match(exp_pattern, str(ei.value)) is not None
 
 
@@ -94,8 +98,8 @@ def test_get_name2len_min_num_contigs_zero():
     # accounts for this case.
     sio = StringIO("")
     with pytest.raises(SequencingDataError) as ei:
-        utils.get_name2len(sio)
-    exp_pattern = f"Less than 2 contigs are given in {SIO_REPR}."
+        utils.get_name2len(sio, min_num_contigs=1)
+    exp_pattern = rf"Less than 1 contig\(s\) are given in {SIO_REPR}."
     assert re.match(exp_pattern, str(ei.value)) is not None
 
 
