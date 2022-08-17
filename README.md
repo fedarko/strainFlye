@@ -77,6 +77,12 @@ Commands:
   utils   [+] Various utility commands provided with strainFlye.
 ```
 
+### Development documentation
+
+If you're interested in making changes to strainFlye's code, please see
+[`CONTRIBUTING.md`](https://github.com/fedarko/strainFlye/blob/main/CONTRIBUTING.md)
+for some tips on getting started.
+
 ## Acknowledgements
 
 ### Test data
