@@ -2,8 +2,20 @@ import os
 import shutil
 import tempfile
 import pytest
+import pysam
 import strainflye.misc_utils as mu
+from strainflye.bcf_utils import parse_bcf
 from strainflye.errors import ParameterError
+
+
+TEST_DIR = os.path.join(
+    "strainflye",
+    "tests",
+    "inputs",
+    "small",
+)
+BAM = os.path.join(TEST_DIR, "alignment.bam")
+BCF = os.path.join(TEST_DIR, "call-r-min3-di12345", "naive-calls.bcf")
 
 
 def test_make_output_dir_exists():
@@ -81,3 +93,50 @@ def test_verify_contig_lengths_bam_bcf_missing():
     with pytest.raises(ParameterError) as ei:
         mu.verify_contig_lengths({"c1": 12, "c2": 5})
     assert str(ei.value) == "Neither bam_obj nor bcf_obj is provided."
+
+
+def test_verify_contig_lengths_good_both():
+    bam_obj = pysam.AlignmentFile(BAM, "rb")
+    bcf_obj, tt, tm = parse_bcf(BCF)
+    mu.verify_contig_lengths(
+        {"c1": 23, "c2": 12, "c3": 16}, bam_obj=bam_obj, bcf_obj=bcf_obj
+    )
+
+    # check that subsets are ok
+    mu.verify_contig_lengths({"c2": 12}, bam_obj=bam_obj, bcf_obj=bcf_obj)
+
+
+def test_verify_contig_lengths_good_just_bam():
+    bam_obj = pysam.AlignmentFile(BAM, "rb")
+    mu.verify_contig_lengths({"c1": 23, "c2": 12, "c3": 16}, bam_obj=bam_obj)
+
+
+def test_verify_contig_lengths_good_just_bcf():
+    bcf_obj, tt, tm = parse_bcf(BCF)
+    mu.verify_contig_lengths({"c1": 23, "c2": 12, "c3": 16}, bcf_obj=bcf_obj)
+
+
+def test_verify_contig_lengths_mismatch_with_bam():
+    bam_obj = pysam.AlignmentFile(BAM, "rb")
+    with pytest.raises(ParameterError) as ei:
+        mu.verify_contig_lengths(
+            {"c1": 22, "c2": 12, "c3": 16}, bam_obj=bam_obj
+        )
+
+    assert str(ei.value) == (
+        "Contig c1 has length 22 in the FASTA file, but length 23 in the BAM "
+        "file."
+    )
+
+
+def test_verify_contig_lengths_mismatch_with_bcf():
+    bcf_obj, tt, tm = parse_bcf(BCF)
+    with pytest.raises(ParameterError) as ei:
+        mu.verify_contig_lengths(
+            {"c1": 23, "c2": 12, "c3": 1024}, bcf_obj=bcf_obj
+        )
+
+    assert str(ei.value) == (
+        "Contig c3 has length 1,024 in the FASTA file, but length 16 in the "
+        "BCF file."
+    )
