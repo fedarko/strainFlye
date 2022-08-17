@@ -103,3 +103,20 @@ def b2y(b):
         return "Yes"
     else:
         return "No"
+
+
+def log_prog(
+    contig, contig_len, contig_1idx, num_contigs, fancylog, prefix="On "
+):
+    """Log about progress when iterating through a set of contigs.
+
+    This is just abstracted code that turns up in a few places.
+    """
+    pct = 100 * (contig_1idx / num_contigs)
+    fancylog(
+        (
+            f"{prefix}contig {contig} ({contig_len:,} bp) "
+            f"({contig_1idx:,} / {num_contigs:,} = {pct:.2f}% done)."
+        ),
+        prefix="",
+    )

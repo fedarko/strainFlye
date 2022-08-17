@@ -8,7 +8,7 @@ import pysam
 import pysamstats
 from . import config
 from .errors import SequencingDataError, ParameterError, WeirdError
-from strainflye import __version__, fasta_utils, misc_utils
+from strainflye import __version__, fasta_utils, misc_utils, cli_utils
 
 
 def index_bcf(in_bcf, fancylog):
@@ -465,13 +465,8 @@ def run(
     for si, seq in enumerate(contig_name2len, 1):
         contig_len = contig_name2len[seq]
         if verbose:
-            pct = 100 * (si / num_fasta_contigs)
-            fancylog(
-                (
-                    f"On contig {seq} ({contig_len:,} bp) ({si:,} / "
-                    f"{num_fasta_contigs:,} = {pct:.2f}% done)."
-                ),
-                prefix="",
+            cli_utils.log_prog(
+                seq, contig_len, si, num_fasta_contigs, fancylog
             )
 
         # keep a running sum of coverages, so we can get the average coverage
