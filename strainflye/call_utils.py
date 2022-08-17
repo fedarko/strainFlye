@@ -331,6 +331,7 @@ def run(
         "the FASTA file",
         "the BAM file",
     )
+    misc_utils.verify_contig_lengths(contig_name2len, bam_obj=bf)
     num_fasta_contigs = len(contig_name2len)
     fancylog(
         f"The FASTA file describes {num_fasta_contigs:,} contigs.", prefix=""
@@ -338,7 +339,7 @@ def run(
     fancylog(
         (
             "All of these are included in the BAM file (which has "
-            f"{bf.nreferences:,} references)."
+            f"{bf.nreferences:,} references), with the same lengths."
         ),
         prefix="",
     )
