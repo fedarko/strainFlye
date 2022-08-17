@@ -75,3 +75,9 @@ def test_verify_contig_subset_exact():
     # Now, check that exact succeeds
     mu.verify_contig_subset(set("abcd"), set("abcd"), "s1", "s2", exact=True)
     mu.verify_contig_subset(set(""), set(""), "s1", "s2", exact=True)
+
+
+def test_verify_contig_lengths_bam_bcf_missing():
+    with pytest.raises(ParameterError) as ei:
+        mu.verify_contig_lengths({"c1": 12, "c2": 5})
+    assert str(ei.value) == "Neither bam_obj nor bcf_obj is provided."

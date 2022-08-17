@@ -82,7 +82,7 @@ def load_triplet(contigs, bam, bcf, fancylog):
         ),
         prefix="",
     )
-    misc_utils.verify_contig_lengths_match(
+    misc_utils.verify_contig_lengths(
         contig_name2len, bam_obj=bam_obj, bcf_obj=bcf_obj
     )
     fancylog(

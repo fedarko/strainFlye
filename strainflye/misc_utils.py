@@ -53,7 +53,7 @@ def verify_contig_subset(child, parent, child_desc, parent_desc, exact=False):
         )
 
 
-def verify_contig_lengths_match(fasta_name2len, bam_obj=None, bcf_obj=None):
+def verify_contig_lengths(fasta_name2len, bam_obj=None, bcf_obj=None):
     """Verifies that contig lengths from a FASTA file match other sources.
 
     The only required parameter is fasta_name2len. You can provide either both
