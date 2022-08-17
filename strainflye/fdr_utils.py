@@ -661,7 +661,7 @@ def run_estimate(
     # (In theory, we could allow the BCF to be a subset of the FASTA, but...
     # nah, that's too much work and the user should already have an exactly-
     # matching FASTA file around from when they ran "call".)
-    misc_utils.verify_contigs_subset(
+    misc_utils.verify_contig_subset(
         bcf_contigs,
         set(contig_name2len),
         "the BCF file",
@@ -1349,7 +1349,7 @@ def run_fix(bcf, fdr_info, fdr, output_bcf, fancylog, verbose):
     # are all described in the BCF file. We don't check for an exact match,
     # because the decoy contig will be missing.
     tsv_contigs = set(fi.index)
-    misc_utils.verify_contigs_subset(
+    misc_utils.verify_contig_subset(
         tsv_contigs, bcf_contigs, tsv_desc, "the BCF file"
     )
     absent_contigs = bcf_contigs - tsv_contigs

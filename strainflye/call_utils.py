@@ -325,7 +325,7 @@ def run(
     # Verify that all contigs in the FASTA are also references in the BAM
     # (this will throw an error if not)
     bf = pysam.AlignmentFile(bam, "rb")
-    misc_utils.verify_contigs_subset(
+    misc_utils.verify_contig_subset(
         set(contig_name2len),
         set(bf.references),
         "the FASTA file",

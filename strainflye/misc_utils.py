@@ -7,7 +7,7 @@ def make_output_dir(output_dir):
     os.makedirs(output_dir, exist_ok=True)
 
 
-def verify_contigs_subset(child, parent, child_desc, parent_desc, exact=False):
+def verify_contig_subset(child, parent, child_desc, parent_desc, exact=False):
     """Verifies that one set of contig names is a subset of another set.
 
     Parameters
@@ -97,8 +97,8 @@ def verify_contig_lengths_match(fasta_name2len, bam_obj=None, bcf_obj=None):
 
         If both bam_obj and bcf_obj are None.
     """
-    chk_bam = (bam_obj is not None)
-    chk_bcf = (bcf_obj is not None)
+    chk_bam = bam_obj is not None
+    chk_bcf = bcf_obj is not None
 
     if not chk_bam and not chk_bcf:
         raise ParameterError("Neither bam_obj nor bcf_obj is provided.")
@@ -113,13 +113,13 @@ def verify_contig_lengths_match(fasta_name2len, bam_obj=None, bcf_obj=None):
             bamlen = bam_obj.get_reference_length(contig)
             if faslen != bamlen:
                 raise ParameterError(
-                    f"Contig {contig} has length {faslen:,} in the FASTA file, "
-                    f"but length {bamlen:,} in the BAM file."
+                    f"Contig {contig} has length {faslen:,} in the FASTA "
+                    f"file, but length {bamlen:,} in the BAM file."
                 )
         if chk_bcf:
             bcflen = bcf_obj.header.contigs[contig].length
             if faslen != bcflen:
                 raise ParameterError(
-                    f"Contig {contig} has length {faslen:,} in the FASTA file, "
-                    f"but length {bcflen:,} in the BCF file."
+                    f"Contig {contig} has length {faslen:,} in the FASTA "
+                    f"file, but length {bcflen:,} in the BCF file."
                 )
