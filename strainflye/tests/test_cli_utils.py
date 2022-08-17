@@ -1,4 +1,5 @@
-from strainflye.cli_utils import fancystart, b2y
+from strainflye.cli_utils import fancystart, b2y, proglog
+from .utils_for_testing import mock_log
 
 
 def test_fancylogging(capsys):
@@ -67,3 +68,21 @@ def test_b2y():
     assert b2y(False) == "No"
     assert b2y(None) == "No"
     assert b2y(0) == "No"
+
+
+def test_proglog(capsys):
+    proglog("c1", 5, 10000, mock_log)
+    captured = capsys.readouterr()
+    assert captured.out == "MockLog: On contig c1 (5 / 10,000 = 0.05% done).\n"
+
+    proglog("c1", 5, 10000, mock_log, contig_len=1234567890)
+    captured = capsys.readouterr()
+    assert captured.out == (
+        "MockLog: On contig c1 (1,234,567,890 bp) (5 / 10,000 = 0.05% done).\n"
+    )
+
+    proglog("c1", 5, 10000, mock_log, contig_len=1234567890, prefix="LOL")
+    captured = capsys.readouterr()
+    assert captured.out == (
+        "MockLog: LOLcontig c1 (1,234,567,890 bp) (5 / 10,000 = 0.05% done).\n"
+    )
