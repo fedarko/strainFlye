@@ -68,6 +68,26 @@ def test_load_gfa_nonunique_seq():
     assert "Segment 1 is defined multiple times" == str(errorinfo.value)
 
 
+def test_load_gfa_empty():
+    gf = "strainflye/tests/inputs/sample1-empty.gfa"
+    with pytest.raises(GraphParsingError) as errorinfo:
+        gu.load_gfa(gf)
+    assert f"Less than 1 segment(s) are given in {gf}." == str(errorinfo.value)
+
+
+def test_load_gfa_min_num_nodes():
+    gf = "strainflye/tests/inputs/sample1.gfa"
+    for mnn in [7, 8, 9, 10, 14, 20, 1000, 10000]:
+        with pytest.raises(GraphParsingError) as ei:
+            gu.load_gfa(gf, min_num_nodes=mnn)
+        assert f"Less than {mnn:,} segment(s) are given in {gf}." == str(
+            ei.value
+        )
+    for mnn in range(1, 7):
+        g = gu.load_gfa(gf, min_num_nodes=mnn)
+        check_sample1_graph(g)
+
+
 def check_sample1_fasta(fasta_text, num_seqs):
     assert fasta_text == (
         ">1\nCGATGCAA\n"

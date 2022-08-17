@@ -2,7 +2,7 @@ import networkx as nx
 from .errors import GraphParsingError
 
 
-def load_gfa(gfa_fp):
+def load_gfa(gfa_fp, min_num_nodes=1):
     """Quick and dirty function that loads GFA files in NetworkX.
 
     GfaPy was being really slow on the SheepGut graph, which is why I wrote
@@ -14,6 +14,10 @@ def load_gfa(gfa_fp):
         Filepath to a GFA 1 file. Eventually I should ditch this function and
         just use Gfapy to load this graph, but
         https://github.com/ggonnella/gfapy/issues/25 is blocking that.
+
+    min_num_nodes: int
+        Minimum number of segments that must be described in the GFA file.
+        We'll raise an error if this condition is not met.
 
     Returns
     -------
@@ -36,11 +40,14 @@ def load_gfa(gfa_fp):
         understandable. But I'm pessimistic, and if we accept this then
         eventually we're gonna start seeing cases where the two lengths
         disagree, and that way lies madness.
+
+        Also raised if the graph has less than min_num_nodes nodes (segments).
     """
 
     # We ignore directionality for right now.
     graph = nx.Graph()
 
+    num_nodes = 0
     with open(gfa_fp, "r") as gfafile:
         for line in gfafile:
 
@@ -75,6 +82,7 @@ def load_gfa(gfa_fp):
                     )
 
                 graph.add_node(node_name, length=node_len)
+                num_nodes += 1
 
             # Parse links between sequences.
             # Each link line looks something like:
@@ -95,6 +103,11 @@ def load_gfa(gfa_fp):
                 # ... would all get treated as the same edge. "Duplicate" edges
                 # are implicitly ignored by networkx.
                 graph.add_edge(src, snk)
+
+    if num_nodes < min_num_nodes:
+        raise GraphParsingError(
+            f"Less than {min_num_nodes:,} segment(s) are given in {gfa_fp}."
+        )
     return graph
 
 
