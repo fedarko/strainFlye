@@ -82,6 +82,14 @@ def load_triplet(contigs, bam, bcf, fancylog):
         ),
         prefix="",
     )
+    misc_utils.verify_contig_lengths_match(contig_name2len, bam_obj=bam_obj,
+            bcf_obj=bcf_obj)
+    fancylog(
+        (
+            "The lengths of all contigs in the FASTA file match the "
+            "corresponding lengths in the BAM and BCF files."
+        ),
+        prefix="",
+    )
     fancylog("So far, these files seem good.", prefix="")
-
     return contig_name2len, bam_obj, bcf_obj

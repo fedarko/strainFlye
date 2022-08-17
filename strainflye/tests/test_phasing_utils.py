@@ -39,6 +39,8 @@ def test_load_triplet_good(capsys):
         "file has 3 references).\n"
         "MockLog: All FASTA contigs are included in the BCF file (the header "
         "of this BCF file describes 3 contigs).\n"
+        "MockLog: The lengths of all contigs in the FASTA file match the "
+        "corresponding lengths in the BAM and BCF files.\n"
         "MockLog: So far, these files seem good.\n"
     )
 

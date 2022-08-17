@@ -121,7 +121,7 @@ def parse_bcf(bcf):
         # From manual testing, it looks like pysam does actually set the length
         # attribute of contigs without a given length -- but it sets it to
         # None. Just to future-proof this a bit, we check both the case where a
-        # contig has no length attribute adn the case where a contig has a None
+        # contig has no length attribute and the case where a contig has a None
         # length attribute. Both are invalid.
         if not hasattr(contig_entry, "length") or contig_entry.length is None:
             raise ParameterError(
