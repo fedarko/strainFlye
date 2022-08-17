@@ -116,7 +116,24 @@ def test_verify_contig_lengths_good_just_bcf():
     mu.verify_contig_lengths({"c1": 23, "c2": 12, "c3": 16}, bcf_obj=bcf_obj)
 
 
-def test_verify_contig_lengths_mismatch_with_bam():
+def test_verify_contig_lengths_mismatch_with_both():
+    # We make the bam check before the bcf check, so the bam error should get
+    # thrown. but this is less a hard mandate on how this function should
+    # perform and more a quirk of our implementation, yada yada
+    bam_obj = pysam.AlignmentFile(BAM, "rb")
+    bcf_obj, tt, tm = parse_bcf(BCF)
+    with pytest.raises(ParameterError) as ei:
+        mu.verify_contig_lengths(
+            {"c1": 22, "c2": 12, "c3": 16}, bam_obj=bam_obj, bcf_obj=bcf_obj
+        )
+
+    assert str(ei.value) == (
+        "Contig c1 has length 22 in the FASTA file, but length 23 in the BAM "
+        "file."
+    )
+
+
+def test_verify_contig_lengths_mismatch_with_just_bam():
     bam_obj = pysam.AlignmentFile(BAM, "rb")
     with pytest.raises(ParameterError) as ei:
         mu.verify_contig_lengths(
@@ -129,7 +146,7 @@ def test_verify_contig_lengths_mismatch_with_bam():
     )
 
 
-def test_verify_contig_lengths_mismatch_with_bcf():
+def test_verify_contig_lengths_mismatch_with_just_bcf():
     bcf_obj, tt, tm = parse_bcf(BCF)
     with pytest.raises(ParameterError) as ei:
         mu.verify_contig_lengths(
