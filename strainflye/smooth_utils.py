@@ -1,5 +1,6 @@
 # Utilities for strainFlye smooth.
 
+import os
 from strainflye import phasing_utils, cli_utils
 
 
@@ -66,6 +67,13 @@ def run_apply(
             cli_utils.proglog(
                 seq, si, num_fasta_contigs, fancylog, contig_len=contig_len
             )
+        # # Map zero-indexed positions to coverage by smoothed reads
+        # pos2rscov = {pos: 0 for pos in range(contig_len)}
+
+        out_reads_fp = os.path.join(output_dir, f"{seq}.fasta")
+        if os.path.exists(out_reads_fp):
+            raise FileExistsError(f"File {out_reads_fp} already exists.")
+
         # Task 1: iterate through all alignments to this contig and create
         # smoothed reads. Also compute average coverages.
         # (Unlike the Phasing-LJA.ipynb notebook, we don't have average
