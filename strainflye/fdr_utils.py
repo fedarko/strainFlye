@@ -668,6 +668,7 @@ def run_estimate(
         "the FASTA file",
         exact=True,
     )
+    misc_utils.verify_contig_lengths(contig_name2len, bcf_obj=bcf_obj)
     # We *could* try to ensure that the diversity index file's contigs, if
     # a diversity index file is specified, are a subset of the BCF -- but
     # no need to do this extra work right now. the main thing that matters IMO
