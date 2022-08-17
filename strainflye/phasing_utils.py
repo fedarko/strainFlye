@@ -2,7 +2,7 @@
 
 
 import pysam
-from strainflye import fasta_utils, bcf_utils
+from strainflye import fasta_utils, bcf_utils, misc_utils
 
 
 def load_triplet(contigs, bam, bcf, fancylog):
@@ -38,7 +38,7 @@ def load_triplet(contigs, bam, bcf, fancylog):
     ------
     This function doesn't raise any errors itself, but it calls various
     functions which can raise errors if the input files are invalid in certain
-    ways. See fasta_utils.get_name2len(), fasta_utils.verify_contigs_subset(),
+    ways. See fasta_utils.get_name2len(), misc_utils.verify_contigs_subset(),
     and bcf_utils.parse_bcf() for more details on the sorts of errors that can
     get raised here.
     """
@@ -51,7 +51,7 @@ def load_triplet(contigs, bam, bcf, fancylog):
     )
 
     bam_obj = pysam.AlignmentFile(bam, "rb")
-    fasta_utils.verify_contigs_subset(
+    misc_utils.verify_contigs_subset(
         fasta_contigs,
         set(bam_obj.references),
         "the FASTA file",
@@ -68,7 +68,7 @@ def load_triplet(contigs, bam, bcf, fancylog):
 
     bcf_obj, thresh_type, thresh_min = bcf_utils.parse_bcf(bcf)
     bcf_contigs = set(bcf_obj.header.contigs)
-    fasta_utils.verify_contigs_subset(
+    misc_utils.verify_contigs_subset(
         fasta_contigs,
         bcf_contigs,
         "the FASTA file",

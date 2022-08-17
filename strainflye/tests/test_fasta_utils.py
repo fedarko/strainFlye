@@ -2,7 +2,7 @@ import re
 import pytest
 import strainflye.fasta_utils as utils
 from io import StringIO
-from strainflye.errors import SequencingDataError, ParameterError
+from strainflye.errors import SequencingDataError
 
 
 # ... In practice, the user will see "... in asdf.fasta ..." in error messages
@@ -101,47 +101,6 @@ def test_get_name2len_min_num_contigs_zero():
         utils.get_name2len(sio, min_num_contigs=1)
     exp_pattern = rf"Less than 1 contig\(s\) are given in {SIO_REPR}."
     assert re.match(exp_pattern, str(ei.value)) is not None
-
-
-def test_verify_contigs_subset_raises_error():
-    with pytest.raises(ParameterError) as ei:
-        utils.verify_contigs_subset(set("abcdef"), set("abdef"), "s1", "s2")
-    assert str(ei.value) == "All contigs in s1 must also be contained in s2."
-
-
-def test_verify_contigs_subset_good():
-    # Sets are identical
-    utils.verify_contigs_subset(set("abcdef"), set("abcdef"), "s1", "s2")
-    utils.verify_contigs_subset(set("a"), set("a"), "s1", "s2")
-
-    # Proper subset
-    utils.verify_contigs_subset(set(""), set(""), "s1", "s2")
-    utils.verify_contigs_subset(set(""), set("ab"), "s1", "s2")
-    utils.verify_contigs_subset(set("a"), set("ab"), "s1", "s2")
-    utils.verify_contigs_subset(set("ab"), set("abc"), "s1", "s2")
-
-
-def test_verify_contigs_subset_exact():
-    # Check that exact doesn't change mandate that child is subset of parent
-    with pytest.raises(ParameterError) as ei:
-        utils.verify_contigs_subset(
-            set("abcdef"), set("abdef"), "s1", "s2", exact=True
-        )
-    assert str(ei.value) == "All contigs in s1 must also be contained in s2."
-
-    # Now, check that exact ensures that the two sets are equal, even if child
-    # is a subset of parent
-    with pytest.raises(ParameterError) as ei:
-        utils.verify_contigs_subset(
-            set("abcd"), set("abcdef"), "s1", "s2", exact=True
-        )
-    assert str(ei.value) == "All contigs in s2 must also be contained in s1."
-
-    # Now, check that exact succeeds
-    utils.verify_contigs_subset(
-        set("abcd"), set("abcd"), "s1", "s2", exact=True
-    )
-    utils.verify_contigs_subset(set(""), set(""), "s1", "s2", exact=True)
 
 
 def test_get_single_seq_basic():

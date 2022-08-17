@@ -9,7 +9,7 @@ import pandas as pd
 from math import floor
 from statistics import mean
 from collections import defaultdict
-from strainflye import fasta_utils, call_utils
+from strainflye import fasta_utils, call_utils, misc_utils
 from strainflye.bcf_utils import parse_bcf
 from .errors import ParameterError, SequencingDataError
 from .config import DI_PREF
@@ -661,7 +661,7 @@ def run_estimate(
     # (In theory, we could allow the BCF to be a subset of the FASTA, but...
     # nah, that's too much work and the user should already have an exactly-
     # matching FASTA file around from when they ran "call".)
-    fasta_utils.verify_contigs_subset(
+    misc_utils.verify_contigs_subset(
         bcf_contigs,
         set(contig_name2len),
         "the BCF file",
@@ -1349,7 +1349,7 @@ def run_fix(bcf, fdr_info, fdr, output_bcf, fancylog, verbose):
     # are all described in the BCF file. We don't check for an exact match,
     # because the decoy contig will be missing.
     tsv_contigs = set(fi.index)
-    fasta_utils.verify_contigs_subset(
+    misc_utils.verify_contigs_subset(
         tsv_contigs, bcf_contigs, tsv_desc, "the BCF file"
     )
     absent_contigs = bcf_contigs - tsv_contigs
