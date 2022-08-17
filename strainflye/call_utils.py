@@ -465,8 +465,8 @@ def run(
     for si, seq in enumerate(contig_name2len, 1):
         contig_len = contig_name2len[seq]
         if verbose:
-            cli_utils.log_prog(
-                seq, contig_len, si, num_fasta_contigs, fancylog
+            cli_utils.proglog(
+                seq, si, num_fasta_contigs, fancylog, contig_len=contig_len
             )
 
         # keep a running sum of coverages, so we can get the average coverage

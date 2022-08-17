@@ -6,7 +6,7 @@ import subprocess
 import pysam
 from itertools import combinations
 from collections import defaultdict
-from . import graph_utils, fasta_utils, misc_utils
+from . import graph_utils, fasta_utils, misc_utils, cli_utils
 from .errors import ParameterError, SequencingDataError, WeirdError
 
 
@@ -181,13 +181,12 @@ def filter_osa_reads(in_bam, out_bam, fancylog, verbose):
     seq2isempty = defaultdict(bool)
 
     for si, seq in enumerate(bf.references, 1):
-        pct = 100 * (si / bf.nreferences)
-        verboselog(
-            (
-                f"OSA filter pass 1/2: on contig {seq} ({si:,} / "
-                f"{bf.nreferences:,} = {pct:.2f}% done)."
-            ),
-            prefix="",
+        cli_utils.proglog(
+            seq,
+            si,
+            bf.nreferences,
+            verboselog,
+            prefix="OSA filter pass 1/2: on ",
         )
 
         # Identify all linear alignments of each read to this sequence
@@ -258,19 +257,18 @@ def filter_osa_reads(in_bam, out_bam, fancylog, verbose):
     # alignments, aka OSAs)
     of = pysam.AlignmentFile(out_bam, "wb", template=bf)
 
-    # TODO: maybe generalize this iteration code into a generator or something
-    # to limit code reuse
     for si, seq in enumerate(bf.references, 1):
 
         # Ignore already-known-to-be empty sequences
         if seq2isempty[seq]:
             continue
 
-        pct = 100 * (si / bf.nreferences)
-        verboselog(
-            f"OSA filter pass 2/2: on contig {seq} ({si:,} / "
-            f"{bf.nreferences:,} = {pct:.2f}% done).",
-            prefix="",
+        cli_utils.proglog(
+            seq,
+            si,
+            bf.nreferences,
+            verboselog,
+            prefix="OSA filter pass 2/2: on ",
         )
 
         num_alns_retained = 0
@@ -537,14 +535,15 @@ def filter_pm_reads(
 
     # Figure out all reads that are aligned to each contig to focus on
     for ci, contig_to_focus_on in enumerate(bf.references, 1):
+        cli_utils.proglog(
+            contig_to_focus_on,
+            ci,
+            bf.nreferences,
+            verboselog,
+            prefix="PM read filter: on ",
+        )
         # just for convenience's sake, since we write this out a lot
         cdsc = f"contig {contig_to_focus_on}"
-        pct = 100 * (ci / bf.nreferences)
-        verboselog(
-            f"PM read filter: on {cdsc} ({ci:,} / "
-            f"{bf.nreferences:,} = {pct:.2f}% done).",
-            prefix="",
-        )
         # Maps read name to read length (which should be constant across all
         # alignments of that read). This variable is used both to store this
         # info (which is in turn used for sanity checking) as well as as a
