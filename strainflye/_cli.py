@@ -545,8 +545,8 @@ strainflye.add_command(fdr)
     show_default=True,
     type=click.FloatRange(min=0, min_open=True),
     help=(
-        "Minimum average coverage of a potential decoy contig. Only used if "
-        "--diversity-indices is specified."
+        "Minimum average (mis)match coverage of a potential decoy contig. "
+        "Only used if --diversity-indices is specified."
     ),
 )
 @click.option(
