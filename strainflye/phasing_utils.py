@@ -39,8 +39,8 @@ def load_triplet(contigs, bam, bcf, fancylog):
     This function doesn't raise any errors itself, but it calls various
     functions which can raise errors if the input files are invalid in certain
     ways. See fasta_utils.get_name2len(), misc_utils.verify_contig_subset(),
-    and bcf_utils.parse_bcf() for more details on the sorts of errors that can
-    get raised here.
+    misc_utils.verify_contig_lengths(), and bcf_utils.parse_bcf() for more
+    details on the sorts of errors that can get raised here.
     """
     fancylog("Loading and checking FASTA, BAM, and BCF files...")
 
