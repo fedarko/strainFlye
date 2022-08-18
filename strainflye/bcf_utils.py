@@ -166,6 +166,13 @@ def loudly_parse_bcf_and_contigs(bcf, fancylog):
     return bcf_obj, bcf_contigs
 
 
+def verify_contig_in_bcf(bcf_obj, contig):
+    if contig not in bcf_obj.header.contigs:
+        raise ValueError(
+            f"Contig {contig} is not described in the BCF object's header."
+        )
+
+
 def get_mutated_positions_in_contig(bcf_obj, contig, zero_indexed=True):
     """Identifies positions containing mutations in a contig.
 
@@ -197,11 +204,7 @@ def get_mutated_positions_in_contig(bcf_obj, contig, zero_indexed=True):
     ValueError
         If contig is not described in the header of bcf_obj.
     """
-    if contig not in bcf_obj.header.contigs:
-        raise ValueError(
-            f"Contig {contig} is not described in the BCF object's header."
-        )
-
+    verify_contig_in_bcf(bcf_obj, contig)
     # I guess we could return a list instead, but I am 100% not going to make
     # the assumption that pysam.VariantFile.fetch() always returns positions in
     # sorted order, so it's the caller's responsibility to call sorted() on
@@ -222,3 +225,42 @@ def get_mutated_positions_in_contig(bcf_obj, contig, zero_indexed=True):
         mutated_positions.add(index_position(mut.pos))
 
     return mutated_positions
+
+
+def get_mutated_position_details_in_contig(bcf_obj, contig):
+    """Returns a summary of mutated-position details in a contig.
+
+    Parameters
+    ----------
+    bcf_obj: pysam.VariantFile
+        Object describing a BCF file (for example, produced by parse_bcf()).
+
+    contig: str
+        Name of a contig for which we will fetch mutations in bcf_obj.
+
+    Returns
+    -------
+    mp2ra: dict
+        Maps (zero-indexed) mutated positions to a tuple of (ref nt, alt nt)
+        as listed in the BCF file.
+
+    Raises
+    ------
+    ValueError
+        If contig is not described in the header of bcf_obj.
+
+    ParameterError
+        If a given mutated position does not have exactly one alternate
+        nucleotide.
+    """
+    verify_contig_in_bcf(bcf_obj, contig)
+    mp2ra = {}
+    for mut in bcf_obj.fetch(contig):
+        # Should have already been caught when loading the BCF, but let's
+        # be paranoid anyway
+        if len(mut.alts) != 1:
+            raise ParameterError(
+                f"Mutated position {mut.pos} in contig {contig} has != 1 alt"
+            )
+        mp2ra[mut.pos] = (mut.ref, mut.alts[0])
+    return mp2ra

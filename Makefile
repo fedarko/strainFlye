@@ -15,7 +15,8 @@ test:
 	python3 -B -m pytest strainflye/tests --cov-report xml --cov-report term --cov-report html --cov strainflye
 
 stylecheck:
-	flake8 --ignore=W503 strainflye/ setup.py
+	# Ignoring E203 per https://github.com/psf/black/issues/315
+	flake8 --ignore=W503,E203 strainflye/ setup.py
 	black --check -l 79 strainflye/ setup.py
 
 style:
