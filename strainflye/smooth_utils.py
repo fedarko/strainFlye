@@ -21,7 +21,8 @@ def append_reads(fasta_fp, readname2seq):
         Filepath to a FASTA file. OK if it does or doesn't exist already.
 
     readname2seq: dict
-        Maps read name (str) to sequence (skbio.DNA).
+        Maps read name to sequence. Both read name and sequence should be
+        strings.
 
     Returns
     -------
@@ -30,7 +31,154 @@ def append_reads(fasta_fp, readname2seq):
     with open(fasta_fp, "a") as of:
         for readname in readname2seq:
             # Write out both the header and sequence for each read
-            of.write(f">{readname}\n{str(readname2seq[readname])}\n")
+            of.write(f">{readname}\n{readname2seq[readname]}\n")
+
+
+def get_smooth_aln_replacements(aln, mutated_positions, mp2ra):
+    """Returns changes needed to make a smoothed read from a linear alignment.
+
+    Parameters
+    ----------
+    aln: pysam.AlignedSegment
+        Object representing a linear alignment to a contig.
+
+    mutated_positions: list of int
+        Sorted list of all (zero-indexed) mutated positions in the contig to
+        which aln is aligned.
+
+    mp2ra: dict
+        Maps (zero-indexed) mutated positions in the contig (the same contig
+        that aln is aligned to) to a tuple of (ref nt, alt nt), as listed in
+        the BCF file. Can be generated using
+        bcf_utils.get_mutated_position_details_in_contig().
+
+    Returns
+    -------
+    replacements_to_make: dict or None
+        If we need to "ignore" aln for some reason (it has a skip aligned to a
+        mutated position, or it has a non-ref or non-alt nucleotide aligned to
+        a mutated position), then this will be None to indicate that no
+        smoothed read should be generated from aln.
+
+        Otherwise, this will be a dict mapping each zero-indexed mutated
+        positions in the contig (that is spanned by aln) to the nucleotides
+        that aln has aligned to each position. These represent the replacements
+        to make to the "reference" contig sequence to construct a smoothed read
+        based on aln.
+    """
+
+    replacements_to_make = {}
+
+    # We may choose to ignore this linear alignment, if we think it is
+    # error-prone or otherwise not useful. If this gets set to True in
+    # the loop below, then we'll notice this and ignore this alignment.
+    ignoring_this_aln = False
+
+    # Notably, include skips -- this way, we can figure out if the aln
+    # has a deletion at a mutated position, and if so ignore this aln
+    ap = aln.get_aligned_pairs(matches_only=False)
+
+    # Iterating through the aligned pairs is expensive. Since HiFi read
+    # lengths are generally in the thousands to tens of thousands of
+    # bp (which is much less than the > 1 million bp length of any
+    # bacterial genome), we set things up so that we only iterate
+    # through the aligned pairs once. We maintain an integer, mpi,
+    # that is a poor man's "pointer" to an index in mutated_positions.
+
+    mpi = 0
+
+    # Go through this aln's aligned pairs. As we see each pair, compare
+    # the pair's reference position (refpos) to the mpi-th mutated
+    # position (herein referred to as "mutpos").
+    #
+    # If refpos >  mutpos, increment mpi until refpos <= mutpos
+    #                      (stopping as early as possible).
+    # If refpos == mutpos, we have a match! Update
+    #                      readname2mutpos2ismutated[mutpos] based on
+    #                      comparing the read to the reference at the
+    #                      aligned positions.
+    # If refpos <  mutpos, continue to the next pair.
+
+    for pair in ap:
+        readpos, refpos = pair
+
+        # Since we set matches_only (for get_aligned_pairs()) to False,
+        # the alignment could include insertions (which are encoded as
+        # the reference pos being set to None). We inherently ignore
+        # these insertions as part of the read smoothing process.
+        if refpos is None:
+            continue
+
+        mutpos = mutated_positions[mpi]
+
+        no_mutations_to_right_of_here = False
+
+        # Increment mpi until we get to the next mutated position at or
+        # after the reference pos for this aligned pair (or until we
+        # run out of mutated positions).
+        while refpos > mutpos:
+            mpi += 1
+            if mpi < len(mutated_positions):
+                mutpos = mutated_positions[mpi]
+            else:
+                no_mutations_to_right_of_here = True
+                break
+
+        # I expect this should happen only for reads aligned near the
+        # right end of the genome.
+        if no_mutations_to_right_of_here:
+            break
+
+        # If the next mutation occurs after this aligned pair, continue
+        # on to a later pair.
+        if refpos < mutpos:
+            continue
+
+        # If we've made it here, refpos == mutpos!
+        # (...unless I messed something up in how I designed this.)
+        if refpos != mutpos:
+            raise WeirdError(
+                f"refpos = {refpos}, but mutpos = {mutpos}. "
+                "refpos and mutpos should match. This "
+                "should never happen; please, open an issue on GitHub "
+                "so you can yell at Marcus."
+            )
+
+        # Since we set matches_only (for get_aligned_pairs()) to False,
+        # there's a chance a read contains a deletion aligned to a
+        # mutated position. This is accounted for by this check: in
+        # this case, we ignore this alignment.
+        if readpos is None:
+            ignoring_this_aln = True
+            break
+
+        read_nt = aln.query_sequence[readpos]
+        # If this read doesn't match the "reference" or "alternate"
+        # nucleotide at this position, ignore it.
+        #
+        # For mutations produced by strainFlye call, "reference" should
+        # always be the consensus nucleotide and "alternate" should
+        # always be the second-most-common nucleotide at a position.
+        #
+        # For arbitrary mutations, this isn't necessarily true; we
+        # leave things up to the discretion of however these mutations
+        # were called.
+        if read_nt != mp2ra[mutpos][0] and read_nt != mp2ra[mutpos][1]:
+            ignoring_this_aln = True
+            break
+
+        # When constructing the smoothed read for this linear alignment,
+        # to use the linear alignment's read's nucleotide at this mutated
+        # position. (It's entirely possible that this nucleotide might match
+        # the contig sequence at this position, in which case this replacement
+        # won't actually change the sequence -- but this is OK.)
+        relative_pos_on_aln = mutpos - aln.reference_start
+        replacements_to_make[relative_pos_on_aln] = read_nt
+
+    if ignoring_this_aln:
+        return None
+    else:
+        return replacements_to_make
 
 
 def run_apply(
@@ -242,141 +390,36 @@ def run_apply(
                     f"linear alignment {new_readname}?"
                 )
 
-            # Smoothed read sequence from the start to end of the alignment,
-            # completely skipping over indels and mutations. We'll edit this
-            # sequence so that if the alignment has (mis)matches to any called
-            # mutated positions within this sequence, these positions will be
-            # updated to match.
-            #
-            # NOTE that this isn't a string -- it's a skbio.DNA object (which
-            # is like a string, but with some extra functionality). We'll
-            # convert it back to a string when writing smoothed read sequences
-            # out later.
-            sr_seq = contig_seq[ref_start : ref_end + 1]
+            repls = get_smooth_aln_replacements(aln, mutated_positions, mp2ra)
 
-            # TODO: Export to function
-            # just for debugging: track the exact edits made to sr_seq
-            replacements_made = {}
-
-            # We may choose to ignore this linear alignment, if we think it is
-            # error-prone or otherwise not useful. If this gets set to True in
-            # the loop below, then we'll notice this and ignore this alignment.
-            ignoring_this_aln = False
-
-            # Notably, include skips -- this way, we can figure out if the aln
-            # has a deletion at a mutated position, and if so ignore this aln
-            ap = aln.get_aligned_pairs(matches_only=False)
-
-            # Iterating through the aligned pairs is expensive. Since HiFi read
-            # lengths are generally in the thousands to tens of thousands of
-            # bp (which is much less than the > 1 million bp length of any
-            # bacterial genome), we set things up so that we only iterate
-            # through the aligned pairs once. We maintain an integer, mpi,
-            # that is a poor man's "pointer" to an index in mutated_positions.
-
-            mpi = 0
-
-            # Go through this aln's aligned pairs. As we see each pair, compare
-            # the pair's reference position (refpos) to the mpi-th mutated
-            # position (herein referred to as "mutpos").
-            #
-            # If refpos >  mutpos, increment mpi until refpos <= mutpos
-            #                      (stopping as early as possible).
-            # If refpos == mutpos, we have a match! Update
-            #                      readname2mutpos2ismutated[mutpos] based on
-            #                      comparing the read to the reference at the
-            #                      aligned positions.
-            # If refpos <  mutpos, continue to the next pair.
-
-            for pair in ap:
-                readpos, refpos = pair
-
-                # Since we set matches_only (for get_aligned_pairs()) to False,
-                # the alignment could include insertions (which are encoded as
-                # the reference pos being set to None). We inherently ignore
-                # these insertions as part of the read smoothing process.
-                if refpos is None:
-                    continue
-
-                mutpos = mutated_positions[mpi]
-
-                no_mutations_to_right_of_here = False
-
-                # Increment mpi until we get to the next mutated position at or
-                # after the reference pos for this aligned pair (or until we
-                # run out of mutated positions).
-                while refpos > mutpos:
-                    mpi += 1
-                    if mpi < len(mutated_positions):
-                        mutpos = mutated_positions[mpi]
-                    else:
-                        no_mutations_to_right_of_here = True
-                        break
-
-                # I expect this should happen only for reads aligned near the
-                # right end of the genome.
-                if no_mutations_to_right_of_here:
-                    break
-
-                # If the next mutation occurs after this aligned pair, continue
-                # on to a later pair.
-                if refpos < mutpos:
-                    continue
-
-                # If we've made it here, refpos == mutpos!
-                # (...unless I messed something up in how I designed this.)
-                if refpos != mutpos:
-                    raise WeirdError(
-                        f"Contig = {contig}, refpos = {refpos}, mutpos = "
-                        f"{mutpos}. refpos and mutpos should match. This "
-                        "should never happen; please, open an issue on GitHub "
-                        "so you can yell at Marcus."
-                    )
-
-                # Since we set matches_only (for get_aligned_pairs()) to False,
-                # there's a chance a read contains a deletion aligned to a
-                # mutated position. This is accounted for by this check: in
-                # this case, we ignore this alignment.
-                if readpos is None:
-                    ignoring_this_aln = True
-                    break
-
-                read_nt = aln.query_sequence[readpos]
-                # If this read doesn't match the "reference" or "alternate"
-                # nucleotide at this position, ignore it.
-                #
-                # For mutations produced by strainFlye call, "reference" should
-                # always be the consensus nucleotide and "alternate" should
-                # always be the second-most-common nucleotide at a position.
-                #
-                # For arbitrary mutations, this isn't necessarily true; we
-                # leave things up to the discretion of however these mutations
-                # were called.
-                if read_nt != mp2ra[mutpos][0] and read_nt != mp2ra[mutpos][1]:
-                    ignoring_this_aln = True
-                    break
-
-                # Modify sr_seq to use this read's nucleotide at this mutated
-                # position. (It's entirely possible that this read might match
-                # the contig sequence at this position, in which case this
-                # .replace() operation won't actually change the sequence --
-                # this is OK.)
-                relative_pos_on_aln = mutpos - ref_start
-                sr_seq = sr_seq.replace([relative_pos_on_aln], read_nt)
-                replacements_made[relative_pos_on_aln] = read_nt
-
-            if ignoring_this_aln:
+            if repls is None:
                 num_ignored_alns += 1
             else:
-                # Now that we've finished processing all called mutations that
-                # this linear alignment spans, prepare it to be written out to
-                # a FASTA file. See comments above on sr_buffer.
-                #
-                # (Also, we've already guaranteed new_readname isn't already in
-                # sr_buffer, so no need to worry about accidentally overwriting
-                # something from earlier.)
-                sr_buffer[new_readname] = sr_seq
+                # Smoothed read sequence from the start to end of the linear
+                # alignment, completely skipping over indels and mutations.
+                # Edit this seq so that if the alignment has (mis)matches to
+                # any called mutated positions within this sequence, these
+                # positions will be updated to match.
+                # NOTE that this isn't a string -- it's a skbio.DNA object.
+                sr_seq = contig_seq[ref_start : ref_end + 1]
+                # Unfortunately, skbio.DNA.replace() doesn't seem to be able to
+                # replace multiple positions in multiple ways at the same time,
+                # so we've gotta loop through repls ourselves.
+                for aln_pos in repls:
+                    sr_seq = sr_seq.replace([aln_pos], repls[aln_pos])
+
+                # Prepare this smoothed read to be written out to a FASTA file.
+                # See comments above on sr_buffer. (Also, we've already
+                # guaranteed new_readname isn't already in sr_buffer, so no
+                # need to worry about accidentally overwriting something from
+                # earlier.)
+                sr_buffer[new_readname] = str(sr_seq)
                 num_sr_generated += 1
+
+                if ai % sr_chunk_size == 0:
+                    append_reads(out_reads_fp, sr_buffer)
+                    # Clear the buffer
+                    sr_buffer = {}
 
                 # If we care about coverage info due to creating virtual reads,
                 # record which positions this smoothed read covers (of course,
@@ -390,11 +433,6 @@ def run_apply(
                 if virtual_reads:
                     for pos_in_sr in range(ref_start, ref_end + 1):
                         pos2srcov[pos_in_sr] += 1
-
-                if ai % sr_chunk_size == 0:
-                    append_reads(out_reads_fp, sr_buffer)
-                    # Clear the buffer
-                    sr_buffer = {}
 
         # We're probably going to have left over smoothed reads that we still
         # haven't written out, unless things worked out so that on the final
@@ -443,6 +481,8 @@ def run_apply(
         # precludes arbitrary BCF inputs. Compute from scratch? not sure how
         # long that'll take.
         # coverage_sum = 0
+
+    fancylog("Done.", prefix="")
 
 
 def run_assemble():

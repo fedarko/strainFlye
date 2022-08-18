@@ -241,8 +241,8 @@ def get_mutated_position_details_in_contig(bcf_obj, contig):
     Returns
     -------
     mp2ra: dict
-        Maps (zero-indexed) mutated positions to a tuple of (ref nt, alt nt)
-        as listed in the BCF file.
+        Maps (zero-indexed) mutated positions in this contig to a tuple of
+        (ref nt, alt nt), as listed in the BCF file.
 
     Raises
     ------
