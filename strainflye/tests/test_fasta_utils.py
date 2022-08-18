@@ -107,7 +107,12 @@ def test_get_name2len_min_num_contigs_zero():
 def test_get_name2len_empty_contig_sequence():
     # This error is caught by skbio, thankfully! Less work for me. We just test
     # that this error is actually raised.
-    for bad_fasta_text in (">empty\n", ">empty", ">asdf\nACTG\n>empty\n"):
+    for bad_fasta_text in (
+        ">empty\n",
+        ">empty",
+        ">empty\n   \t ",
+        ">asdf\nACTG\n>empty\n",
+    ):
         sio = StringIO(bad_fasta_text)
         with pytest.raises(FASTAFormatError) as ei:
             utils.get_name2len(sio)
