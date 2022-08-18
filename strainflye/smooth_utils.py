@@ -1,6 +1,7 @@
 # Utilities for strainFlye smooth.
 
 import os
+import pysamstats
 from collections import defaultdict
 from strainflye import (
     phasing_utils,
@@ -8,6 +9,7 @@ from strainflye import (
     bcf_utils,
     misc_utils,
     fasta_utils,
+    config,
 )
 from strainflye.errors import ParameterError, WeirdError
 
@@ -181,6 +183,91 @@ def get_smooth_aln_replacements(aln, mutated_positions, mp2ra):
         return replacements_to_make
 
 
+def convert_to_runs(positions):
+    """Converts a (sorted) list of ints to a list of runs of consecutive ints.
+
+    Note that this doesn't take into account any sort of "loop-around" effect
+    (e.g. in the case of cyclic contigs). This doesn't even have any knowledge
+    about these positions being from a contig -- so this function don't know
+    the contig length, etc. Simpler is probably better for this.
+
+    Parameters
+    ----------
+    positions: list of int
+        Assumed to be sorted.
+
+    Returns
+    -------
+    runs: list of 2-tuples of int
+        Each entry in this list is a 2-tuple of the format (p1, p2), where p1
+        and p2 are both ints such that [p1, p1 + 1, p1 + 2, ..., p2] are all
+        present in positions.
+
+        If any of the runs contains only an "isolated" position p, then this
+        particular run will be accounted for in runs as a 2-tuple of (p, p)
+        indicating this case.
+
+        If positions was empty, this will be an empty list.
+    """
+    runs = []
+    if len(positions) > 1:
+        prev_pos = positions[0]
+        run_start_pos = positions[0]
+        for sp in positions[1:]:
+            if prev_pos == sp - 1:
+                prev_pos = sp
+            else:
+                runs.append((run_start_pos, prev_pos))
+                run_start_pos = sp
+                prev_pos = sp
+
+        runs.append((run_start_pos, sp))
+    elif len(positions) == 1:
+        runs.append((positions[0], positions[0]))
+    return runs
+
+
+def compute_average_coverages(
+    contigs, contig_name2len, bam_obj, verbose, fancylog
+):
+    fancylog(
+        "Computing average coverages in each contig, for use with "
+        "virtual reads..."
+    )
+    contig2avgcov = {}
+    for ci, contig in enumerate(contig_name2len, 1):
+
+        contig_len = contig_name2len[contig]
+        if verbose:
+            cli_utils.proglog(
+                contig,
+                ci,
+                len(contig_name2len),
+                fancylog,
+                contig_len=contig_len,
+            )
+
+        coverage_sum = 0
+        for rec in pysamstats.stat_variation(
+            bam_obj,
+            chrom=contig,
+            fafile=contigs,
+            pad=True,
+            max_depth=config.MAX_DEPTH_PYSAM,
+        ):
+            coverage_sum += rec["A"] + rec["C"] + rec["G"] + rec["T"]
+        avg_cov = coverage_sum / contig_len
+        contig2avgcov[contig] = avg_cov
+
+        if verbose:
+            fancylog(
+                f"{contig} has average coverage {avg_cov:,.2f}x.", prefix=""
+            )
+
+    fancylog("Done.", prefix="")
+    return contig2avgcov
+
+
 def run_apply(
     contigs,
     bam,
@@ -253,8 +340,42 @@ def run_apply(
         contigs, bam, bcf, fancylog
     )
     num_fasta_contigs = len(contig_name2len)
+
+    contig2avgcov = None
+    vrwcp = None
+    vrf2 = 2 * virtual_read_flank
     if virtual_reads:
+        fancylog(
+            (
+                "All contigs must be > (2 \u00d7 --virtual-read-flank) = "
+                f"{vrf2:,} bp long. Checking this..."
+            ),
+            prefix="",
+        )
+        # If you encounter this error in practice, you probably just
+        # have a very short contig in your FASTA file. The easy way to
+        # get around this error, then, is to filter all contigs that
+        # are shorter than 2 * virtual_read_flank from your FASTA file.
+        #
+        # (Alternatively, you could decrease virtual_read_flank, but I
+        # don't think you should need to do this unless you manually
+        # set it to something really high.)
+        for contig in contig_name2len:
+            contig_len = contig_name2len[contig]
+            if contig_len <= vrf2:
+                raise ParameterError(
+                    f"Contig {contig} is {contig_len:,} bp, which is \u2264 "
+                    f"{vrf2:,}. Depending on your goals, you may want to "
+                    "remove short contigs from this FASTA file, lower "
+                    "--virtual-read-flank, or set --no-virtual-reads."
+                )
+        fancylog("All contigs meet this minimum length.", prefix="")
+
         rt = "smoothed and virtual reads"
+        contig2avgcov = compute_average_coverages(
+            contigs, contig_name2len, bam_obj, verbose, fancylog
+        )
+        vrwcp = virtual_read_well_covered_perc / 100
     else:
         rt = "smoothed reads"
 
@@ -475,17 +596,24 @@ def run_apply(
             )
             continue
 
-        ######################################################################
-        # Task 2: iterate through runs of low-coverage positions and create
-        # virtual reads.
-        ######################################################################
+        if virtual_reads:
+            ###################################################################
+            # Task 2: iterate through runs of low-coverage positions and create
+            # virtual reads.
+            ###################################################################
+            # First, let's detect low-coverage positions.
+            low_cov_positions = []
+            min_well_cov = contig2avgcov[contig] * vrwcp
+            for pos, srcov in enumerate(pos2srcov):
+                if srcov < min_well_cov:
+                    low_cov_positions.append(pos)
 
-        # TODO: Unlike the Phasing-LJA.ipynb notebook, we don't have average
-        # coverages up front; I guess we could have users pass in the diversity
-        # index TSV file which includes these, but that's gross and
-        # precludes arbitrary BCF inputs. Compute from scratch? not sure how
-        # long that'll take.
-        # coverage_sum = 0
+            if len(low_cov_positions) > 0:
+                lc_runs = convert_to_runs(low_cov_positions)
+                # num_vr = 0
+                # vr_buffer = {}
+                for run in lc_runs:
+                    pass  # TODO do everything
 
     fancylog("Done.", prefix="")
 
