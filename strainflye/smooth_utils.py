@@ -140,7 +140,7 @@ def run_apply(
             fancylog(
                 (
                     f"This contig has {len(mutated_positions):,} mutated "
-                    "positions."
+                    "position(s)."
                 ),
                 prefix="",
             )
@@ -182,16 +182,20 @@ def run_apply(
 
         # Go through all linear alignments of each read to this contig...
         for ai, aln in enumerate(bam_obj.fetch(contig), 1):
+
+            readname = aln.query_name
+
             if aln.is_secondary:
                 raise ParameterError(
-                    f"Found a secondary alignment to contig {contig}. "
+                    f"Found a secondary alignment to contig {contig} (from a "
+                    f"read named {readname}). "
                     "The BAM file should not contain secondary alignments."
                 )
 
             num_alns_total += 1
 
-            # OK, we know this contig actually has alignments, so load its
-            # sequence if we haven't already.
+            # OK, we know this contig actually has (non-secondary) alignments,
+            # so load its sequence if we haven't already.
             #
             # NOTE: get_single_seq() is kind of inefficient -- in the
             # worst case, it has to iterate over the entire FASTA file to find
@@ -212,7 +216,6 @@ def run_apply(
             # of this method; the paper mentions this). We should have
             # already filtered reference-overlapping supplementary alignments,
             # so these "reads" shouldn't intersect on the contig at least.
-            readname = aln.query_name
             readname2freq_so_far[readname] += 1
             new_readname = f"{readname}_{readname2freq_so_far[readname]}"
 
@@ -323,7 +326,12 @@ def run_apply(
                 # If we've made it here, refpos == mutpos!
                 # (...unless I messed something up in how I designed this.)
                 if refpos != mutpos:
-                    raise WeirdError("This should never happen!")
+                    raise WeirdError(
+                        f"Contig = {contig}, refpos = {refpos}, mutpos = "
+                        f"{mutpos}. refpos and mutpos should match. This "
+                        "should never happen; please, open an issue on GitHub "
+                        "so you can yell at Marcus."
+                    )
 
                 # Since we set matches_only (for get_aligned_pairs()) to False,
                 # there's a chance a read contains a deletion aligned to a
@@ -406,10 +414,10 @@ def run_apply(
             if verbose:
                 fancylog(
                     (
-                        f"From the {num_alns_total:,} linear alignments to "
+                        f"From the {num_alns_total:,} linear alignment(s) to "
                         f"contig {contig}: constructed {num_sr_generated:,} "
-                        f"smoothed reads and ignored {num_ignored_alns:,} "
-                        "linear alignments."
+                        f"smoothed read(s) and ignored {num_ignored_alns:,} "
+                        "linear alignment(s)."
                     ),
                     prefix="",
                 )
