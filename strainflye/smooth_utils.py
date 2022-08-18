@@ -243,6 +243,11 @@ def run_apply(
     ------
     Various types of errors if the inputs/parameters are messed up.
     (... Sorry, I'll try to make this description better later.)
+
+    Notes
+    -----
+    This should be very parallelizable, since each contig can be processed
+    independently.
     """
     contig_name2len, bam_obj, bcf_obj = phasing_utils.load_triplet(
         contigs, bam, bcf, fancylog
