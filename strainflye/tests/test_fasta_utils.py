@@ -3,6 +3,7 @@ import pytest
 import strainflye.fasta_utils as utils
 from io import StringIO
 from strainflye.errors import SequencingDataError
+from skbio.io import FASTAFormatError
 
 
 # ... In practice, the user will see "... in asdf.fasta ..." in error messages
@@ -86,7 +87,7 @@ def test_get_name2len_min_num_contigs():
         utils.get_name2len(sio, min_num_contigs=2)
 
     # We've gotta escape the parentheses, since we're using re.match().
-    # This is kind of a hassl -- we have to use both the \( syntax as well as
+    # This is kind of a hassle -- we have to use both the \( syntax as well as
     # the raw string modifier, r. See https://stackoverflow.com/a/61497557.
     exp_pattern = rf"Less than 2 contig\(s\) are given in {SIO_REPR}."
     assert re.match(exp_pattern, str(ei.value)) is not None
@@ -101,6 +102,16 @@ def test_get_name2len_min_num_contigs_zero():
         utils.get_name2len(sio, min_num_contigs=1)
     exp_pattern = rf"Less than 1 contig\(s\) are given in {SIO_REPR}."
     assert re.match(exp_pattern, str(ei.value)) is not None
+
+
+def test_get_name2len_empty_contig_sequence():
+    # This error is caught by skbio, thankfully! Less work for me. We just test
+    # that this error is actually raised.
+    for bad_fasta_text in (">empty\n", ">empty", ">asdf\nACTG\n>empty\n"):
+        sio = StringIO(bad_fasta_text)
+        with pytest.raises(FASTAFormatError) as ei:
+            utils.get_name2len(sio)
+        assert str(ei.value) == "Found header without sequence data."
 
 
 def test_get_single_seq_basic():
