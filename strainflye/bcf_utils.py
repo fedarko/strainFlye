@@ -262,5 +262,6 @@ def get_mutated_position_details_in_contig(bcf_obj, contig):
             raise ParameterError(
                 f"Mutated position {mut.pos} in contig {contig} has != 1 alt"
             )
-        mp2ra[mut.pos] = (mut.ref, mut.alts[0])
+        # mut.pos is 1-indexed, so gotta subtract 1 to make it 0-indexed
+        mp2ra[mut.pos - 1] = (mut.ref, mut.alts[0])
     return mp2ra
