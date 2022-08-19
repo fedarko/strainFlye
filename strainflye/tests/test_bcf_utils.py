@@ -5,7 +5,7 @@ from strainflye.errors import ParameterError
 from .utils_for_testing import write_vcf_tempfile
 
 
-def test_parse_bcf_good():
+def test_parse_sf_bcf_good():
     # Header + first four mutations called on SheepGut using p = 0.15%
     # ... just for reference, using StringIO didn't seem to work with pysam's
     # BCF reader, hence the use of tempfiles here
@@ -27,7 +27,7 @@ def test_parse_bcf_good():
         "edge_1\t356\t.\tA\tT\t.\t.\tMDP=403;AAD=2\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
     )
-    bcf_obj, thresh_type, thresh_min = bu.parse_bcf(fh.name)
+    bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
 
     # Let's get the easy checks out of the way first...
     assert thresh_type == "p"
@@ -60,7 +60,7 @@ def test_parse_bcf_good():
         assert rec_aad[0] == correct_aad[ri]
 
 
-def test_parse_bcf_multi_sf_header():
+def test_parse_sf_bcf_multi_sf_header():
     # Header + first four mutations called on SheepGut using p = 0.15%
     fh = write_vcf_tempfile(
         "##fileformat=VCFv4.3\n"
@@ -79,14 +79,14 @@ def test_parse_bcf_multi_sf_header():
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
     )
     with pytest.raises(ParameterError) as ei:
-        bu.parse_bcf(fh.name)
+        bu.parse_sf_bcf(fh.name)
     exp_patt = (
         f"BCF file {fh.name} has multiple strainFlye threshold filter headers."
     )
     assert str(ei.value) == exp_patt
 
 
-def test_parse_bcf_no_sf_header():
+def test_parse_sf_bcf_no_sf_header():
     # Header + first four mutations called on SheepGut using p = 0.15%
     fh = write_vcf_tempfile(
         "##fileformat=VCFv4.3\n"
@@ -103,7 +103,7 @@ def test_parse_bcf_no_sf_header():
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
     )
     with pytest.raises(ParameterError) as ei:
-        bu.parse_bcf(fh.name)
+        bu.parse_sf_bcf(fh.name)
     exp_patt = (
         f"BCF file {fh.name} doesn't seem to be from strainFlye: no threshold "
         "filter headers."
@@ -111,7 +111,7 @@ def test_parse_bcf_no_sf_header():
     assert str(ei.value) == exp_patt
 
 
-def test_parse_bcf_missing_info_fields():
+def test_parse_sf_bcf_missing_info_fields():
     # Header + first four mutations called on SheepGut using p = 0.15%
     # kind of a gross way of doing this -- should ideally set this up as a list
     # from the start, theeen join it up, rather than going from string to list
@@ -136,21 +136,21 @@ def test_parse_bcf_missing_info_fields():
     # remove just the MDP line
     fh = write_vcf_tempfile("\n".join(split_text[:5] + split_text[6:]))
     with pytest.raises(ParameterError) as ei:
-        bu.parse_bcf(fh.name)
+        bu.parse_sf_bcf(fh.name)
     exp_patt = f"BCF file {fh.name} needs to have MDP and AAD info fields."
     assert str(ei.value) == exp_patt
 
     # remove just the AAD line
     fh = write_vcf_tempfile("\n".join(split_text[:6] + split_text[7:]))
     with pytest.raises(ParameterError) as ei:
-        bu.parse_bcf(fh.name)
+        bu.parse_sf_bcf(fh.name)
     exp_patt = f"BCF file {fh.name} needs to have MDP and AAD info fields."
     assert str(ei.value) == exp_patt
 
     # remove both the MDP and AAD lines
     fh = write_vcf_tempfile("\n".join(split_text[:5] + split_text[7:]))
     with pytest.raises(ParameterError) as ei:
-        bu.parse_bcf(fh.name)
+        bu.parse_sf_bcf(fh.name)
     exp_patt = f"BCF file {fh.name} needs to have MDP and AAD info fields."
     assert str(ei.value) == exp_patt
 
@@ -158,10 +158,10 @@ def test_parse_bcf_missing_info_fields():
     # throw an error) -- we check this dataset in detail above, so no need to
     # do that again here
     fh = write_vcf_tempfile("\n".join(split_text))
-    bu.parse_bcf(fh.name)
+    bu.parse_sf_bcf(fh.name)
 
 
-def test_parse_bcf_no_contigs_in_header():
+def test_parse_sf_bcf_no_contigs_in_header():
     # Header + first four mutations called on SheepGut using p = 0.15%
     fh = write_vcf_tempfile(
         "##fileformat=VCFv4.3\n"
@@ -178,14 +178,14 @@ def test_parse_bcf_no_contigs_in_header():
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
     )
     with pytest.raises(ParameterError) as ei:
-        bu.parse_bcf(fh.name)
+        bu.parse_sf_bcf(fh.name)
     exp_patt = (
         f"BCF file {fh.name} doesn't describe any contigs in its header."
     )
     assert str(ei.value) == exp_patt
 
 
-def test_parse_bcf_no_contig_length_in_header():
+def test_parse_sf_bcf_no_contig_length_in_header():
     # Header + first four mutations called on SheepGut using p = 0.15%
     fh = write_vcf_tempfile(
         "##fileformat=VCFv4.3\n"
@@ -203,7 +203,7 @@ def test_parse_bcf_no_contig_length_in_header():
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
     )
     with pytest.raises(ParameterError) as ei:
-        bu.parse_bcf(fh.name)
+        bu.parse_sf_bcf(fh.name)
     exp_patt = f"BCF file {fh.name} has no length given for contig edge_1."
     assert str(ei.value) == exp_patt
 
@@ -217,7 +217,7 @@ def test_get_mutated_positions_in_contig_good():
         "call-r-min3-di12345",
         "naive-calls.bcf",
     )
-    bcf_obj, _, _ = bu.parse_bcf(test_bcf_path)
+    bcf_obj = bu.parse_arbitrary_bcf(test_bcf_path)
 
     mp_c1 = bu.get_mutated_positions_in_contig(bcf_obj, "c1")
     assert mp_c1 == set([3, 10, 12])
@@ -238,7 +238,7 @@ def test_get_mutated_positions_in_contig_not_in_bcf():
         "call-r-min3-di12345",
         "naive-calls.bcf",
     )
-    bcf_obj, _, _ = bu.parse_bcf(test_bcf_path)
+    bcf_obj = bu.parse_arbitrary_bcf(test_bcf_path)
 
     with pytest.raises(ValueError) as ei:
         bu.get_mutated_positions_in_contig(bcf_obj, "c4")

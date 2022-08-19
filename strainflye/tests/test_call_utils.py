@@ -14,7 +14,7 @@ from strainflye.call_utils import (
     get_min_sufficient_coverages_r,
     run,
 )
-from strainflye.bcf_utils import parse_bcf
+from strainflye.bcf_utils import parse_sf_bcf
 from .utils_for_testing import mock_log
 
 
@@ -287,7 +287,7 @@ def test_run_small_dataset_r(capsys):
         )
 
         # Check BCF
-        bcf_obj, tt, tm = parse_bcf(os.path.join(td, "naive-calls.bcf"))
+        bcf_obj, tt, tm = parse_sf_bcf(os.path.join(td, "naive-calls.bcf"))
         assert tt == "r"
         assert tm == 2
         # There should be exactly five mutations, three on c1 and two on c2.
@@ -437,7 +437,7 @@ def test_run_small_dataset_p(capsys):
         )
 
         # Check BCF
-        bcf_obj, tt, tm = parse_bcf(os.path.join(td, "naive-calls.bcf"))
+        bcf_obj, tt, tm = parse_sf_bcf(os.path.join(td, "naive-calls.bcf"))
         assert tt == "p"
         assert tm == 20
         exp_contigs = ["c1", "c1", "c3"]

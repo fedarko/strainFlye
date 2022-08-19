@@ -10,7 +10,7 @@ from math import floor
 from statistics import mean
 from collections import defaultdict
 from strainflye import fasta_utils, call_utils, misc_utils
-from strainflye.bcf_utils import parse_bcf
+from strainflye.bcf_utils import parse_sf_bcf
 from .errors import ParameterError, SequencingDataError
 from .config import DI_PREF
 
@@ -640,7 +640,8 @@ def run_estimate(
         - If the BCF file's contigs do not exactly match the FASTA file's
           contigs.
 
-    - parse_bcf() can also raise various errors if the input BCF is malformed.
+    - parse_sf_bcf() can also raise various errors if the input BCF is
+      malformed.
     - fasta_utils.get_name2len() can also raise errors if the input FASTA file
       of contigs is malformed.
     """
@@ -650,7 +651,7 @@ def run_estimate(
     contig_name2len = fasta_utils.get_name2len(contigs, min_num_contigs=2)
 
     # Load the BCF file, also
-    bcf_obj, thresh_type, thresh_min = parse_bcf(bcf)
+    bcf_obj, thresh_type, thresh_min = parse_sf_bcf(bcf)
 
     # Figure out which contigs are considered in the BCF file
     # (thankfully, this header can include contigs with no called mutations,
@@ -1335,12 +1336,13 @@ def run_fix(bcf, fdr_info, fdr, output_bcf, fancylog, verbose):
         - If there is not exactly one contig that is present in the BCF file
           but not in the FDR TSV file.
 
-    - parse_bcf() can also raise various errors if the input BCF is malformed.
+    - parse_sf_bcf() can also raise various errors if the input BCF is
+      malformed.
     """
     fancylog("Loading and checking BCF and TSV files...")
     # Like in run_estimate(): Load the BCF file and figure out what contigs it
     # describes
-    bcf_obj, thresh_type, thresh_min = parse_bcf(bcf)
+    bcf_obj, thresh_type, thresh_min = parse_sf_bcf(bcf)
     bcf_contigs = set(bcf_obj.header.contigs)
 
     # Load the estimated FDR file.

@@ -46,8 +46,8 @@ def test_load_triplet_good(capsys):
 
 
 def test_load_triplet_fasta_not_in_bcf_all():
-    # This is actually a valid VCF file (we use it in the parse_bcf() tests);
-    # the problem with it is that it doesn't describe c1, c2, or c3.
+    # This is actually a valid VCF file (we use it in the parse_sf_bcf()
+    # tests); the problem with it is that it doesn't describe c1, c2, or c3.
     bcf_fh = write_vcf_tempfile(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220526\n"

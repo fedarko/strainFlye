@@ -95,7 +95,7 @@ def run_hotspot_feature_detection(
             "be specified."
         )
 
-    bcf_obj, bcf_contigs = bcf_utils.loudly_parse_bcf_and_contigs(
+    bcf_obj, bcf_contigs = bcf_utils.loudly_parse_arbitrary_bcf_and_contigs(
         bcf, fancylog
     )
 
@@ -129,8 +129,9 @@ def run_hotspot_feature_detection(
 
         # Also, get its length -- this'll be useful for checking that the
         # feature coordinates are sane later.
-        # (bcf_utils.parse_bcf() should have already raised an error if length
-        # was unavailable in the BCF header for any contigs, so this is safe.)
+        # (bcf_utils.parse_arbitrary_bcf() should have already raised an error
+        # if length was unavailable in the BCF header for any contigs, so this
+        # is safe.)
         contig_length = bcf_obj.header.contigs[contig].length
 
         seen_feature_ids = set()
@@ -510,7 +511,7 @@ def run_coldspot_gap_detection(
     if min_length < 1:
         raise ParameterError("Minimum coldspot gap length must be at least 1.")
 
-    bcf_obj, bcf_contigs = bcf_utils.loudly_parse_bcf_and_contigs(
+    bcf_obj, bcf_contigs = bcf_utils.loudly_parse_arbitrary_bcf_and_contigs(
         bcf, fancylog
     )
 

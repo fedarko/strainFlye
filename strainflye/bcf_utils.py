@@ -6,9 +6,58 @@ import pysam
 from .errors import ParameterError
 
 
-def parse_bcf(bcf):
-    """Opens a BCF file, and does sanity checking and p vs. r sniffing on it.
+def verify_bcf_has_contigs_with_lengths(bcf_obj, bcf_fp):
+    if len(bcf_obj.header.contigs) < 1:
+        raise ParameterError(
+            f"BCF file {bcf_fp} doesn't describe any contigs in its header."
+        )
 
+    # The VCF 4.3 specification -- as of writing -- only says that contig tags
+    # "typically" include length information. So, let's guarantee the presence
+    # of length info here to make life easier for us downstream.
+    for contig in bcf_obj.header.contigs:
+        contig_entry = bcf_obj.header.contigs[contig]
+        # From manual testing, it looks like pysam does actually set the length
+        # attribute of contigs without a given length -- but it sets it to
+        # None. Just to future-proof this a bit, we check both the case where a
+        # contig has no length attribute and the case where a contig has a None
+        # length attribute. Both are invalid.
+        if not hasattr(contig_entry, "length") or contig_entry.length is None:
+            raise ParameterError(
+                f"BCF file {bcf_fp} has no length given for contig {contig}."
+            )
+
+
+def parse_arbitrary_bcf(bcf):
+    """Opens a BCF file that may or may not have been produced by strainFlye.
+
+    Unlike parse_sf_bcf(), this function doesn't require that the input
+    mutations come from strainFlye call (or strainFlye fdr fix). This will
+    still perform some sanity checking on the BCF file (for example, making
+    sure that it does not contain any multi-allelic mutations or indels),
+    though. The main purpose of this is to enable us to use arbitrary BCF files
+    with strainFlye's "downstream" commands (e.g. hotspot/coldspot detection,
+    phasing).
+
+    Parameters
+    ----------
+    bcf: str
+        Path to a BCF file.
+
+    Returns
+    -------
+    f: pysam.VariantFile
+        Object describing the BCF file located at the specified filepath.
+    """
+    f = pysam.VariantFile(bcf)
+    verify_bcf_has_contigs_with_lengths(f, bcf)
+    return f
+
+
+def parse_sf_bcf(bcf):
+    """Opens a BCF file that we expect to have been produced by strainFlye.
+
+    Does sanity checking and p vs. r sniffing on the file.
     Thankfully, pysam has the ability to read BCF files, so the main thing
     we do here is checking that the meta-information of the BCF file seems
     kosher (i.e. was produced by strainFlye).
@@ -25,7 +74,7 @@ def parse_bcf(bcf):
     Returns
     -------
     (f, thresh_type, thresh_min): (pysam.VariantFile, str, int)
-        f: Object describing the input BCF file.
+        f: Object describing the BCF file located at the specified filepath.
         thresh_type: either "p" or "r", depending on what type of mutation
                      calling was done to produce this BCF file.
         thresh_min: the minimum value of p or r used in mutation calling to
@@ -108,31 +157,13 @@ def parse_bcf(bcf):
             f"BCF file {bcf} needs to have MDP and AAD info fields."
         )
 
-    if len(f.header.contigs) < 1:
-        raise ParameterError(
-            f"BCF file {bcf} doesn't describe any contigs in its header."
-        )
-
-    # The VCF 4.3 specification -- as of writing -- only says that contig tags
-    # "typically" include length information. So, let's guarantee the presence
-    # of length info here to make life easier for us downstream.
-    for contig in f.header.contigs:
-        contig_entry = f.header.contigs[contig]
-        # From manual testing, it looks like pysam does actually set the length
-        # attribute of contigs without a given length -- but it sets it to
-        # None. Just to future-proof this a bit, we check both the case where a
-        # contig has no length attribute and the case where a contig has a None
-        # length attribute. Both are invalid.
-        if not hasattr(contig_entry, "length") or contig_entry.length is None:
-            raise ParameterError(
-                f"BCF file {bcf} has no length given for contig {contig}."
-            )
+    verify_bcf_has_contigs_with_lengths(f, bcf)
 
     return f, thresh_type, thresh_min
 
 
-def loudly_parse_bcf_and_contigs(bcf, fancylog):
-    """Calls parse_bcf() on a BCF file while logging about it.
+def loudly_parse_arbitrary_bcf_and_contigs(bcf, fancylog):
+    """Calls parse_arbitrary_bcf() on a BCF file while logging about it.
 
     Encapsulated this to its own function because this was the same for both
     "spot" commands.
@@ -154,11 +185,11 @@ def loudly_parse_bcf_and_contigs(bcf, fancylog):
 
     Raises
     ------
-    Any of the errors that parse_bcf() would raise; see that function's
-    documentation for details.
+    Any of the errors that parse_arbitrary_bcf() would raise; see that
+    function's documentation for details.
     """
     fancylog("Loading and checking the BCF file...")
-    bcf_obj, thresh_type, thresh_min = parse_bcf(bcf)
+    bcf_obj = parse_arbitrary_bcf(bcf)
     fancylog("Looks good so far.", prefix="")
     # We don't really NEED to convert this to a list but we might as well just
     # for peace of mind
@@ -184,7 +215,7 @@ def get_mutated_positions_in_contig(bcf_obj, contig, zero_indexed=True):
     Parameters
     ----------
     bcf_obj: pysam.VariantFile
-        Object describing a BCF file (for example, produced by parse_bcf()).
+        Object describing a BCF file.
 
     contig: str
         Name of a contig for which we will fetch mutations in bcf_obj.
@@ -233,7 +264,7 @@ def get_mutated_position_details_in_contig(bcf_obj, contig):
     Parameters
     ----------
     bcf_obj: pysam.VariantFile
-        Object describing a BCF file (for example, produced by parse_bcf()).
+        Object describing a BCF file.
 
     contig: str
         Name of a contig for which we will fetch mutations in bcf_obj.

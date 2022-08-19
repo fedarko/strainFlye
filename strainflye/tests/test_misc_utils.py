@@ -4,7 +4,7 @@ import tempfile
 import pytest
 import pysam
 import strainflye.misc_utils as mu
-from strainflye.bcf_utils import parse_bcf
+from strainflye.bcf_utils import parse_sf_bcf
 from strainflye.errors import ParameterError
 
 
@@ -97,7 +97,7 @@ def test_verify_contig_lengths_bam_bcf_missing():
 
 def test_verify_contig_lengths_good_both():
     bam_obj = pysam.AlignmentFile(BAM, "rb")
-    bcf_obj, tt, tm = parse_bcf(BCF)
+    bcf_obj, tt, tm = parse_sf_bcf(BCF)
     mu.verify_contig_lengths(
         {"c1": 23, "c2": 12, "c3": 16}, bam_obj=bam_obj, bcf_obj=bcf_obj
     )
@@ -112,7 +112,7 @@ def test_verify_contig_lengths_good_just_bam():
 
 
 def test_verify_contig_lengths_good_just_bcf():
-    bcf_obj, tt, tm = parse_bcf(BCF)
+    bcf_obj, tt, tm = parse_sf_bcf(BCF)
     mu.verify_contig_lengths({"c1": 23, "c2": 12, "c3": 16}, bcf_obj=bcf_obj)
 
 
@@ -121,7 +121,7 @@ def test_verify_contig_lengths_mismatch_with_both():
     # thrown. but this is less a hard mandate on how this function should
     # perform and more a quirk of our implementation, yada yada
     bam_obj = pysam.AlignmentFile(BAM, "rb")
-    bcf_obj, tt, tm = parse_bcf(BCF)
+    bcf_obj, tt, tm = parse_sf_bcf(BCF)
     with pytest.raises(ParameterError) as ei:
         mu.verify_contig_lengths(
             {"c1": 22, "c2": 12, "c3": 16}, bam_obj=bam_obj, bcf_obj=bcf_obj
@@ -147,7 +147,7 @@ def test_verify_contig_lengths_mismatch_with_just_bam():
 
 
 def test_verify_contig_lengths_mismatch_with_just_bcf():
-    bcf_obj, tt, tm = parse_bcf(BCF)
+    bcf_obj, tt, tm = parse_sf_bcf(BCF)
     with pytest.raises(ParameterError) as ei:
         mu.verify_contig_lengths(
             {"c1": 23, "c2": 12, "c3": 1024}, bcf_obj=bcf_obj

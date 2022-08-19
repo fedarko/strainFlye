@@ -252,7 +252,7 @@ def test_compute_full_decoy_contig_mut_rates_p_simple():
         "edge_1\t356\t.\tA\tT\t.\t.\tMDP=10000;AAD=16\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=19\n"
     )
-    bcf_obj, thresh_type, thresh_min = bu.parse_bcf(bcf_name)
+    bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(bcf_name)
     mut_rates = fu.compute_full_decoy_contig_mut_rates(
         bcf_obj, thresh_type, range(15, 21), "edge_1", 500
     )
@@ -295,7 +295,7 @@ def test_compute_full_decoy_contig_mut_rates_r_simple():
         "edge_1\t356\t.\tA\tT\t.\t.\tMDP=10000;AAD=5\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
     )
-    bcf_obj, thresh_type, thresh_min = bu.parse_bcf(bcf_name)
+    bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(bcf_name)
     mut_rates = fu.compute_full_decoy_contig_mut_rates(
         bcf_obj, thresh_type, range(5, 13), "edge_1", 500
     )
@@ -338,7 +338,7 @@ def test_compute_number_of_mutations_in_full_contig_p_with_indisputable():
         "edge_1\t304\t.\tA\tT\t.\t.\tMDP=100000;AAD=5001\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=100000;AAD=5000\n"
     )
-    bcf_obj, thresh_type, thresh_min = bu.parse_bcf(bcf_name)
+    bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(bcf_name)
     num_muts = fu.compute_number_of_mutations_in_full_contig(
         bcf_obj, thresh_type, range(15, 500), "edge_1"
     )
@@ -390,7 +390,7 @@ def test_compute_number_of_mutations_in_full_contig_thresh_val_errors():
         "edge_1\t356\t.\tA\tT\t.\t.\tMDP=10000;AAD=5\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
     )
-    bcf_obj, thresh_type, thresh_min = bu.parse_bcf(bcf_name)
+    bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(bcf_name)
     try:
         with pytest.raises(ParameterError) as ei:
             fu.compute_number_of_mutations_in_full_contig(
@@ -433,7 +433,7 @@ def test_compute_target_contig_fdr_curve_info():
         "edge_1\t51\t.\tA\tT\t.\t.\tMDP=10000;AAD=5\n"
         "edge_1\t90\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
     )
-    bcf_obj, thresh_type, thresh_min = bu.parse_bcf(bcf_name)
+    bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(bcf_name)
     try:
         fdr_line, num_line = fu.compute_target_contig_fdr_curve_info(
             bcf_obj,
@@ -474,7 +474,7 @@ def test_compute_decoy_contig_mut_rates_full_r_simple():
         "edge_1\t356\t.\tA\tT\t.\t.\tMDP=10000;AAD=5\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
     )
-    bcf_obj, thresh_type, thresh_min = bu.parse_bcf(bcf_name)
+    bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(bcf_name)
     # where we're going, we don't need other nucleotides
     contigs_file = StringIO(f">edge_1\n{'A' * 500}")
     mut_rates = fu.compute_decoy_contig_mut_rates(

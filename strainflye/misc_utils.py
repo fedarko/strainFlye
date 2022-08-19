@@ -77,10 +77,10 @@ def verify_contig_lengths(fasta_name2len, bam_obj=None, bcf_obj=None):
 
     bcf_obj: pysam.VariantFile or None
         Object describing a BCF file, produced by pysam. In practice, you
-        can get this from bcf_utils.parse_bcf(). We make the assumption that
+        can get this from bcf_utils.parse_*_bcf(). We make the assumption that
         all contigs defined in the header of this file have the "length"
         attribute, and that this length attribute is not None; this should
-        already have been enforced by bcf_utils.parse_bcf().
+        already have been enforced by bcf_utils.parse_*_bcf().
 
     bam_obj: pysam.AlignmentFile or None
         Object describing a BAM file, produced by pysam.
