@@ -80,6 +80,27 @@ def compress_vcf(vcf_fp, bcf_fp, fancylog):
 
 
 def verify_bcf_has_contigs_with_lengths(bcf_obj, bcf_fp):
+    """Raises an error if a BCF has no contigs, or has no length for a contig.
+
+    Parameters
+    ----------
+    bcf_obj: pysam.VariantFile
+        Object describing a BCF file.
+
+    bcf_fp: str
+        Path to this BCF file (used in the error message, if raised).
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    ParameterError
+        If there are no contigs described in the header of the BCF object, or
+        if any of the contigs descried in the header have no length explicitly
+        given.
+    """
     if len(bcf_obj.header.contigs) < 1:
         raise ParameterError(
             f"BCF file {bcf_fp} doesn't describe any contigs in its header."
@@ -102,10 +123,30 @@ def verify_bcf_has_contigs_with_lengths(bcf_obj, bcf_fp):
 
 
 def verify_no_multiallelic_mutations_in_bcf(bcf_obj, bcf_fp):
+    """Raises an error if multiple mutations cover a position in a contig.
+
+    Parameters
+    ----------
+    bcf_obj: pysam.VariantFile
+        Object describing a BCF file.
+
+    bcf_fp: str
+        Path to this BCF file (used in the error message, if raised).
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    ParameterError
+        If multiple mutations have the same position in a contig, or if any
+        mutations do not have exactly one "alternate" nucleotide.
+    """
     for contig in bcf_obj.header.contigs:
         seen_positions = set()
         for mut in bcf_obj.fetch(contig):
-            if mut.pos in seen_positions:
+            if mut.pos in seen_positions or len(mut.alts) != 1:
                 raise ParameterError(
                     f"BCF file {bcf_fp} has multiple mutations at "
                     f"(1-indexed) position {mut.pos:,} on contig {contig}. "
@@ -163,7 +204,9 @@ def parse_sf_bcf(bcf):
 
     Possible TODO: add another return value, indicating whether or not a header
     indicating FDR fixing was done is present in this BCF. The caller could
-    then optionally log a warning if this is or isn't the case?
+    then optionally log a warning if this is or isn't the case? --> nah,
+    probably not -- we use parse_arbitrary_bcf() for downstream analyses
+    anyway.
 
     Parameters
     ----------
