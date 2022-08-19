@@ -1,5 +1,4 @@
 import tempfile
-import subprocess
 from strainflye.bcf_utils import compress_vcf
 
 
@@ -8,6 +7,8 @@ def mock_log(text, prefix="PREFIX\n"):
 
 
 def write_vcf_tempfile(text):
+    # ... just for reference, using StringIO didn't seem to work with pysam's
+    # BCF reader, hence the use of tempfiles here
     fh = tempfile.NamedTemporaryFile(suffix=".vcf")
     with open(fh.name, "w") as f:
         f.write(text)

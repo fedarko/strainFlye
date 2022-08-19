@@ -3,7 +3,6 @@
 
 import os
 import time
-import subprocess
 import pysam
 import pysamstats
 from . import config

@@ -1,10 +1,9 @@
 import os
-import tempfile
 import pytest
 import pysam
 import strainflye.bcf_utils as bu
 from strainflye.errors import ParameterError
-from .utils_for_testing import write_vcf_tempfile, write_indexed_bcf, mock_log
+from .utils_for_testing import write_vcf_tempfile, write_indexed_bcf
 
 
 BCF = os.path.join(
@@ -19,8 +18,6 @@ BCF = os.path.join(
 
 def test_parse_sf_bcf_good():
     # Header + first four mutations called on SheepGut using p = 0.15%
-    # ... just for reference, using StringIO didn't seem to work with pysam's
-    # BCF reader, hence the use of tempfiles here
     fp = write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220526\n"
