@@ -170,6 +170,38 @@ def verify_bcf_simple(bcf_obj, bcf_fp):
                     "files containing multi-allelic mutations, sorry."
                 )
 
+            ref = mut.ref
+            alt = mut.alts[0]
+
+            # Catch indels, or other complex things like rearrangements.
+            # In addition to catching "explicitly" written indels (e.g.
+            # ref = A, alt = ACT to represent an insertion of two bases),
+            # the length check implicitly catches "symbolic alternate alleles"
+            # like <DEL>, as well as breakend stuff.
+            #
+            # ...We could try to separate these into different checks so that
+            # we can give customized error messages for each type of
+            # unsupported thing, but it's not really worth the trouble or
+            # inefficiency in my opinion.
+            if len(ref) != 1 or len(alt) != 1:
+                raise ParameterError(
+                    f"BCF file {bcf_fp} has an insertion, deletion, or some "
+                    "other complex mutation at "
+                    f"(1-indexed) position {mut.pos:,} on contig {contig}. "
+                    "strainFlye currently only supports BCF "
+                    "files containing single-nucleotide mutations, sorry."
+                )
+
+            if ref not in "ACGT" or alt not in "ACGT":
+                raise ParameterError(
+                    f"BCF file {bcf_fp} has a record at "
+                    f"(1-indexed) position {mut.pos:,} on contig {contig} "
+                    "where the reference ({ref}) and/or alternate ({alt}) are "
+                    "not in {{A, C, G, T}}. "
+                    "strainFlye does not support degenerate nucleotides or "
+                    "other types of reference / alternate alleles, sorry."
+                )
+
             seen_positions.add(mut.pos)
 
 
