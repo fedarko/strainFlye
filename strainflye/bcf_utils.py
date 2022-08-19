@@ -123,7 +123,10 @@ def verify_bcf_has_contigs_with_lengths(bcf_obj, bcf_fp):
 
 
 def verify_bcf_simple(bcf_obj, bcf_fp):
-    """Raises an error if multiple mutations cover a position in a contig.
+    """Raises an error if any of the mutations in a BCF are not "simple."
+
+    So: indels, multi-allelic mutations, rearrangements, etc. should cause this
+    function to fail.
 
     Parameters
     ----------
@@ -140,10 +143,15 @@ def verify_bcf_simple(bcf_obj, bcf_fp):
     Raises
     ------
     ParameterError
-        If multiple mutations have the same position in a contig, or if any
-        mutations do not have exactly one "alternate" nucleotide.
+        If various things are wrong with the BCF's mutations.
 
-        (Note that this also catches
+    Notes
+    -----
+    As of writing, the VCF spec (v4.3) is 36 pages. I can't realistically
+    guarantee 100% that *every* possible weird thing in the VCF spec is checked
+    here. However, this should do a reasonable enough job, and the CLI docs say
+    that the input BCF file should describe single-nucleotide mutations, so I
+    think this is sufficient for the time being.
     """
     for contig in bcf_obj.header.contigs:
         seen_positions = set()
