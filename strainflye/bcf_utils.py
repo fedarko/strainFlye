@@ -196,8 +196,8 @@ def verify_bcf_simple(bcf_obj, bcf_fp):
                 raise ParameterError(
                     f"BCF file {bcf_fp} has a record at "
                     f"(1-indexed) position {mut.pos:,} on contig {contig} "
-                    "where the reference ({ref}) and/or alternate ({alt}) are "
-                    "not in {{A, C, G, T}}. "
+                    f"where the reference ({ref}) and/or alternate ({alt}) "
+                    "are not in {A, C, G, T}. "
                     "strainFlye does not support degenerate nucleotides or "
                     "other types of reference / alternate alleles, sorry."
                 )

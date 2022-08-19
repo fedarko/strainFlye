@@ -413,3 +413,24 @@ def test_verify_bcf_simple_indels():
         "currently only supports BCF files containing single-nucleotide "
         "mutations, sorry."
     )
+
+
+def test_verify_bcf_simple_degen():
+    fp = write_indexed_bcf(
+        "##fileformat=VCFv4.3\n"
+        "##fileDate=20220818\n"
+        '##source="my source is i made it the heck up"\n'
+        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        "##contig=<ID=edge_1>\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "edge_1\t45\t.\tG\tM\t.\t.\t.\n"
+    )
+    bcf_obj = pysam.VariantFile(fp)
+    with pytest.raises(ParameterError) as ei:
+        bu.verify_bcf_simple(bcf_obj, fp)
+    assert str(ei.value) == (
+        f"BCF file {fp} has a record at (1-indexed) position 45 on "
+        "contig edge_1 where the reference (G) and/or alternate (M) are "
+        "not in {A, C, G, T}. strainFlye does not support degenerate "
+        "nucleotides or other types of reference / alternate alleles, sorry."
+    )
