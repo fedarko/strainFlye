@@ -228,7 +228,8 @@ def get_mutated_positions_in_contig(bcf_obj, contig, zero_indexed=True):
     -------
     mutated_positions: set
         Set of positions (integers), corresponding to the positions on the
-        contig at which mutations are defined in the BCF file.
+        contig at which mutations are defined in the BCF file. If the contig
+        has no mutations, then this set will be empty.
 
     Raises
     ------
@@ -272,8 +273,9 @@ def get_mutated_position_details_in_contig(bcf_obj, contig):
     Returns
     -------
     mp2ra: dict
-        Maps (zero-indexed) mutated positions in this contig to a tuple of
-        (ref nt, alt nt), as listed in the BCF file.
+        Maps (zero-indexed) mutated positions in the contig to a tuple of
+        (ref nt, alt nt), as listed in the BCF file. If the contig has no
+        mutations, then this dict will be empty.
 
     Raises
     ------

@@ -246,3 +246,22 @@ def test_get_mutated_positions_in_contig_not_in_bcf():
     assert str(ei.value) == (
         "Contig c4 is not described in the BCF object's header."
     )
+
+
+def test_get_mutated_position_details_in_contig_good():
+    test_bcf_path = os.path.join(
+        "strainflye",
+        "tests",
+        "inputs",
+        "small",
+        "call-r-min3-di12345",
+        "naive-calls.bcf",
+    )
+    bcf_obj = bu.parse_arbitrary_bcf(test_bcf_path)
+    assert bu.get_mutated_position_details_in_contig(bcf_obj, "c1") == {
+        3: ("G", "T"), 10: ("G", "A"), 12: ("G", "A")
+    }
+    assert bu.get_mutated_position_details_in_contig(bcf_obj, "c2") == {}
+    assert bu.get_mutated_position_details_in_contig(bcf_obj, "c3") == {
+        6: ("A", "T"), 7: ("T", "C")
+    }
