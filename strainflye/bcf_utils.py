@@ -122,7 +122,7 @@ def verify_bcf_has_contigs_with_lengths(bcf_obj, bcf_fp):
             )
 
 
-def verify_no_multiallelic_mutations_in_bcf(bcf_obj, bcf_fp):
+def verify_bcf_simple(bcf_obj, bcf_fp):
     """Raises an error if multiple mutations cover a position in a contig.
 
     Parameters
@@ -142,17 +142,34 @@ def verify_no_multiallelic_mutations_in_bcf(bcf_obj, bcf_fp):
     ParameterError
         If multiple mutations have the same position in a contig, or if any
         mutations do not have exactly one "alternate" nucleotide.
+
+        (Note that this also catches
     """
     for contig in bcf_obj.header.contigs:
         seen_positions = set()
         for mut in bcf_obj.fetch(contig):
-            if mut.pos in seen_positions or len(mut.alts) != 1:
+            # If the mutations are given on separate lines of the VCF, then
+            # they seem to show up in the pysam.VariantFile as separate
+            # records (so we gotta use seen_positions to track these); however,
+            # if the mutations are given on a *single* line of the VCF (e.g.
+            # the ALT allele in a line of the VCF looks like "G,T" like the
+            # example shown in the VCF spec), then we get one record with
+            # multiple alts. Grliahsdfoihdsfofd.
+            if mut.alts is None or len(mut.alts) == 0:
+                raise ParameterError(
+                    f'BCF file {bcf_fp} has a "monomorphic reference" at '
+                    f"(1-indexed) position {mut.pos:,} on contig {contig}. "
+                    "strainFlye does not currently support BCF "
+                    "files containing these sorts of records, sorry."
+                )
+            if mut.pos in seen_positions or len(mut.alts) > 1:
                 raise ParameterError(
                     f"BCF file {bcf_fp} has multiple mutations at "
                     f"(1-indexed) position {mut.pos:,} on contig {contig}. "
                     "strainFlye does not currently support BCF "
                     "files containing multi-allelic mutations, sorry."
                 )
+
             seen_positions.add(mut.pos)
 
 
@@ -190,7 +207,7 @@ def parse_arbitrary_bcf(bcf):
     """
     f = pysam.VariantFile(bcf)
     verify_bcf_has_contigs_with_lengths(f, bcf)
-    verify_no_multiallelic_mutations_in_bcf(f, bcf)
+    verify_bcf_simple(f, bcf)
     return f
 
 
@@ -301,7 +318,7 @@ def parse_sf_bcf(bcf):
     # Similarly, we verify some extra things about the BCF that *should* hold
     # for strainFlye output but you never know
     verify_bcf_has_contigs_with_lengths(f, bcf)
-    verify_no_multiallelic_mutations_in_bcf(f, bcf)
+    verify_bcf_simple(f, bcf)
 
     return f, thresh_type, thresh_min
 

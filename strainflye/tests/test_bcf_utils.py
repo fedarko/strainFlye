@@ -325,7 +325,7 @@ def test_get_mutated_position_details_in_contig_not_in_bcf():
     )
 
 
-def test_verify_no_multiallelic_mutations_in_bcf():
+def test_verify_bcf_simple_multiallelic_sep_lines():
     fp = write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220818\n"
@@ -341,9 +341,54 @@ def test_verify_no_multiallelic_mutations_in_bcf():
     )
     bcf_obj = pysam.VariantFile(fp)
     with pytest.raises(ParameterError) as ei:
-        bu.verify_no_multiallelic_mutations_in_bcf(bcf_obj, fp)
+        bu.verify_bcf_simple(bcf_obj, fp)
     assert str(ei.value) == (
         f"BCF file {fp} has multiple mutations at (1-indexed) "
         "position 43 on contig edge_1. strainFlye does not currently support "
         "BCF files containing multi-allelic mutations, sorry."
+    )
+
+
+def test_verify_bcf_simple_multiallelic_same_line():
+    fp = write_indexed_bcf(
+        "##fileformat=VCFv4.3\n"
+        "##fileDate=20220818\n"
+        '##source="my source is i made it the heck up"\n'
+        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        "##contig=<ID=edge_1>\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "edge_1\t43\t.\tA\tT,C\t.\t.\t.\n"
+        "edge_1\t255\t.\tT\tC\t.\t.\t.\n"
+        "edge_1\t356\t.\tA\tT\t.\t.\t.\n"
+        "edge_1\t387\t.\tT\tC\t.\t.\t.\n"
+    )
+    bcf_obj = pysam.VariantFile(fp)
+    with pytest.raises(ParameterError) as ei:
+        bu.verify_bcf_simple(bcf_obj, fp)
+    assert str(ei.value) == (
+        f"BCF file {fp} has multiple mutations at (1-indexed) "
+        "position 43 on contig edge_1. strainFlye does not currently support "
+        "BCF files containing multi-allelic mutations, sorry."
+    )
+
+
+def test_verify_bcf_simple_monomorphic_reference():
+    # This is possible, per the VCF spec. We could ignore these, but that
+    # causes headaches and I don't wanna account for those.
+    fp = write_indexed_bcf(
+        "##fileformat=VCFv4.3\n"
+        "##fileDate=20220818\n"
+        '##source="my source is i made it the heck up"\n'
+        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        "##contig=<ID=edge_1>\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "edge_1\t45\t.\tA\t.\t.\t.\t.\n"
+    )
+    bcf_obj = pysam.VariantFile(fp)
+    with pytest.raises(ParameterError) as ei:
+        bu.verify_bcf_simple(bcf_obj, fp)
+    assert str(ei.value) == (
+        f'BCF file {fp} has a "monomorphic reference" at (1-indexed) '
+        "position 45 on contig edge_1. strainFlye does not currently support "
+        "BCF files containing these sorts of records, sorry."
     )
