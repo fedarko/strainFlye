@@ -9,7 +9,7 @@ import pandas as pd
 from math import floor
 from statistics import mean
 from collections import defaultdict
-from strainflye import fasta_utils, call_utils, misc_utils
+from strainflye import fasta_utils, call_utils, misc_utils, bcf_utils
 from strainflye.bcf_utils import parse_sf_bcf
 from .errors import ParameterError, SequencingDataError
 from .config import DI_PREF
@@ -1469,4 +1469,4 @@ def run_fix(bcf, fdr_info, fdr, output_bcf, fancylog, verbose):
         fancylog("Done.", prefix="")
 
         # just gotta index the BCF, then we're done!
-        call_utils.index_bcf(output_bcf, fancylog)
+        bcf_utils.index_bcf(output_bcf, fancylog)

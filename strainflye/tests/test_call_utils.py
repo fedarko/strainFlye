@@ -401,11 +401,11 @@ def test_run_small_dataset_r(capsys):
     )
 
     # Basic wrap-up stuff (making sure to include the logging statements from
-    # index_bcf())
+    # bcf_utils.index_bcf())
     exp_out += (
         "MockLog: Done running r-mutation calling (--min-r = 2) and computing "
         "diversity indices.\n"
-        "PREFIX\nMockLog: Converting the VCF file we just created to a "
+        "PREFIX\nMockLog: Converting the VCF file to a "
         "compressed BCF file...\n"
         "MockLog: Done.\n"
         "PREFIX\nMockLog: Indexing the BCF file...\n"
@@ -508,7 +508,7 @@ def test_run_small_dataset_p(capsys):
     exp_out += (
         "MockLog: Done running p-mutation calling (--min-p = 0.20%) and "
         "computing diversity indices.\n"
-        "PREFIX\nMockLog: Converting the VCF file we just created to a "
+        "PREFIX\nMockLog: Converting the VCF file to a "
         "compressed BCF file...\n"
         "MockLog: Done.\n"
         "PREFIX\nMockLog: Indexing the BCF file...\n"

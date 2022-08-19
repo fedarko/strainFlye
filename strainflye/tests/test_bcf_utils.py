@@ -1,18 +1,27 @@
 import os
+import tempfile
 import pytest
+import pysam
 import strainflye.bcf_utils as bu
 from strainflye.errors import ParameterError
-from .utils_for_testing import write_vcf_tempfile
+from .utils_for_testing import write_vcf_tempfile, write_indexed_bcf, mock_log
+
+
+BCF = os.path.join(
+    "strainflye",
+    "tests",
+    "inputs",
+    "small",
+    "call-r-min3-di12345",
+    "naive-calls.bcf",
+)
 
 
 def test_parse_sf_bcf_good():
     # Header + first four mutations called on SheepGut using p = 0.15%
     # ... just for reference, using StringIO didn't seem to work with pysam's
     # BCF reader, hence the use of tempfiles here
-    # NOTE FROM MARCUS: pysam accepts either VCF or BCF files, and -- since we
-    # just recently switched from working with VCF to BCF, mainly -- these
-    # tests still output VCF files.
-    fh = write_vcf_tempfile(
+    fp = write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220526\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
@@ -27,7 +36,7 @@ def test_parse_sf_bcf_good():
         "edge_1\t356\t.\tA\tT\t.\t.\tMDP=403;AAD=2\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
     )
-    bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
+    bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fp)
 
     # Let's get the easy checks out of the way first...
     assert thresh_type == "p"
@@ -62,7 +71,7 @@ def test_parse_sf_bcf_good():
 
 def test_parse_sf_bcf_multi_sf_header():
     # Header + first four mutations called on SheepGut using p = 0.15%
-    fh = write_vcf_tempfile(
+    fp = write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220526\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
@@ -79,16 +88,16 @@ def test_parse_sf_bcf_multi_sf_header():
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
     )
     with pytest.raises(ParameterError) as ei:
-        bu.parse_sf_bcf(fh.name)
+        bu.parse_sf_bcf(fp)
     exp_patt = (
-        f"BCF file {fh.name} has multiple strainFlye threshold filter headers."
+        f"BCF file {fp} has multiple strainFlye threshold filter headers."
     )
     assert str(ei.value) == exp_patt
 
 
 def test_parse_sf_bcf_no_sf_header():
     # Header + first four mutations called on SheepGut using p = 0.15%
-    fh = write_vcf_tempfile(
+    fp = write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220526\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
@@ -103,9 +112,9 @@ def test_parse_sf_bcf_no_sf_header():
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
     )
     with pytest.raises(ParameterError) as ei:
-        bu.parse_sf_bcf(fh.name)
+        bu.parse_sf_bcf(fp)
     exp_patt = (
-        f"BCF file {fh.name} doesn't seem to be from strainFlye: no threshold "
+        f"BCF file {fp} doesn't seem to be from strainFlye: no threshold "
         "filter headers."
     )
     assert str(ei.value) == exp_patt
@@ -126,44 +135,84 @@ def test_parse_sf_bcf_missing_info_fields():
         '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
         '##FILTER=<ID=strainflye_minp_15, Description="min p threshold (scaled up by 100)">\n'  # noqa: E501
         "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
-        "edge_1\t43\t.\tA\tT\t.\t.\tMDP=380;AAD=2\n"
-        "edge_1\t255\t.\tT\tC\t.\t.\tMDP=385;AAD=2\n"
-        "edge_1\t356\t.\tA\tT\t.\t.\tMDP=403;AAD=2\n"
-        "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
     )
     split_text = text.splitlines()
 
-    # remove just the MDP line
-    fh = write_vcf_tempfile("\n".join(split_text[:5] + split_text[6:]))
-    with pytest.raises(ParameterError) as ei:
-        bu.parse_sf_bcf(fh.name)
-    exp_patt = f"BCF file {fh.name} needs to have MDP and AAD info fields."
-    assert str(ei.value) == exp_patt
+    # There are multiple "versions" of the final line in this file we want to
+    # check, so we create different strings for each version. (I guess this is
+    # the easiest way to test this...) Note that the leading \n is beacuse
+    # using "\n".join() will strip the final newline of the last line in
+    # split_text. Gross, but this works at least.
+    mut_line_all = "\nedge_1\t43\t.\tA\tT\t.\t.\tMDP=380;AAD=2\n"
+    mut_line_no_mdp = "\nedge_1\t43\t.\tA\tT\t.\t.\tAAD=2\n"
+    mut_line_no_aad = "\nedge_1\t43\t.\tA\tT\t.\t.\tMDP=380\n"
+    mut_line_none = "\nedge_1\t43\t.\tA\tT\t.\t.\t.\n"
 
-    # remove just the AAD line
-    fh = write_vcf_tempfile("\n".join(split_text[:6] + split_text[7:]))
-    with pytest.raises(ParameterError) as ei:
-        bu.parse_sf_bcf(fh.name)
-    exp_patt = f"BCF file {fh.name} needs to have MDP and AAD info fields."
-    assert str(ei.value) == exp_patt
+    # First, sanity check that all lines work (as in, no error is thrown).
+    # We check this dataset in detail above, so no need to do that again here;
+    # we just verify that we can parse it ok.
+    fp = write_indexed_bcf("\n".join(split_text))
+    bu.parse_sf_bcf(fp)
 
-    # remove both the MDP and AAD lines
-    fh = write_vcf_tempfile("\n".join(split_text[:5] + split_text[7:]))
-    with pytest.raises(ParameterError) as ei:
-        bu.parse_sf_bcf(fh.name)
-    exp_patt = f"BCF file {fh.name} needs to have MDP and AAD info fields."
-    assert str(ei.value) == exp_patt
+    # OK, now look for errors!
+    ###########################################################################
+    # If there is a mutation containing MDP/AAD info fields -- but if these
+    # fields are not defined in the header -- then pysam itself will throw an
+    # error. Let's just test this here real quick.
+    #
+    # These correspond to removing the MDP header, removing the AAD header,
+    # then removing both
+    for bounds in ((5, 6), (6, 7), (5, 7)):
+        fp = write_indexed_bcf(
+            "\n".join(split_text[: bounds[0]] + split_text[bounds[1] :])
+            + mut_line_all
+        )
+        with pytest.raises(ValueError) as ei:
+            bu.parse_sf_bcf(fp)
+        assert "is it VCF/BCF format?" in str(ei.value)
 
-    # finally, sanity check that putting back in all the lines works (doesn't
-    # throw an error) -- we check this dataset in detail above, so no need to
-    # do that again here
-    fh = write_vcf_tempfile("\n".join(split_text))
-    bu.parse_sf_bcf(fh.name)
+    ###########################################################################
+    # The more interesting case is when (for MDP, AAD, for both) there is no
+    # info header field *and* no mutations have this info field.
+    # In this case, the BCF is technically valid (so pysam won't complain) --
+    # so we will need to complain.
+    #
+    # 1. Remove all evidence of MDP
+    fp = write_indexed_bcf(
+        "\n".join(split_text[:5] + split_text[6:]) + mut_line_no_mdp
+    )
+    with pytest.raises(ParameterError) as ei:
+        bu.parse_sf_bcf(fp)
+    # (sorry, the filename changes every time we write out a new temp. bcf
+    # file, so we have to keep recreating these expected error messages. eesh.)
+    assert str(ei.value) == (
+        f"BCF file {fp} needs to have MDP and AAD info fields."
+    )
+
+    # 2. Remove all evidence of AAD
+    fp = write_indexed_bcf(
+        "\n".join(split_text[:6] + split_text[7:]) + mut_line_no_aad
+    )
+    with pytest.raises(ParameterError) as ei:
+        bu.parse_sf_bcf(fp)
+    assert str(ei.value) == (
+        f"BCF file {fp} needs to have MDP and AAD info fields."
+    )
+
+    # 3. Remove evidence of both MDP and AAD
+    fp = write_indexed_bcf(
+        "\n".join(split_text[:5] + split_text[7:]) + mut_line_none
+    )
+    with pytest.raises(ParameterError) as ei:
+        bu.parse_sf_bcf(fp)
+    assert str(ei.value) == (
+        f"BCF file {fp} needs to have MDP and AAD info fields."
+    )
 
 
 def test_parse_sf_bcf_no_contigs_in_header():
     # Header + first four mutations called on SheepGut using p = 0.15%
-    fh = write_vcf_tempfile(
+    vcf_text = (
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220526\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
@@ -177,17 +226,32 @@ def test_parse_sf_bcf_no_contigs_in_header():
         "edge_1\t356\t.\tA\tT\t.\t.\tMDP=403;AAD=2\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
     )
+    # BCF files *need* to have contig header tags, so trying to load a
+    # BCF file without a contig header will make pysam complain:
+    bcf_fp = write_indexed_bcf(vcf_text)
+    with pytest.raises(ValueError) as ei:
+        bu.parse_sf_bcf(bcf_fp)
+    assert "is it VCF/BCF format?" in str(ei.value)
+
+    # However, we can sneak past this by using a VCF instead of a VCF file. In
+    # this case, our custom check triggers.
+    vcf_fp = write_vcf_tempfile(vcf_text)
     with pytest.raises(ParameterError) as ei:
-        bu.parse_sf_bcf(fh.name)
-    exp_patt = (
-        f"BCF file {fh.name} doesn't describe any contigs in its header."
+        bu.parse_sf_bcf(vcf_fp)
+    # yeah yeah i know the error message says BCF instead of VCF but we assume
+    # that these files are all BCF, like literally the parameter is --bcf or
+    # whatever, not worth saying "BCF or VCF" esp when we assume that
+    # everything is indexed BCF, this particular issue just comes up in testing
+    # (... so, this check is kind of useless since it seems impossible to come
+    # up in practice, but whatever).
+    assert str(ei.value) == (
+        f"BCF file {vcf_fp} doesn't describe any contigs in its header."
     )
-    assert str(ei.value) == exp_patt
 
 
 def test_parse_sf_bcf_no_contig_length_in_header():
     # Header + first four mutations called on SheepGut using p = 0.15%
-    fh = write_vcf_tempfile(
+    fp = write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220526\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
@@ -203,21 +267,13 @@ def test_parse_sf_bcf_no_contig_length_in_header():
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
     )
     with pytest.raises(ParameterError) as ei:
-        bu.parse_sf_bcf(fh.name)
-    exp_patt = f"BCF file {fh.name} has no length given for contig edge_1."
+        bu.parse_sf_bcf(fp)
+    exp_patt = f"BCF file {fp} has no length given for contig edge_1."
     assert str(ei.value) == exp_patt
 
 
 def test_get_mutated_positions_in_contig_good():
-    test_bcf_path = os.path.join(
-        "strainflye",
-        "tests",
-        "inputs",
-        "small",
-        "call-r-min3-di12345",
-        "naive-calls.bcf",
-    )
-    bcf_obj = bu.parse_arbitrary_bcf(test_bcf_path)
+    bcf_obj = bu.parse_arbitrary_bcf(BCF)
 
     mp_c1 = bu.get_mutated_positions_in_contig(bcf_obj, "c1")
     assert mp_c1 == set([3, 10, 12])
@@ -230,15 +286,7 @@ def test_get_mutated_positions_in_contig_good():
 
 
 def test_get_mutated_positions_in_contig_not_in_bcf():
-    test_bcf_path = os.path.join(
-        "strainflye",
-        "tests",
-        "inputs",
-        "small",
-        "call-r-min3-di12345",
-        "naive-calls.bcf",
-    )
-    bcf_obj = bu.parse_arbitrary_bcf(test_bcf_path)
+    bcf_obj = bu.parse_arbitrary_bcf(BCF)
 
     with pytest.raises(ValueError) as ei:
         bu.get_mutated_positions_in_contig(bcf_obj, "c4")
@@ -249,19 +297,47 @@ def test_get_mutated_positions_in_contig_not_in_bcf():
 
 
 def test_get_mutated_position_details_in_contig_good():
-    test_bcf_path = os.path.join(
-        "strainflye",
-        "tests",
-        "inputs",
-        "small",
-        "call-r-min3-di12345",
-        "naive-calls.bcf",
-    )
-    bcf_obj = bu.parse_arbitrary_bcf(test_bcf_path)
+    bcf_obj = bu.parse_arbitrary_bcf(BCF)
     assert bu.get_mutated_position_details_in_contig(bcf_obj, "c1") == {
-        3: ("G", "T"), 10: ("G", "A"), 12: ("G", "A")
+        3: ("G", "T"),
+        10: ("G", "A"),
+        12: ("G", "A"),
     }
     assert bu.get_mutated_position_details_in_contig(bcf_obj, "c2") == {}
     assert bu.get_mutated_position_details_in_contig(bcf_obj, "c3") == {
-        6: ("A", "T"), 7: ("T", "C")
+        6: ("A", "T"),
+        7: ("T", "C"),
     }
+
+
+def test_get_mutated_position_details_in_contig_not_in_bcf():
+    bcf_obj = bu.parse_arbitrary_bcf(BCF)
+    with pytest.raises(ValueError) as ei:
+        bu.get_mutated_positions_in_contig(bcf_obj, "c4")
+    assert str(ei.value) == (
+        "Contig c4 is not described in the BCF object's header."
+    )
+
+
+def test_verify_no_multiallelic_mutations_in_bcf():
+    fp = write_indexed_bcf(
+        "##fileformat=VCFv4.3\n"
+        "##fileDate=20220818\n"
+        '##source="my source is i made it the heck up"\n'
+        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        "##contig=<ID=edge_1>\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "edge_1\t43\t.\tA\tT\t.\t.\t.\n"
+        "edge_1\t43\t.\tA\tC\t.\t.\t.\n"
+        "edge_1\t255\t.\tT\tC\t.\t.\t.\n"
+        "edge_1\t356\t.\tA\tT\t.\t.\t.\n"
+        "edge_1\t387\t.\tT\tC\t.\t.\t.\n"
+    )
+    bcf_obj = pysam.VariantFile(fp)
+    with pytest.raises(ParameterError) as ei:
+        bu.verify_no_multiallelic_mutations_in_bcf(bcf_obj, fp)
+    assert str(ei.value) == (
+        f"BCF file {fp} has multiple mutations at (1-indexed) "
+        "position 43 on contig edge_1. strainFlye does not currently support "
+        "BCF files containing multi-allelic mutations, sorry."
+    )

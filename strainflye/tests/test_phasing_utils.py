@@ -3,7 +3,7 @@ import pytest
 from io import StringIO
 import strainflye.phasing_utils as pu
 from strainflye.errors import ParameterError
-from .utils_for_testing import mock_log, write_vcf_tempfile
+from .utils_for_testing import mock_log, write_indexed_bcf
 
 
 TEST_DIR = os.path.join(
@@ -48,7 +48,7 @@ def test_load_triplet_good(capsys):
 def test_load_triplet_fasta_not_in_bcf_all():
     # This is actually a valid VCF file (we use it in the parse_sf_bcf()
     # tests); the problem with it is that it doesn't describe c1, c2, or c3.
-    bcf_fh = write_vcf_tempfile(
+    bcf_fp = write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220526\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
@@ -64,14 +64,14 @@ def test_load_triplet_fasta_not_in_bcf_all():
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
     )
     with pytest.raises(ParameterError) as ei:
-        pu.load_triplet(FASTA, BAM, bcf_fh.name, mock_log)
+        pu.load_triplet(FASTA, BAM, bcf_fp, mock_log)
     assert str(ei.value) == (
         "All contigs in the FASTA file must also be contained in the BCF file."
     )
 
 
 def test_load_triplet_fasta_not_in_bcf_partial():
-    bcf_fh = write_vcf_tempfile(
+    bcf_fp = write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220526\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
@@ -87,7 +87,7 @@ def test_load_triplet_fasta_not_in_bcf_partial():
         "c2\t9\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
     )
     with pytest.raises(ParameterError) as ei:
-        pu.load_triplet(FASTA, BAM, bcf_fh.name, mock_log)
+        pu.load_triplet(FASTA, BAM, bcf_fp, mock_log)
     assert str(ei.value) == (
         "All contigs in the FASTA file must also be contained in the BCF file."
     )

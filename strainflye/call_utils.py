@@ -8,29 +8,13 @@ import pysam
 import pysamstats
 from . import config
 from .errors import SequencingDataError, ParameterError, WeirdError
-from strainflye import __version__, fasta_utils, misc_utils, cli_utils
-
-
-def index_bcf(in_bcf, fancylog):
-    """Indexes a BCF file using bcftools.
-
-    This creates a .bcf.csi file in the same location as the BCF file.
-
-    Parameters
-    ----------
-    in_bcf: str
-        Location of the BCF file to be indexed.
-
-    fancylog: function
-        Logging function.
-
-    Returns
-    -------
-    None
-    """
-    fancylog("Indexing the BCF file...")
-    subprocess.run(["bcftools", "index", in_bcf])
-    fancylog("Done indexing the BCF file.", prefix="")
+from strainflye import (
+    __version__,
+    fasta_utils,
+    misc_utils,
+    cli_utils,
+    bcf_utils,
+)
 
 
 def get_alt_pos_info(rec):
@@ -638,16 +622,8 @@ def run(
     fancylog(
         f"Done running {call_str} and computing diversity indices.", prefix=""
     )
-    fancylog(
-        "Converting the VCF file we just created to a compressed BCF file..."
-    )
     output_bcf = os.path.join(output_dir, "naive-calls.bcf")
-    subprocess.run(
-        ["bcftools", "view", "-O", "b", output_vcf, "-o", output_bcf]
-    )
-    os.remove(output_vcf)
-    fancylog("Done.", prefix="")
-    index_bcf(output_bcf, fancylog)
+    bcf_utils.compress_vcf(output_vcf, output_bcf, fancylog)
 
 
 def get_pos_info_str(alt_pos, cov):

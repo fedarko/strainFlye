@@ -1,9 +1,82 @@
 # General BCF-related utilities.
 
 
+import os
 import re
+import subprocess
 import pysam
 from .errors import ParameterError
+
+
+def convert_vcf_to_bcf(vcf_fp, bcf_fp, fancylog):
+    """Converts a VCF file to a BCF file using "bcftools view".
+
+    Notably, this will delete the VCF file after performing this conversion.
+
+    Parameters
+    ----------
+    vcf_fp: str
+        Path to a VCF file.
+
+    bcf_fp: str
+        Path to which a BCF file will be written.
+
+    fancylog: function
+        Logging function.
+
+    Returns
+    -------
+    None
+    """
+    fancylog("Converting the VCF file to a compressed BCF file...")
+    subprocess.run(["bcftools", "view", "-O", "b", vcf_fp, "-o", bcf_fp])
+    os.remove(vcf_fp)
+    fancylog("Done.", prefix="")
+
+
+def index_bcf(bcf_fp, fancylog):
+    """Indexes a BCF file using "bcftools index".
+
+    This creates a *.bcf.csi file in the same folder as the BCF file.
+
+    Parameters
+    ----------
+    bcf_fp: str
+        Path to a BCF file to be indexed.
+
+    fancylog: function
+        Logging function.
+
+    Returns
+    -------
+    None
+    """
+    fancylog("Indexing the BCF file...")
+    subprocess.run(["bcftools", "index", bcf_fp])
+    fancylog("Done indexing the BCF file.", prefix="")
+
+
+def compress_vcf(vcf_fp, bcf_fp, fancylog):
+    """Converts a VCF to a BCF file, and indexes this BCF file.
+
+    Parameters
+    ----------
+    vcf_fp: str
+        Path to a VCF file.
+
+    bcf_fp: str
+        Path to which a BCF file will be written.
+        We'll also create a .bcf.csi file in the same folder as the BCF file.
+
+    fancylog: function
+        Logging function.
+
+    Returns
+    -------
+    None
+    """
+    convert_vcf_to_bcf(vcf_fp, bcf_fp, fancylog)
+    index_bcf(bcf_fp, fancylog)
 
 
 def verify_bcf_has_contigs_with_lengths(bcf_obj, bcf_fp):
@@ -26,6 +99,20 @@ def verify_bcf_has_contigs_with_lengths(bcf_obj, bcf_fp):
             raise ParameterError(
                 f"BCF file {bcf_fp} has no length given for contig {contig}."
             )
+
+
+def verify_no_multiallelic_mutations_in_bcf(bcf_obj, bcf_fp):
+    for contig in bcf_obj.header.contigs:
+        seen_positions = set()
+        for mut in bcf_obj.fetch(contig):
+            if mut.pos in seen_positions:
+                raise ParameterError(
+                    f"BCF file {bcf_fp} has multiple mutations at "
+                    f"(1-indexed) position {mut.pos:,} on contig {contig}. "
+                    "strainFlye does not currently support BCF "
+                    "files containing multi-allelic mutations, sorry."
+                )
+            seen_positions.add(mut.pos)
 
 
 def parse_arbitrary_bcf(bcf):
@@ -51,6 +138,7 @@ def parse_arbitrary_bcf(bcf):
     """
     f = pysam.VariantFile(bcf)
     verify_bcf_has_contigs_with_lengths(f, bcf)
+    verify_no_multiallelic_mutations_in_bcf(f, bcf)
     return f
 
 
@@ -157,7 +245,10 @@ def parse_sf_bcf(bcf):
             f"BCF file {bcf} needs to have MDP and AAD info fields."
         )
 
+    # Similarly, we verify some extra things about the BCF that *should* hold
+    # for strainFlye output but you never know
     verify_bcf_has_contigs_with_lengths(f, bcf)
+    verify_no_multiallelic_mutations_in_bcf(f, bcf)
 
     return f, thresh_type, thresh_min
 
@@ -265,7 +356,9 @@ def get_mutated_position_details_in_contig(bcf_obj, contig):
     Parameters
     ----------
     bcf_obj: pysam.VariantFile
-        Object describing a BCF file.
+        Object describing a BCF file. We make the assumption that this BCF file
+        does not contain multi-allelic or non-single-nucleotide mutations (this
+        should already have been screened for when parsing the BCF).
 
     contig: str
         Name of a contig for which we will fetch mutations in bcf_obj.
@@ -281,20 +374,10 @@ def get_mutated_position_details_in_contig(bcf_obj, contig):
     ------
     ValueError
         If contig is not described in the header of bcf_obj.
-
-    ParameterError
-        If a given mutated position does not have exactly one alternate
-        nucleotide.
     """
     verify_contig_in_bcf(bcf_obj, contig)
     mp2ra = {}
     for mut in bcf_obj.fetch(contig):
-        # Should have already been caught when loading the BCF, but let's
-        # be paranoid anyway
-        if len(mut.alts) != 1:
-            raise ParameterError(
-                f"Mutated position {mut.pos} in contig {contig} has != 1 alt"
-            )
         # mut.pos is 1-indexed, so gotta subtract 1 to make it 0-indexed
         mp2ra[mut.pos - 1] = (mut.ref, mut.alts[0])
     return mp2ra

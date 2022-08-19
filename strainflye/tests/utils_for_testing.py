@@ -1,5 +1,6 @@
 import tempfile
 import subprocess
+from strainflye.bcf_utils import compress_vcf
 
 
 def mock_log(text, prefix="PREFIX\n"):
@@ -20,6 +21,5 @@ def write_indexed_bcf(vcf_text):
     # line needs to be there, otherwise we can't convert to BCF.
     fh = write_vcf_tempfile(vcf_text)
     bcf_name = fh.name[:-4] + ".bcf"
-    subprocess.run(["bcftools", "view", "-O", "b", fh.name, "-o", bcf_name])
-    subprocess.run(["bcftools", "index", bcf_name])
+    compress_vcf(fh.name, bcf_name, mock_log)
     return bcf_name
