@@ -217,7 +217,7 @@ def parse_arbitrary_bcf(bcf):
     """Opens a BCF file that may or may not have been produced by strainFlye.
 
     Unlike parse_sf_bcf(), this function doesn't require that the input
-    mutations come from strainFlye call (or strainFlye fdr fix). This will
+    mutations come from strainFlye call (or from strainFlye fdr fix). This will
     still perform some sanity checking on the BCF file (for example, making
     sure that it does not contain any multi-allelic mutations or indels),
     though. The main purpose of this is to enable us to use arbitrary BCF files
