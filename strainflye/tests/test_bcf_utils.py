@@ -282,10 +282,19 @@ def test_get_mutated_positions_in_contig_good():
     assert mp_c3 == set([6, 7])
 
 
+def test_verify_contig_in_bcf():
+    bcf_obj = bu.parse_arbitrary_bcf(BCF)
+    with pytest.raises(ParameterError) as ei:
+        bu.verify_contig_in_bcf(bcf_obj, "c5")
+    assert str(ei.value) == (
+        "Contig c5 is not described in the BCF object's header."
+    )
+
+
 def test_get_mutated_positions_in_contig_not_in_bcf():
     bcf_obj = bu.parse_arbitrary_bcf(BCF)
 
-    with pytest.raises(ValueError) as ei:
+    with pytest.raises(ParameterError) as ei:
         bu.get_mutated_positions_in_contig(bcf_obj, "c4")
 
     assert str(ei.value) == (
@@ -309,7 +318,7 @@ def test_get_mutated_position_details_in_contig_good():
 
 def test_get_mutated_position_details_in_contig_not_in_bcf():
     bcf_obj = bu.parse_arbitrary_bcf(BCF)
-    with pytest.raises(ValueError) as ei:
+    with pytest.raises(ParameterError) as ei:
         bu.get_mutated_positions_in_contig(bcf_obj, "c4")
     assert str(ei.value) == (
         "Contig c4 is not described in the BCF object's header."

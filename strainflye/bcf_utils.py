@@ -289,8 +289,27 @@ def loudly_parse_arbitrary_bcf_and_contigs(bcf, fancylog):
 
 
 def verify_contig_in_bcf(bcf_obj, contig):
+    """Raises an error if a contig is not described in a BCF object's header.
+
+    Parameters
+    ----------
+    bcf_obj: pysam.VariantFile
+        Object describing a BCF file.
+
+    contig: str
+        Name of a contig.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    ParameterError
+        If contig is not described in the BCF object's header.
+    """
     if contig not in bcf_obj.header.contigs:
-        raise ValueError(
+        raise ParameterError(
             f"Contig {contig} is not described in the BCF object's header."
         )
 
@@ -324,7 +343,7 @@ def get_mutated_positions_in_contig(bcf_obj, contig, zero_indexed=True):
 
     Raises
     ------
-    ValueError
+    ParameterError
         If contig is not described in the header of bcf_obj.
     """
     verify_contig_in_bcf(bcf_obj, contig)
@@ -372,7 +391,7 @@ def get_mutated_position_details_in_contig(bcf_obj, contig):
 
     Raises
     ------
-    ValueError
+    ParameterError
         If contig is not described in the header of bcf_obj.
     """
     verify_contig_in_bcf(bcf_obj, contig)
