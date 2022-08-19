@@ -135,6 +135,17 @@ def parse_arbitrary_bcf(bcf):
     -------
     f: pysam.VariantFile
         Object describing the BCF file located at the specified filepath.
+
+    Raises
+    ------
+    FileNotFoundError, ValueError
+        Can be raised by pysam; see docs for parse_sf_bcf().
+
+    ParameterError
+        If there are various things wrong with the BCF file, as determined by
+        our validation functions. (It's probably best to just refer you to the
+        code of the functions called here, if you're interested in the
+        details.)
     """
     f = pysam.VariantFile(bcf)
     verify_bcf_has_contigs_with_lengths(f, bcf)
@@ -194,9 +205,8 @@ def parse_sf_bcf(bcf):
         If there isn't exactly one of these lines, then we will be very
         confused! Hence why we raise an error.
 
-        Also, we raise this sort of error if this file doesn't describe any
-        contigs (because in that case, you should consult a priest rather than
-        strainFlye).
+        We also raise a few other errors if the BCF file seems weird (e.g. no
+        contigs, contigs don't have lengths, multi-allelic mutations...)
     """
     # this will fail with a FileNotFoundError if "bcf" doesn't point to an
     # existing file (although we shouldn't need to worry about that much b/c
