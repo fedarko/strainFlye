@@ -395,6 +395,14 @@ def test_verify_bcf_simple_monomorphic_reference():
 
 
 def test_verify_bcf_simple_indels():
+    exp_err_msg_suffix = (
+        "has an insertion, deletion, or some other complex "
+        "mutation at (1-indexed) position 45 on contig edge_1. strainFlye "
+        "currently only supports BCF files containing single-nucleotide "
+        "mutations, sorry."
+    )
+
+    # simple insertion: based on vcf spec example in section 1.1
     fp = write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220818\n"
@@ -407,12 +415,22 @@ def test_verify_bcf_simple_indels():
     bcf_obj = pysam.VariantFile(fp)
     with pytest.raises(ParameterError) as ei:
         bu.verify_bcf_simple(bcf_obj, fp)
-    assert str(ei.value) == (
-        f"BCF file {fp} has an insertion, deletion, or some other complex "
-        "mutation at (1-indexed) position 45 on contig edge_1. strainFlye "
-        "currently only supports BCF files containing single-nucleotide "
-        "mutations, sorry."
+    assert str(ei.value) == f"BCF file {fp} " + exp_err_msg_suffix
+
+    # simple deletion: based on vcf spec example in section 5.2.3
+    fp = write_indexed_bcf(
+        "##fileformat=VCFv4.3\n"
+        "##fileDate=20220818\n"
+        '##source="my source is i made it the heck up"\n'
+        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        "##contig=<ID=edge_1>\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "edge_1\t45\t.\tTCG\tT\t.\t.\t.\n"
     )
+    bcf_obj = pysam.VariantFile(fp)
+    with pytest.raises(ParameterError) as ei:
+        bu.verify_bcf_simple(bcf_obj, fp)
+    assert str(ei.value) == f"BCF file {fp} " + exp_err_msg_suffix
 
 
 def test_verify_bcf_simple_degen():
