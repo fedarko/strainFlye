@@ -336,7 +336,7 @@ def test_get_mutated_position_details_in_contig_lowercase():
     # try all possible lower/upper-case variations of ref and alt
     for middle in ("G\tC", "G\tc", "g\tC", "g\tc"):
         fp = write_arb_bcf(f"edge_1\t1234\t.\t{middle}\t.\t.\t.\n")
-        bcf_obj = bu.parse_arbitrary_bcf(fp)
+        bcf_obj = pysam.VariantFile(fp)
         assert bu.get_mutated_position_details_in_contig(
             bcf_obj, "edge_1"
         ) == {1233: ("G", "C")}
@@ -448,9 +448,9 @@ def test_verify_bcf_symbolic_alt():
             bu.verify_bcf_simple(bcf_obj, fp)
         assert str(ei.value) == f"BCF file {fp} " + (
             "has an insertion, deletion, or some other complex "
-            "mutation at (1-indexed) position 1,000 on contig edge_1. strainFlye "
-            "currently only supports BCF files containing single-nucleotide "
-            "mutations, sorry."
+            "mutation at (1-indexed) position 1,000 on contig edge_1. "
+            "strainFlye currently only supports BCF files containing "
+            "single-nucleotide mutations, sorry."
         )
 
 
@@ -502,7 +502,21 @@ def test_verify_bcf_simple_alt_is_deletion_char():
     )
 
 
-def test_verify_bcf_simple_lowercase():
+def test_verify_bcf_simple_lowercase_ok():
     fp = write_arb_bcf("edge_1\t1234\t.\tG\tc\t.\t.\t.\n")
     bcf_obj = pysam.VariantFile(fp)
     bu.verify_bcf_simple(bcf_obj, fp)
+
+
+def test_verify_bcf_simple_ref_matches_alt():
+    for middle in ("G\tG", "G\tg", "g\tG", "g\tg"):
+        fp = write_arb_bcf(f"edge_1\t1234\t.\t{middle}\t.\t.\t.\n")
+        bcf_obj = pysam.VariantFile(fp)
+        with pytest.raises(ParameterError) as ei:
+            bu.verify_bcf_simple(bcf_obj, fp)
+        assert str(ei.value) == (
+            f"BCF file {fp} has a record at (1-indexed) position 1,234 on "
+            "contig edge_1 where the reference (G) matches the alternate (G). "
+            "strainFlye does not currently support BCF files containing these "
+            "sorts of records, sorry."
+        )

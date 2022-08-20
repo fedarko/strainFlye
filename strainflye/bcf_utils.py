@@ -213,6 +213,20 @@ def verify_bcf_simple(bcf_obj, bcf_fp):
                     "other types of reference / alternate alleles, sorry."
                 )
 
+            # what software would even generate bcf files like this???
+            # "Bob's Bastardized BCF Belcher for Breaking Boftware"
+            # If you get this error in practice, please open an issue on GitHub
+            # b/c I'm actually curious why your file looks like this (if
+            # nothing else, we can make the error message here be more precise)
+            if ref == alt:
+                raise ParameterError(
+                    f"BCF file {bcf_fp} has a record at "
+                    f"(1-indexed) position {mut.pos:,} on contig {contig} "
+                    f"where the reference ({ref}) matches the alternate "
+                    f"({alt}). strainFlye does not currently support BCF "
+                    "files containing these sorts of records, sorry."
+                )
+
             seen_positions.add(mut.pos)
 
 
