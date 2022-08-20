@@ -52,7 +52,8 @@ def get_smooth_aln_replacements(aln, mutated_positions, mp2ra):
         Maps (zero-indexed) mutated positions in the contig (the same contig
         that aln is aligned to) to a tuple of (ref nt, alt nt), as listed in
         the BCF file. Can be generated using
-        bcf_utils.get_mutated_position_details_in_contig().
+        bcf_utils.get_mutated_position_details_in_contig(). Both the ref and
+        alt nt should be given in uppercase.
 
     Returns
     -------
@@ -154,7 +155,10 @@ def get_smooth_aln_replacements(aln, mutated_positions, mp2ra):
             ignoring_this_aln = True
             break
 
-        read_nt = aln.query_sequence[readpos]
+        # I'm not sure if it's possible for lowercase sequences to "sneak into"
+        # a BAM file, but let's err on the side of safety. (mp2ra should have
+        # ref and alt nts in uppercase already.)
+        read_nt = aln.query_sequence[readpos].upper()
         # If this read doesn't match the "reference" or "alternate"
         # nucleotide at this position, ignore it.
         #

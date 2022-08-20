@@ -178,8 +178,11 @@ def verify_bcf_simple(bcf_obj, bcf_fp):
                     "files containing multi-allelic mutations, sorry."
                 )
 
-            ref = mut.ref
-            alt = mut.alts[0]
+            # lowercase nucleotides are allowed in vcf; pysam's parser
+            # (currently) preserves case, so we convert to uppercase internally
+            # to make life easier
+            ref = mut.ref.upper()
+            alt = mut.alts[0].upper()
 
             # Catch indels, or other complex things like rearrangements.
             # In addition to catching "explicitly" written indels (e.g.
@@ -508,5 +511,7 @@ def get_mutated_position_details_in_contig(bcf_obj, contig):
     mp2ra = {}
     for mut in bcf_obj.fetch(contig):
         # mut.pos is 1-indexed, so gotta subtract 1 to make it 0-indexed
-        mp2ra[mut.pos - 1] = (mut.ref, mut.alts[0])
+        # (also, pysam technically allows lowercase alleles, so we call upper()
+        # on everything to ensure all nucleotides are in {A, C, G, T})
+        mp2ra[mut.pos - 1] = (mut.ref.upper(), mut.alts[0].upper())
     return mp2ra
