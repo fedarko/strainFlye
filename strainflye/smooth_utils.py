@@ -3,6 +3,7 @@
 import os
 import pysamstats
 from collections import defaultdict
+from statistics import mean
 from strainflye import (
     phasing_utils,
     cli_utils,
@@ -631,10 +632,96 @@ def run_create(
                     ),
                     prefix="",
                 )
-                # num_vr = 0
-                # vr_buffer = {}
+                num_vr = 0
                 for run in lc_runs:
-                    pass  # TODO do everything
+                    # We write out virtual reads for a given run all at the
+                    # same time. This differs from the analysis notebook
+                    # version of this code, in which we just write out all
+                    # virtual reads for a contig at once. (I guess this has
+                    # less risk of running out of memory...?)
+                    vr_buffer = {}
+
+                    # The first question we ask: how many copies of this
+                    # virtual read should we add?
+                    # Our goal is, essentially, "lifting" the coverage of this
+                    # region back up to the average coverage of this contig. Of
+                    # course, the average coverage of this contig takes into
+                    # account the relatively low coverage of these positions,
+                    # so you could argue that this is a somewhat silly way of
+                    # doing this, but it should be decent enough for our
+                    # purposes (convincing the assembler later on that no,
+                    # these positions really do connect to elsewhere in the
+                    # contig).
+                    #
+                    # First, let's figure out the average coverage of this run
+                    # of low-coverage positions (just considering the
+                    # "interior" positions that were truly labelled as
+                    # "low-coverage", and not the --virtual-read-flank
+                    # positions we'll add in later).
+                    run_avgcov = mean(
+                        [
+                            pos2srcov[lcpos]
+                            for lcpos in range(run[0], run[1] + 1)
+                        ]
+                    )
+
+                    # Now, we can figure out the (rounded) difference between
+                    # the contig's average coverage and this run's average
+                    # coverage. We'll add this many copies of the virtual read
+                    # corresponding to this run.
+                    vr_cov = round(contig2avgcov[contig] - run_avgcov)
+
+                    # Construct a virtual read that includes this entire run of
+                    # uncovered positions as well as --virtual-read-flank
+                    # positions before and after (clamping to the start/end of
+                    # the contig if needed).
+                    #
+                    # Notably, we could try to make this loop around from end
+                    # -> start if this is a cyclic contig, but to remain
+                    # consistent with how we handle supplementary alignments
+                    # above -- and because implementing the loop around would
+                    # be a lot of work and life is hard -- we ignore this for
+                    # now.
+                    #
+                    # Also, note that run_start can equal run_end, if only a
+                    # single isolated position is uncovered. This is fine --
+                    # the code handles this case automatically.
+                    run_start = max(run[0] - virtual_read_flank, 0)
+                    run_end = min(run[1] + virtual_read_flank, contig_len - 1)
+
+                    # Generate a sequence matching the "reference" contig seq
+                    # at these positions. Mutations may or may not exist in
+                    # this region; we ignore them, in any case.
+                    vr_seq = contig_seq[run_start : run_end + 1]
+
+                    # We need to assign reads unique names, and including the
+                    # run coordinates here is a nice way to preserve uniqueness
+                    # across runs and also make our smoothed reads files easier
+                    # to interpret
+                    vr_name_prefix = f"vr_{run[0]}_{run[1]}"
+
+                    # Add vr_cov copies of this virtual read
+                    # (Note that vr_num is 1-indexed, to match our naming
+                    # convention for smoothed reads above)
+                    for vr_num in range(1, vr_cov + 1):
+                        vr_name = f"{vr_name_prefix}_{vr_num}"
+                        vr_buffer[vr_name] = vr_seq
+                        num_vr += 1
+
+                    # TODO: Rather than store |vr_cov| copies of vr_seq in
+                    # memory, make a new util function that just stores 1 copy
+                    # and writes it out |vr_cov| times for the diff vr_names
+                    append_reads(out_reads_fp, vr_buffer)
+                    vr_buffer = {}
+
+                verboselog(
+                    (
+                        f"Created {num_vr:,} virtual read(s) total for contig "
+                        f"{contig}."
+                    ),
+                    prefix="",
+                )
+
             else:
                 verboselog(
                     (
