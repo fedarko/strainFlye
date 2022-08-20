@@ -525,3 +525,20 @@ def test_verify_bcf_simple_ref_matches_alt():
             "strainFlye does not currently support BCF files containing these "
             "sorts of records, sorry."
         )
+
+
+def test_verify_bcf_simple_breakends():
+    # Based on section 5.4 of the VCF v4.3 spec. i don't even think this third
+    # one is valid breakend syntax but let's throw it in anyway (if it breaks
+    # pysam then we can remove it)
+    for bnd in ("T[edge_1:5000[", "]edge_1:5000]T", "T[edge_1:5000]", "T."):
+        fp = write_arb_bcf(f"edge_1\t1000\t.\tT\t{bnd}\t.\t.\t.\n")
+        bcf_obj = pysam.VariantFile(fp)
+        with pytest.raises(ParameterError) as ei:
+            bu.verify_bcf_simple(bcf_obj, fp)
+        assert str(ei.value) == f"BCF file {fp} " + (
+            "has an insertion, deletion, or some other complex "
+            "mutation at (1-indexed) position 1,000 on contig edge_1. "
+            "strainFlye currently only supports BCF files containing "
+            "single-nucleotide mutations, sorry."
+        )
