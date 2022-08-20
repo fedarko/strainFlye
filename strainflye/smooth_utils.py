@@ -340,6 +340,13 @@ def run_apply(
     This should be very parallelizable, since each contig can be processed
     independently.
     """
+    # silly utility function to limit the amount of times we gotta check if
+    # verbose is True -- yanked from align_utils (maybe worth abstracting this
+    # into cli_utils?)
+    def verboselog(*args, **kwargs):
+        if verbose:
+            fancylog(*args, **kwargs)
+
     contig_name2len, bam_obj, bcf_obj = phasing_utils.load_triplet(
         contigs, bam, bcf, fancylog
     )
@@ -388,10 +395,9 @@ def run_apply(
     fancylog(f"Going through contigs and constructing {rt}...")
     for ci, contig in enumerate(contig_name2len, 1):
         contig_len = contig_name2len[contig]
-        if verbose:
-            cli_utils.proglog(
-                contig, ci, num_fasta_contigs, fancylog, contig_len=contig_len
-            )
+        cli_utils.proglog(
+            contig, ci, num_fasta_contigs, verboselog, contig_len=contig_len
+        )
 
         mp2ra = bcf_utils.get_mutated_position_details_in_contig(
             bcf_obj, contig
@@ -414,14 +420,13 @@ def run_apply(
             raise FileExistsError(f"File {out_reads_fp} already exists.")
         # (These are zero-indexed.)
         mutated_positions = sorted(mp2ra.keys())
-        if verbose:
-            fancylog(
-                (
-                    f"This contig has {len(mutated_positions):,} mutated "
-                    "position(s)."
-                ),
-                prefix="",
-            )
+        verboselog(
+            (
+                f"This contig has {len(mutated_positions):,} mutated "
+                "position(s)."
+            ),
+            prefix="",
+        )
 
         # We'll store the full sequence of the contig here. I imagine that many
         # contigs in most datasets (like in SheepGut) will have zero
@@ -579,17 +584,18 @@ def run_apply(
                 f"{num_ignored_alns:,}."
             )
         if num_sr_generated > 0:
-            if verbose:
-                fancylog(
-                    (
-                        f"From the {num_alns_total:,} linear alignment(s) to "
-                        f"contig {contig}: constructed {num_sr_generated:,} "
-                        f"smoothed read(s) and ignored {num_ignored_alns:,} "
-                        "linear alignment(s)."
-                    ),
-                    prefix="",
-                )
+            verboselog(
+                (
+                    f"From the {num_alns_total:,} linear alignment(s) to "
+                    f"contig {contig}: constructed {num_sr_generated:,} "
+                    f"smoothed read(s) and ignored {num_ignored_alns:,} "
+                    "linear alignment(s)."
+                ),
+                prefix="",
+            )
         else:
+            # This we don't lock behind verbose, because this is weird and the
+            # user should know about it
             fancylog(
                 (
                     f"Ignored all linear alignments for contig {contig}: "
@@ -614,10 +620,30 @@ def run_apply(
 
             if len(low_cov_positions) > 0:
                 lc_runs = convert_to_runs(low_cov_positions)
+                verboselog(
+                    (
+                        f"Contig {contig} (average coverage "
+                        f"{contig2avgcov[contig]:,.2f}x) has {len(lc_runs):,} "
+                        f'run(s) of consecutive low-coverage (\u2264 '
+                        f"{min_well_cov:,.2f}x) positions. Constructing "
+                        "virtual reads."
+                    ),
+                    prefix="",
+                )
                 # num_vr = 0
                 # vr_buffer = {}
                 for run in lc_runs:
                     pass  # TODO do everything
+            else:
+                verboselog(
+                    (
+                        f"Contig {contig} (average coverage "
+                        f"{contig2avgcov[contig]:,.2f}x) has no low-coverage "
+                        f"(\u2264 {min_well_cov:,.2f}x) positions. No need to "
+                        "construct virtual reads."
+                    ),
+                    prefix="",
+                )
 
     fancylog("Done.", prefix="")
 
