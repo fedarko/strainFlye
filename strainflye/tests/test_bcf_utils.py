@@ -410,6 +410,29 @@ def test_verify_bcf_simple_indels():
     assert str(ei.value) == f"BCF file {fp} " + exp_err_msg_suffix
 
 
+def test_verify_bcf_symbolic_alt():
+    exp_err_msg_suffix = (
+        "has an insertion, deletion, or some other complex "
+        "mutation at (1-indexed) position 45 on contig edge_1. strainFlye "
+        "currently only supports BCF files containing single-nucleotide "
+        "mutations, sorry."
+    )
+
+    # Based on section 1.4.5, and page 16, of the VCF v4.3 spec.
+    # NOTE: I don't know if pysam's VCF/BCF parser *expects* that ##ALT=...
+    # tags are given in the header for these cases -- I don't think so, but
+    # this might change. If this test suddenly starts failing b/c pysam can't
+    # parse the input file, we can add these tags to the header in
+    # write_arb_bcf().
+    for salt in ("<DEL>", "<INS>", "<DUP>", "<INV>", "<CNV>", "<BND>",
+            "<DUP:TANDEM>", "<DEL:ME>", "<INS:ME>", "<DEL:ME:ALU>"):
+        fp = write_arb_bcf(f"edge_1\t45\t.\tT\t{salt}\t.\t.\t.\n")
+        bcf_obj = pysam.VariantFile(fp)
+        with pytest.raises(ParameterError) as ei:
+            bu.verify_bcf_simple(bcf_obj, fp)
+        assert str(ei.value) == f"BCF file {fp} " + exp_err_msg_suffix
+
+
 def test_verify_bcf_simple_degen():
     fp = write_arb_bcf("edge_1\t45\t.\tG\tM\t.\t.\t.\n")
     bcf_obj = pysam.VariantFile(fp)
