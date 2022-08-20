@@ -210,7 +210,8 @@ def verify_bcf_simple(bcf_obj, bcf_fp):
                     f"where the reference ({ref}) and/or alternate ({alt}) "
                     "are not in {A, C, G, T}. "
                     "strainFlye does not support degenerate nucleotides or "
-                    "other types of reference / alternate alleles, sorry."
+                    "other complex types of reference / alternate alleles, "
+                    "sorry."
                 )
 
             # what software would even generate bcf files like this???

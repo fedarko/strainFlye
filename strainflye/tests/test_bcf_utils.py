@@ -423,7 +423,7 @@ def test_verify_bcf_simple_indels():
     assert str(ei.value) == f"BCF file {fp} " + exp_err_msg_suffix
 
 
-def test_verify_bcf_symbolic_alt():
+def test_verify_bcf_simple_symbolic_alt():
     # Based on section 1.4.5, and page 16, of the VCF v4.3 spec.
     # NOTE: I don't know if pysam's VCF/BCF parser *expects* that ##ALT=...
     # tags are given in the header for these cases -- I don't think so, but
@@ -463,7 +463,8 @@ def test_verify_bcf_simple_degen():
         f"BCF file {fp} has a record at (1-indexed) position 45 on "
         "contig edge_1 where the reference (G) and/or alternate (M) are "
         "not in {A, C, G, T}. strainFlye does not support degenerate "
-        "nucleotides or other types of reference / alternate alleles, sorry."
+        "nucleotides or other complex types of reference / alternate alleles, "
+        "sorry."
     )
 
     fp = write_arb_bcf("edge_1\t1\t.\tN\tA\t.\t.\t.\n")
@@ -474,7 +475,8 @@ def test_verify_bcf_simple_degen():
         f"BCF file {fp} has a record at (1-indexed) position 1 on "
         "contig edge_1 where the reference (N) and/or alternate (A) are "
         "not in {A, C, G, T}. strainFlye does not support degenerate "
-        "nucleotides or other types of reference / alternate alleles, sorry."
+        "nucleotides or other complex types of reference / alternate alleles, "
+        "sorry."
     )
 
     fp = write_arb_bcf("edge_1\t10000000\t.\tN\tN\t.\t.\t.\n")
@@ -485,21 +487,24 @@ def test_verify_bcf_simple_degen():
         f"BCF file {fp} has a record at (1-indexed) position 10,000,000 on "
         "contig edge_1 where the reference (N) and/or alternate (N) are "
         "not in {A, C, G, T}. strainFlye does not support degenerate "
-        "nucleotides or other types of reference / alternate alleles, sorry."
+        "nucleotides or other complex types of reference / alternate alleles, "
+        "sorry."
     )
 
 
-def test_verify_bcf_simple_alt_is_deletion_char():
-    fp = write_arb_bcf("edge_1\t2022\t.\tG\t*\t.\t.\t.\n")
-    bcf_obj = pysam.VariantFile(fp)
-    with pytest.raises(ParameterError) as ei:
-        bu.verify_bcf_simple(bcf_obj, fp)
-    assert str(ei.value) == (
-        f"BCF file {fp} has a record at (1-indexed) position 2,022 on "
-        "contig edge_1 where the reference (G) and/or alternate (*) are "
-        "not in {A, C, G, T}. strainFlye does not support degenerate "
-        "nucleotides or other types of reference / alternate alleles, sorry."
-    )
+def test_verify_bcf_simple_deletion_chars():
+    for ref, alt in (("G", "*"), ("*", "G"), ("*", "*")):
+        fp = write_arb_bcf(f"edge_1\t2022\t.\t{ref}\t{alt}\t.\t.\t.\n")
+        bcf_obj = pysam.VariantFile(fp)
+        with pytest.raises(ParameterError) as ei:
+            bu.verify_bcf_simple(bcf_obj, fp)
+        assert str(ei.value) == (
+            f"BCF file {fp} has a record at (1-indexed) position 2,022 on "
+            f"contig edge_1 where the reference ({ref}) and/or alternate "
+            f"({alt}) are not in {{A, C, G, T}}. strainFlye does not support "
+            "degenerate nucleotides or other complex types of reference / "
+            "alternate alleles, sorry."
+        )
 
 
 def test_verify_bcf_simple_lowercase_ok():
