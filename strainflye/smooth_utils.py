@@ -66,7 +66,7 @@ def get_smooth_aln_replacements(aln, mutated_positions, mp2ra):
         Otherwise, this will be a dict mapping each zero-indexed mutated
         positions in the contig (that is spanned by aln) to the nucleotides
         that aln has aligned to each position. These represent the replacements
-        to make to the "reference" contig sequence to construct a smoothed read
+        to make to the "reference" contig sequence to create a smoothed read
         based on aln.
     """
 
@@ -173,7 +173,7 @@ def get_smooth_aln_replacements(aln, mutated_positions, mp2ra):
             ignoring_this_aln = True
             break
 
-        # When constructing the smoothed read for this linear alignment,
+        # When creating the smoothed read for this linear alignment,
         # to use the linear alignment's read's nucleotide at this mutated
         # position. (It's entirely possible that this nucleotide might match
         # the contig sequence at this position, in which case this replacement
@@ -272,7 +272,7 @@ def compute_average_coverages(
     return contig2avgcov
 
 
-def run_apply(
+def run_create(
     contigs,
     bam,
     bcf,
@@ -321,7 +321,7 @@ def run_apply(
         Logging function.
 
     sr_chunk_size: int
-        After constructing this many smoothed reads, we'll write out their
+        After creating this many smoothed reads, we'll write out their
         sequences. (Like in graph_utils.gfa_to_fasta(), there's a tradeoff here
         between storing a lot of stuff in memory vs. making a lot of slow write
         operations.)
@@ -392,7 +392,7 @@ def run_apply(
 
     misc_utils.make_output_dir(output_dir)
 
-    fancylog(f"Going through contigs and constructing {rt}...")
+    fancylog(f"Going through contigs and creating {rt}...")
     for ci, contig in enumerate(contig_name2len, 1):
         contig_len = contig_name2len[contig]
         cli_utils.proglog(
@@ -587,7 +587,7 @@ def run_apply(
             verboselog(
                 (
                     f"From the {num_alns_total:,} linear alignment(s) to "
-                    f"contig {contig}: constructed {num_sr_generated:,} "
+                    f"contig {contig}: created {num_sr_generated:,} "
                     f"smoothed read(s) and ignored {num_ignored_alns:,} "
                     "linear alignment(s)."
                 ),
@@ -623,9 +623,10 @@ def run_apply(
                 verboselog(
                     (
                         f"Contig {contig} (average coverage "
-                        f"{contig2avgcov[contig]:,.2f}x) has {len(lc_runs):,} "
-                        f'run(s) of consecutive low-coverage (\u2264 '
-                        f"{min_well_cov:,.2f}x) positions. Constructing "
+                        f"{contig2avgcov[contig]:,.2f}x, based on the BAM "
+                        f"file) has {len(lc_runs):,} run(s) of consecutive "
+                        f"low-coverage (\u2264 {min_well_cov:,.2f}x) "
+                        "positions (based on smoothed reads). Creating "
                         "virtual reads."
                     ),
                     prefix="",
@@ -638,9 +639,10 @@ def run_apply(
                 verboselog(
                     (
                         f"Contig {contig} (average coverage "
-                        f"{contig2avgcov[contig]:,.2f}x) has no low-coverage "
-                        f"(\u2264 {min_well_cov:,.2f}x) positions. No need to "
-                        "construct virtual reads."
+                        f"{contig2avgcov[contig]:,.2f}x, based on the BAM "
+                        "file) has no low-coverage (\u2264 "
+                        f"{min_well_cov:,.2f}x) positions (based on smoothed "
+                        "reads). No need to create virtual reads."
                     ),
                     prefix="",
                 )

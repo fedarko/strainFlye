@@ -950,7 +950,7 @@ def cold_gaps(bcf, min_length, circular, output_coldspots):
 
 @click.group(name="smooth", **grp_params, **cmd_params)
 def smooth():
-    """[+] Generate and assemble smoothed and virtual reads."""
+    """[+] Create and assemble smoothed and virtual reads."""
 
 
 strainflye.add_command(smooth)
@@ -983,7 +983,7 @@ strainflye.add_command(smooth)
     show_default=True,
     required=False,
     help=(
-        "If --virtual-reads is specified, we'll construct virtual reads "
+        "If --virtual-reads is specified, we'll create virtual reads "
         'covering "low-coverage" regions in contigs.'
     ),
 )
@@ -1013,7 +1013,7 @@ strainflye.add_command(smooth)
         "reads spanning a single continuous low-coverage region, these reads "
         "will start and end this many positions before and after the region. "
         "(For example, the default of 100 means that the virtual reads "
-        "constructed for a low-coverage region of 5,000 bp will all be "
+        "created for a low-coverage region of 5,000 bp will all be "
         "5,200 bp.)"
     ),
 )
@@ -1035,7 +1035,7 @@ strainflye.add_command(smooth)
     show_default=True,
     help="Display extra details for each contig while generating reads.",
 )
-def apply(
+def create(
     contigs,
     bam,
     bcf,
@@ -1045,9 +1045,9 @@ def apply(
     output_dir,
     verbose,
 ):
-    """Generate smoothed and virtual reads."""
+    """Create smoothed and virtual reads."""
     fancylog = cli_utils.fancystart(
-        "strainFlye smooth apply",
+        "strainFlye smooth create",
         (
             ("contig file", contigs),
             ("BAM file", bam),
@@ -1064,7 +1064,7 @@ def apply(
             f"Verbose?: {cli_utils.b2y(verbose)}",
         ),
     )
-    smooth_utils.run_apply(
+    smooth_utils.run_create(
         contigs,
         bam,
         bcf,
@@ -1084,7 +1084,7 @@ def apply(
     "--reads-dir",
     required=True,
     type=click.Path(exists=True, dir_okay=True, file_okay=False),
-    help=("Directory produced by strainFlye smooth apply."),
+    help=("Directory produced by strainFlye smooth create."),
 )
 @click.option(
     "-t",
@@ -1128,7 +1128,7 @@ def assemble(reads_dir, output_dir, verbose):
 #
 # @strainflye.command(**cmd_params)
 # def link_graph():
-#     """Constructs the link graph structure for a MAG."""
+#     """Creates the link graph structure for a MAG."""
 #     print("LG")
 
 
