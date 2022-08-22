@@ -45,7 +45,9 @@ pip install git+https://github.com/fedarko/strainFlye.git
 ### Optional: install LJA in order to run `strainFlye smooth assemble`
 
 In order to run the `strainFlye smooth assemble` command, you will need to
-install the [LJA](https://github.com/AntonBankevich/LJA) software. Please see
+install the [LJA](https://github.com/AntonBankevich/LJA) software (in
+particular, the
+[`simple_ec` branch](https://github.com/AntonBankevich/LJA/tree/simple_ec). Please see
 [LJA's manual](https://github.com/AntonBankevich/LJA/blob/main/docs/lja_manual.md)
 for installation instructions.
 
