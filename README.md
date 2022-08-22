@@ -42,6 +42,13 @@ conda activate strainflye
 pip install git+https://github.com/fedarko/strainFlye.git
 ```
 
+### Optional: install LJA in order to run `strainFlye smooth assemble`
+
+In order to run the `strainFlye smooth assemble` command, you will need to
+install the [LJA](https://github.com/AntonBankevich/LJA) software. Please see
+[LJA's manual](https://github.com/AntonBankevich/LJA/blob/main/docs/lja_manual.md)
+for installation instructions.
+
 ## Documentation
 
 ### Tutorial
@@ -73,7 +80,7 @@ Commands:
   call    [+] Call mutations in contigs naïvely & compute diversity indices.
   fdr     [+] Estimate and fix FDRs for contigs' naïve mutation calls.
   spot    [+] Identify putative mutational hotspots or coldspots in contigs.
-  smooth  [+] Generate and assemble smoothed and virtual reads.
+  smooth  [+] Create and assemble smoothed and virtual reads.
   utils   [+] Various utility commands provided with strainFlye.
 ```
 
