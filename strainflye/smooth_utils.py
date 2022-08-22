@@ -1,6 +1,7 @@
 # Utilities for strainFlye smooth.
 
 import os
+import gzip
 import pysamstats
 from collections import defaultdict
 from statistics import mean
@@ -15,13 +16,15 @@ from strainflye import (
 from strainflye.errors import ParameterError, WeirdError
 
 
-def append_reads(fasta_fp, readname2seq):
-    """Appends reads to the end of a FASTA file.
+def append_reads(fastagz_fp, readname2seq):
+    """Appends reads to the end of a gzipped FASTA file.
+
+    If the file does not already exist, it will be created.
 
     Parameters
     ----------
-    fasta_fp: str
-        Filepath to a FASTA file. OK if it does or doesn't exist already.
+    fastagz_fp: str
+        Filepath to a .fasta.gz file. This file may or may not exist.
 
     readname2seq: dict
         Maps read name to sequence. Both read name and sequence should be
@@ -30,8 +33,19 @@ def append_reads(fasta_fp, readname2seq):
     Returns
     -------
     None
+
+    Notes
+    -----
+    I'm pretty sure there is built-in .fasta.gz writing support in scikit-bio,
+    but I can't figure out where it is or how to use it -- so I'm just using
+    the Python gzip library directly.
     """
-    with open(fasta_fp, "a") as of:
+    # Need to use "t" to force writing in text mode, since gzip.open() defaults
+    # to binary mode: see https://stackoverflow.com/a/41051420. This stack
+    # overflow post was also the inspiration for using gzip.open() in the first
+    # place (I did not know it was possible to directly write gzipped files
+    # until ten minutes ago)
+    with gzip.open(fastagz_fp, "at") as of:
         for readname in readname2seq:
             # Write out both the header and sequence for each read
             of.write(f">{readname}\n{readname2seq[readname]}\n")
@@ -416,7 +430,7 @@ def run_create(
             # (This is only used if we're adding virtual reads)
             pos2srcov = [0] * contig_len
 
-        out_reads_fp = os.path.join(output_dir, f"{contig}.fasta")
+        out_reads_fp = os.path.join(output_dir, f"{contig}.fasta.gz")
         if os.path.exists(out_reads_fp):
             raise FileExistsError(f"File {out_reads_fp} already exists.")
         # (These are zero-indexed.)

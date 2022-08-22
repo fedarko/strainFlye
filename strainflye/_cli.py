@@ -1023,9 +1023,10 @@ strainflye.add_command(smooth)
     required=True,
     type=click.Path(dir_okay=True, file_okay=False),
     help=(
-        "Directory to which one output gzipped FASTA file for each contig "
-        "(that is covered in the BAM file) will be written. Some temporary "
-        "files will also be written to this directory."
+        "Directory to which smoothed reads (and virtual reads, if "
+        "--virtual-reads is specified) will be written. Each contig's reads "
+        "will be written to a gzipped FASTA file in this directory named "
+        "[contig].fasta.gz."
     ),
 )
 @click.option(
@@ -1084,7 +1085,12 @@ def create(
     "--reads-dir",
     required=True,
     type=click.Path(exists=True, dir_okay=True, file_okay=False),
-    help=("Directory produced by strainFlye smooth create."),
+    help=(
+        'Directory produced by "strainFlye smooth create" containing smoothed '
+        "(and optionally virtual) reads. We will use LJA to assemble each "
+        "*.fasta.gz file in this directory (representing reads from different "
+        "contigs) independently."
+    ),
 )
 @click.option(
     "-t",
