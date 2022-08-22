@@ -1098,14 +1098,23 @@ def create(
     required=True,
     default=10,
     type=click.IntRange(min=0),
-    help="--Cov-threshold parameter to pass to LJA.",
+    help=(
+        "--Cov-threshold parameter to pass to LJA. Edges with k-mer coverage "
+        "less than this value, as well as reads passing through these edges, "
+        "will be removed from the de Bruijn graph created by LJA (after the "
+        '"jumboDBG" step of the LJA pipeline, and before the "multiplexDBG" '
+        "step)."
+    ),
 )
 @click.option(
     "-o",
     "--output-dir",
     required=True,
     type=click.Path(dir_okay=True, file_okay=False),
-    help=("Directory to which output assemblies will be written."),
+    help=(
+        "Directory to which output LJA assemblies (one top-level folder per "
+        "*.fasta.gz file in the input --reads-dir) will be written."
+    ),
 )
 @click.option(
     "--verbose/--no-verbose",
@@ -1114,8 +1123,21 @@ def create(
     show_default=True,
     help="Display extra details for each contig during the assembly process.",
 )
-def assemble(reads_dir, output_dir, verbose):
+def assemble(reads_dir, cov_threshold, output_dir, verbose):
     """Assemble reads using LJA."""
+    fancylog = cli_utils.fancystart(
+        "strainFlye smooth assemble",
+        (
+            ("reads directory", reads_dir),
+            ("--Cov-threshold parameter for LJA", cov_threshold),
+        ),
+        (("directory", output_dir),),
+        extra_info=(f"Verbose?: {cli_utils.b2y(verbose)}",),
+    )
+    smooth_utils.run_assemble(
+        reads_dir, cov_threshold, output_dir, verbose, fancylog
+    )
+    fancylog("Done.")
 
 
 # @strainflye.command(**cmd_params)

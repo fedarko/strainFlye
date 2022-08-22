@@ -751,5 +751,30 @@ def run_create(
     fancylog("Done.", prefix="")
 
 
-def run_assemble():
-    pass
+def run_assemble(reads_dir, cov_threshold, output_dir, verbose, fancylog):
+    """Assembles smoothed and virtual reads using LJA.
+
+    Parameters
+    ----------
+    reads_dir: str
+        Directory containing *.fasta.gz files. Each of these files will be
+        assembled individually.
+
+    cov_threshold: int
+        --Cov-threshold parameter to pass to LJA. Note that LJA (as of writing)
+        technically has both "--Cov-threshold" and "--cov-threshold" parameters
+        (note the different capitalizations); we use the one with uppercase C.
+
+    output_dir: str
+        Output directory.
+
+    verbose: bool
+        Whether or not to log contig details.
+
+    fancylog: function
+        Logging function.
+    """
+    misc_utils.make_output_dir(output_dir)
+    for rfp in os.listdir(reads_dir):
+        if rfp.lower().endswith("fasta.gz"):
+            fancylog(f"Found file {rfp}. Assembling.")
