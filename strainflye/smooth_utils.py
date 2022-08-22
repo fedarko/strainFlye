@@ -2,6 +2,7 @@
 
 import os
 import gzip
+import subprocess
 import pysamstats
 from collections import defaultdict
 from statistics import mean
@@ -775,6 +776,34 @@ def run_assemble(reads_dir, cov_threshold, output_dir, verbose, fancylog):
         Logging function.
     """
     misc_utils.make_output_dir(output_dir)
+    # TODO: find LJA bin path, either from PATH or as CLI parameter
+    lja_bin = ""
     for rfp in os.listdir(reads_dir):
-        if rfp.lower().endswith("fasta.gz"):
-            fancylog(f"Found file {rfp}. Assembling.")
+        if rfp.lower().endswith(".fasta.gz"):
+            contig = rfp[:-9]
+            fancylog(
+                (
+                    f"Found file {rfp}, presumably for contig {contig}. "
+                    "Assembling."
+                ),
+                prefix="",
+            )
+
+            out_asm_fp = os.path.join(output_dir, contig)
+            if os.path.isfile(out_asm_fp):
+                raise FileExistsError(
+                    f"{out_asm_fp} already exists as a file."
+                )
+
+            subprocess.run(
+                [
+                    lja_bin,
+                    "--reads",
+                    rfp,
+                    "--simpleec",
+                    "--Cov-threshold",
+                    cov_threshold,
+                    "--output-dir",
+                    out_asm_fp,
+                ]
+            )
