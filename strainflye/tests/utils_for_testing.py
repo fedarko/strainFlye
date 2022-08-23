@@ -1,4 +1,6 @@
+import os
 import tempfile
+import contextlib
 from strainflye.bcf_utils import compress_vcf
 
 
@@ -38,7 +40,8 @@ def write_vcf(text, delete=True):
     return fh
 
 
-def write_indexed_bcf(vcf_text, delete_vcf=False):
+@contextlib.contextmanager
+def write_indexed_bcf(vcf_text):
     """Writes out a tempfile that can be used as a test BCF file.
 
     Parameters
@@ -48,24 +51,26 @@ def write_indexed_bcf(vcf_text, delete_vcf=False):
         converted to BCF and indexed. (The "middle-man" VCF file will
         automatically be deleted.)
 
-    delete_vcf: bool
-        Will be passed to write_vcf() as the delete parameter there. This
-        should usually be False (because when we call compress_vcf() on the VCF
-        file, it'll be deleted); however, in the silly case where we expect
-        compress_vcf() to fail before closing the VCF file, it makes sense to
-        keep this as True. (Sorry, this is inelegant, but I'm in a rush.)
-
     Returns
     -------
     fh: "file-like object" (in practice, type tempfile._TemporaryFileWrapper)
         Represents this tempfile. Usable as a context manager; see write_vcf()
         docs for more details.
 
-    Notes
+        I guess this technically "yields" this fh to the user??? But apparently
+        these docstrings should still say "returns"
+        (https://stackoverflow.com/a/39962779). But, like, idk. Look I still
+        think yield statements are magic. They already took Santa Claus and the
+        Easter Bunny from me, please just let me have this innocence of not
+        knowing how yields work.
+
+    References
     -----
-    We need to figure out how to delete the *.bcf.csi files created from
-    indexing... Maybe figure out how to bind their deletion to the closing of
-    the BCF file?
+    See
+    https://docs.python.org/3/library/contextlib.html#contextlib.contextmanager
+    for some details on context managers. Luckily, the basic context manager
+    functionality worked pretty well out of the box for letting us easily clean
+    up *.bcf.csi and *.vcf files.
     """
     # When we're testing stuff like mutation rate computation (for which a VCF
     # / BCF index needs to be present), we actually need to write out a BCF and
@@ -80,7 +85,31 @@ def write_indexed_bcf(vcf_text, delete_vcf=False):
     # mind, we don't actually close these files, so they aren't getting deleted
     # anyway -- need to fix this -- see
     # https://github.com/fedarko/strainFlye/issues/38.)
-    fh = write_vcf(vcf_text, delete=delete_vcf)
-    bcf_fh = tempfile.NamedTemporaryFile(suffix=".bcf")
-    compress_vcf(fh.name, bcf_fh.name, mock_log)
-    return bcf_fh
+    try:
+        vcf_fh = write_vcf(vcf_text, delete=False)
+        bcf_fh = tempfile.NamedTemporaryFile(suffix=".bcf")
+        compress_vcf(vcf_fh.name, bcf_fh.name, mock_log)
+        yield bcf_fh
+    finally:
+        # Clean up tempfiles that may or may not exist. (Vulnerable to race
+        # conditions of files being deleted then added back or some nonsense
+        # like that, but that shouldn't matter unless someone is trying to
+        # break these tests intentionally.)
+
+        # The *.vcf file should have been deleted during compress_vcf(), but if
+        # an error popped up than this file may still be around.
+        if os.path.exists(vcf_fh.name):
+            os.remove(vcf_fh.name)
+
+        # The *.bcf file (represented by bcf_fh.name) should already be
+        # removed (or soon to be removed), since we yield bcf_fh to the caller
+        # (and they should be using it as its own context manager, as
+        # documented in the tempfile API.)
+        #
+        # However, we gotta take care of the *.bcf.csi file created during
+        # indexing. (Ordinarily, this file should exist, but it may not exist
+        # if for example we ran into an error before indexing. So we check,
+        # just to be safe.)
+        idx_name = bcf_fh.name + ".csi"
+        if os.path.exists(idx_name):
+            os.remove(idx_name)

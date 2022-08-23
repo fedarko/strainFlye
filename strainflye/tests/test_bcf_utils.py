@@ -90,7 +90,7 @@ def test_parse_sf_bcf_multi_sf_header():
     # Header + first four mutations called on SheepGut using p = 0.15%
     with write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
-        "##fileDate=20220526\n"
+        "##fileDate=20220527\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
         "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
         "##contig=<ID=edge_1,length=1000>\n"
@@ -117,7 +117,7 @@ def test_parse_sf_bcf_no_sf_header():
     # Header + first four mutations called on SheepGut using p = 0.15%
     with write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
-        "##fileDate=20220526\n"
+        "##fileDate=20220528\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
         "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
         "##contig=<ID=edge_1,length=1000>\n"
@@ -146,7 +146,7 @@ def test_parse_sf_bcf_missing_info_fields():
     # to string again. but whatevs
     text = (
         "##fileformat=VCFv4.3\n"
-        "##fileDate=20220526\n"
+        "##fileDate=20220529\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
         "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
         "##contig=<ID=edge_1,length=1000>\n"
@@ -252,7 +252,7 @@ def test_parse_sf_bcf_no_contigs_in_header():
     # Header + first four mutations called on SheepGut using p = 0.15%
     vcf_text = (
         "##fileformat=VCFv4.3\n"
-        "##fileDate=20220526\n"
+        "##fileDate=20220530\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
         "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
         '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
@@ -268,7 +268,11 @@ def test_parse_sf_bcf_no_contigs_in_header():
     # BCF file without a contig header will make bcftools complain when we try
     # to even create the BCF file.
     with pytest.raises(subprocess.CalledProcessError) as ei:
-        write_indexed_bcf(vcf_text, delete_vcf=True)
+        # (Just calling write_indexed_bcf() doesn't cause the error to come up.
+        # This is probably due to contextmanager stuff (tm). The error comes up
+        # when we actually use "with".)
+        with write_indexed_bcf(vcf_text):
+            pass
     # I can't figure out how to check against the stderr produced by bcftools
     # -- capsys doesn't seem helpful right now -- so I'm being lazy and just
     # checking that the type of the error matches what I expect.
@@ -294,7 +298,7 @@ def test_parse_sf_bcf_no_contig_length_in_header():
     # Header + first four mutations called on SheepGut using p = 0.15%
     with write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
-        "##fileDate=20220526\n"
+        "##fileDate=20220531\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
         "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
         "##contig=<ID=edge_1>\n"
