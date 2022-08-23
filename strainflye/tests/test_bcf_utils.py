@@ -1,4 +1,5 @@
 import os
+import subprocess
 import pytest
 import pysam
 import strainflye.bcf_utils as bu
@@ -170,19 +171,32 @@ def test_parse_sf_bcf_missing_info_fields():
     # OK, now look for errors!
     ###########################################################################
     # If there is a mutation containing MDP/AAD info fields -- but if these
-    # fields are not defined in the header -- then pysam itself will throw an
-    # error. Let's just test this here real quick.
+    # fields are not defined in the header -- then bcftools will throw an
+    # error while trying to create the BCF file.
+    #
+    # However, we can see what happens when we try to load a VCF exhibiting
+    # this problem. Long story short, our parser catches it. (However, I think
+    # the underlying VCF is technically invalid, so eventually pysam might
+    # start throwing errors when it sees these sorts of files -- if that
+    # happens, we can adjust this part of the test.)
+    #
+    # (Just for reference for future Marcus: previously, pysam was complaining,
+    # but I think this was because no input BCF file existed because bcftools
+    # was crashing when trying to create the BCF and I wasn't catching that
+    # error because I hadn't set check=True and asodijosdifaodsifjosdijfa)
     #
     # These correspond to removing the MDP header, removing the AAD header,
     # then removing both
     for bounds in ((5, 6), (6, 7), (5, 7)):
-        fp = write_indexed_bcf(
+        fp = write_vcf_tempfile(
             "\n".join(split_text[: bounds[0]] + split_text[bounds[1] :])
             + mut_line_all
         )
-        with pytest.raises(ValueError) as ei:
+        with pytest.raises(ParameterError) as ei:
             bu.parse_sf_bcf(fp)
-        assert "is it VCF/BCF format?" in str(ei.value)
+        assert str(ei.value) == (
+            f"BCF file {fp} needs to have MDP and AAD info fields."
+        )
 
     ###########################################################################
     # The more interesting case is when (for MDP, AAD, for both) there is no
@@ -240,13 +254,15 @@ def test_parse_sf_bcf_no_contigs_in_header():
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
     )
     # BCF files *need* to have contig header tags, so trying to load a
-    # BCF file without a contig header will make pysam complain:
-    bcf_fp = write_indexed_bcf(vcf_text)
-    with pytest.raises(ValueError) as ei:
-        bu.parse_sf_bcf(bcf_fp)
-    assert "is it VCF/BCF format?" in str(ei.value)
+    # BCF file without a contig header will make bcftools complain when we try
+    # to even create the BCF file.
+    with pytest.raises(subprocess.CalledProcessError) as ei:
+        write_indexed_bcf(vcf_text)
+    # I can't figure out how to check against the stderr produced by bcftools
+    # -- capsys doesn't seem helpful right now -- so I'm being lazy and just
+    # checking that the type of the error matches what I expect.
 
-    # However, we can sneak past this by using a VCF instead of a VCF file. In
+    # However, we can sneak past this by using a VCF instead of a BCF file. In
     # this case, our custom check triggers.
     vcf_fp = write_vcf_tempfile(vcf_text)
     with pytest.raises(ParameterError) as ei:
