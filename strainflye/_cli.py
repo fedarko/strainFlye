@@ -1109,7 +1109,8 @@ def create(
         'edges. This "simple" error correction is done instead of running '
         "the default LJA error correction module, mowerDBG. Please note that "
         "we do not perform any validation on this string before passing it to "
-        "LJA."
+        "LJA (so if you are allowing users to run strainFlye through a web "
+        "server, be careful about shell injection)."
     ),
 )
 @click.option(
