@@ -44,12 +44,29 @@ pip install git+https://github.com/fedarko/strainFlye.git
 
 ### Optional: install LJA in order to run `strainFlye smooth assemble`
 
-In order to run the `strainFlye smooth assemble` command, you will need to
+strainFlye's `smooth` module includes two commands. The first,
+`strainFlye smooth create`, creates smoothed and virtual reads for each contig;
+the second, `strainFlye smooth assemble`, assembles these reads using
+[LJA](https://github.com/AntonBankevich/LJA).
+
+So, in order to run the `strainFlye smooth assemble` command, you will need to
 install the [LJA](https://github.com/AntonBankevich/LJA) software (in
 particular, the
-[`simple_ec` branch](https://github.com/AntonBankevich/LJA/tree/simple_ec)).
+[`simple_ec` branch](https://github.com/AntonBankevich/LJA/tree/simple_ec) of
+LJA's code).
 Please see [LJA's manual](https://github.com/AntonBankevich/LJA/blob/main/docs/lja_manual.md)
-for installation instructions.
+for installation instructions. Assuming that you have all of LJA's requirements
+installed, something like the following should work:
+
+```bash
+git clone https://github.com/AntonBankevich/LJA.git
+cd LJA
+git checkout simple_ec
+cmake .
+make
+```
+
+... but this is subject to change as LJA is updated.
 
 ## Documentation
 

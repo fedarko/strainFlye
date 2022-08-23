@@ -1046,7 +1046,7 @@ def create(
     output_dir,
     verbose,
 ):
-    """Create smoothed and virtual reads."""
+    """Create smoothed and virtual reads for each contig."""
     fancylog = cli_utils.fancystart(
         "strainFlye smooth create",
         (
@@ -1147,7 +1147,7 @@ def create(
     help="Display extra details for each contig during the assembly process.",
 )
 def assemble(reads_dir, lja_params, lja_bin, output_dir, verbose):
-    """Assemble reads using LJA."""
+    """Assemble contigs' reads using LJA."""
     fancylog = cli_utils.fancystart(
         "strainFlye smooth assemble",
         (
