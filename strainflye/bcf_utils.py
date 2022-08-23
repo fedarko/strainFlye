@@ -29,7 +29,9 @@ def convert_vcf_to_bcf(vcf_fp, bcf_fp, fancylog):
     None
     """
     fancylog("Converting the VCF file to a compressed BCF file...")
-    subprocess.run(["bcftools", "view", "-O", "b", vcf_fp, "-o", bcf_fp], check=True)
+    subprocess.run(
+        ["bcftools", "view", "-O", "b", vcf_fp, "-o", bcf_fp], check=True
+    )
     os.remove(vcf_fp)
     fancylog("Done.", prefix="")
 

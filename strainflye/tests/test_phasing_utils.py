@@ -48,7 +48,7 @@ def test_load_triplet_good(capsys):
 def test_load_triplet_fasta_not_in_bcf_all():
     # This is actually a valid VCF file (we use it in the parse_sf_bcf()
     # tests); the problem with it is that it doesn't describe c1, c2, or c3.
-    bcf_fp = write_indexed_bcf(
+    with write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220526\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
@@ -62,16 +62,17 @@ def test_load_triplet_fasta_not_in_bcf_all():
         "edge_1\t255\t.\tT\tC\t.\t.\tMDP=385;AAD=2\n"
         "edge_1\t356\t.\tA\tT\t.\t.\tMDP=403;AAD=2\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
-    )
-    with pytest.raises(ParameterError) as ei:
-        pu.load_triplet(FASTA, BAM, bcf_fp, mock_log)
-    assert str(ei.value) == (
-        "All contigs in the FASTA file must also be contained in the BCF file."
-    )
+    ) as fh:
+        with pytest.raises(ParameterError) as ei:
+            pu.load_triplet(FASTA, BAM, fh.name, mock_log)
+        assert str(ei.value) == (
+            "All contigs in the FASTA file must also be contained in the BCF "
+            "file."
+        )
 
 
 def test_load_triplet_fasta_not_in_bcf_partial():
-    bcf_fp = write_indexed_bcf(
+    with write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220526\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
@@ -85,12 +86,13 @@ def test_load_triplet_fasta_not_in_bcf_partial():
         "c2\t4\t.\tT\tC\t.\t.\tMDP=385;AAD=2\n"
         "c2\t5\t.\tA\tT\t.\t.\tMDP=403;AAD=2\n"
         "c2\t9\t.\tT\tC\t.\t.\tMDP=395;AAD=2\n"
-    )
-    with pytest.raises(ParameterError) as ei:
-        pu.load_triplet(FASTA, BAM, bcf_fp, mock_log)
-    assert str(ei.value) == (
-        "All contigs in the FASTA file must also be contained in the BCF file."
-    )
+    ) as fh:
+        with pytest.raises(ParameterError) as ei:
+            pu.load_triplet(FASTA, BAM, fh.name, mock_log)
+        assert str(ei.value) == (
+            "All contigs in the FASTA file must also be contained in the BCF "
+            "file."
+        )
 
 
 def test_load_triplet_fasta_not_in_bam_all():

@@ -237,7 +237,7 @@ def test_normalize_series_good():
 def test_compute_full_decoy_contig_mut_rates_p_simple():
     # This example is designed to be simple -- the MDPs are all exactly 10,000
     # to make it simple to see what AADs will trigger a p-mutation.
-    bcf_name = write_indexed_bcf(
+    with write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220526\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
@@ -251,13 +251,12 @@ def test_compute_full_decoy_contig_mut_rates_p_simple():
         "edge_1\t255\t.\tT\tC\t.\t.\tMDP=10000;AAD=2\n"
         "edge_1\t356\t.\tA\tT\t.\t.\tMDP=10000;AAD=16\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=19\n"
-    )
-    bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(bcf_name)
-    mut_rates = fu.compute_full_decoy_contig_mut_rates(
-        bcf_obj, thresh_type, range(15, 21), "edge_1", 500
-    )
-    denominator = 3 * 500
-    try:
+    ) as fh:
+        bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
+        mut_rates = fu.compute_full_decoy_contig_mut_rates(
+            bcf_obj, thresh_type, range(15, 21), "edge_1", 500
+        )
+        denominator = 3 * 500
         # There are two p-mutations at p = 0.15% and p = 0.16%;
         # one p-mutation at p = 0.17%, p = 0.18%, and p = 0.19%;
         # and no p-mutations at p = 0.2%.
@@ -269,18 +268,10 @@ def test_compute_full_decoy_contig_mut_rates_p_simple():
             1 / denominator,
             0,
         ]
-    finally:
-        # Python should automatically clear the .vcf tempfile we created
-        # earlier from the system, regardless of how this test goes, but
-        # it won't do this for the .bcf and .bcf.csi files we generated using
-        # bcftools view and bcftools index. So we clear these ourselves, to
-        # avoid littering the cluster with this nonsense!
-        os.remove(bcf_name)
-        os.remove(bcf_name + ".csi")
 
 
 def test_compute_full_decoy_contig_mut_rates_r_simple():
-    bcf_name = write_indexed_bcf(
+    with write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220608\n"
         '##source="strainFlye v0.0.1: r-mutation calling (--min-r = 5)"\n'
@@ -294,13 +285,12 @@ def test_compute_full_decoy_contig_mut_rates_r_simple():
         "edge_1\t255\t.\tT\tC\t.\t.\tMDP=10000;AAD=2\n"
         "edge_1\t356\t.\tA\tT\t.\t.\tMDP=10000;AAD=5\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
-    )
-    bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(bcf_name)
-    mut_rates = fu.compute_full_decoy_contig_mut_rates(
-        bcf_obj, thresh_type, range(5, 13), "edge_1", 500
-    )
-    denominator = 3 * 500
-    try:
+    ) as fh:
+        bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
+        mut_rates = fu.compute_full_decoy_contig_mut_rates(
+            bcf_obj, thresh_type, range(5, 13), "edge_1", 500
+        )
+        denominator = 3 * 500
         # Two r-mutations at r = 5, then only one r-mutation for 6 <= r <= 10,
         # then zero r-mutations from then up.
         assert mut_rates == [
@@ -313,13 +303,10 @@ def test_compute_full_decoy_contig_mut_rates_r_simple():
             0,
             0,
         ]
-    finally:
-        os.remove(bcf_name)
-        os.remove(bcf_name + ".csi")
 
 
 def test_compute_number_of_mutations_in_full_contig_p_with_indisputable():
-    bcf_name = write_indexed_bcf(
+    with write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220526\n"
         '##source="strainFlye v0.0.1: p-mutation calling (--min-p = 0.15%)"\n'
@@ -337,12 +324,11 @@ def test_compute_number_of_mutations_in_full_contig_p_with_indisputable():
         "edge_1\t303\t.\tA\tT\t.\t.\tMDP=100000;AAD=4999\n"
         "edge_1\t304\t.\tA\tT\t.\t.\tMDP=100000;AAD=5001\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=100000;AAD=5000\n"
-    )
-    bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(bcf_name)
-    num_muts = fu.compute_number_of_mutations_in_full_contig(
-        bcf_obj, thresh_type, range(15, 500), "edge_1"
-    )
-    try:
+    ) as fh:
+        bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
+        num_muts = fu.compute_number_of_mutations_in_full_contig(
+            bcf_obj, thresh_type, range(15, 500), "edge_1"
+        )
         assert len(num_muts) == 485
         # Ignore the two indisputable mutations (AAD = 5000 and 5001, which
         # come out to a frequency of 5,000 / 100,000 >= 5%). Also, ignore the
@@ -364,18 +350,10 @@ def test_compute_number_of_mutations_in_full_contig_p_with_indisputable():
         # 4995 and 4999 mutations.
         for i in range(476, 485):
             assert num_muts[i] == 2
-    finally:
-        # Python should automatically clear the .vcf tempfile we created
-        # earlier from the system, regardless of how this test goes, but
-        # it won't do this for the .bcf and .bcf.csi files we generated using
-        # bcftools view and bcftools index. So we clear these ourselves, to
-        # avoid littering the cluster with this nonsense!
-        os.remove(bcf_name)
-        os.remove(bcf_name + ".csi")
 
 
 def test_compute_number_of_mutations_in_full_contig_thresh_val_errors():
-    bcf_name = write_indexed_bcf(
+    with write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220608\n"
         '##source="strainFlye v0.0.1: r-mutation calling (--min-r = 5)"\n'
@@ -389,9 +367,8 @@ def test_compute_number_of_mutations_in_full_contig_thresh_val_errors():
         "edge_1\t255\t.\tT\tC\t.\t.\tMDP=10000;AAD=2\n"
         "edge_1\t356\t.\tA\tT\t.\t.\tMDP=10000;AAD=5\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
-    )
-    bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(bcf_name)
-    try:
+    ) as fh:
+        bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
         with pytest.raises(ParameterError) as ei:
             fu.compute_number_of_mutations_in_full_contig(
                 bcf_obj, thresh_type, range(5, 13, 2), "edge_1"
@@ -412,13 +389,10 @@ def test_compute_number_of_mutations_in_full_contig_thresh_val_errors():
                 bcf_obj, thresh_type, range(-9, -1), "edge_1"
             )
         assert str(ei.value) == "thresh_vals' start and stop must be positive."
-    finally:
-        os.remove(bcf_name)
-        os.remove(bcf_name + ".csi")
 
 
 def test_compute_target_contig_fdr_curve_info():
-    bcf_name = write_indexed_bcf(
+    with write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220608\n"
         '##source="strainFlye v0.0.1: r-mutation calling (--min-r = 5)"\n'
@@ -432,9 +406,8 @@ def test_compute_target_contig_fdr_curve_info():
         "edge_1\t50\t.\tT\tC\t.\t.\tMDP=10000;AAD=2\n"
         "edge_1\t51\t.\tA\tT\t.\t.\tMDP=10000;AAD=5\n"
         "edge_1\t90\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
-    )
-    bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(bcf_name)
-    try:
+    ) as fh:
+        bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
         fdr_line, num_line = fu.compute_target_contig_fdr_curve_info(
             bcf_obj,
             thresh_type,
@@ -449,9 +422,6 @@ def test_compute_target_contig_fdr_curve_info():
         assert num_line == (
             "edge_1\t20000.0\t10000.0\t10000.0\t10000.0\t10000.0\t10000.0\t0\n"
         )
-    finally:
-        os.remove(bcf_name)
-        os.remove(bcf_name + ".csi")
 
 
 def test_compute_decoy_contig_mut_rates_full_r_simple():
@@ -459,7 +429,7 @@ def test_compute_decoy_contig_mut_rates_full_r_simple():
     # but it calls compute_decoy_contig_mutation_rates() (which, in turn, calls
     # compute_full_decoy_contig_mut_rates(), which calls
     # compute_number_of_mutations_in_full_contig()...)
-    bcf_name = write_indexed_bcf(
+    with write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220608\n"
         '##source="strainFlye v0.0.1: r-mutation calling (--min-r = 5)"\n'
@@ -473,15 +443,14 @@ def test_compute_decoy_contig_mut_rates_full_r_simple():
         "edge_1\t255\t.\tT\tC\t.\t.\tMDP=10000;AAD=2\n"
         "edge_1\t356\t.\tA\tT\t.\t.\tMDP=10000;AAD=5\n"
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
-    )
-    bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(bcf_name)
-    # where we're going, we don't need other nucleotides
-    contigs_file = StringIO(f">edge_1\n{'A' * 500}")
-    mut_rates = fu.compute_decoy_contig_mut_rates(
-        contigs_file, bcf_obj, thresh_type, range(5, 13), "edge_1", "Full"
-    )
-    denominator = 3 * 500
-    try:
+    ) as fh:
+        bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
+        # where we're going, we don't need other nucleotides
+        contigs_file = StringIO(f">edge_1\n{'A' * 500}")
+        mut_rates = fu.compute_decoy_contig_mut_rates(
+            contigs_file, bcf_obj, thresh_type, range(5, 13), "edge_1", "Full"
+        )
+        denominator = 3 * 500
         # Two r-mutations at r = 5, then only one r-mutation for 6 <= r <= 10,
         # then zero r-mutations from then up.
         assert mut_rates == [
@@ -494,9 +463,6 @@ def test_compute_decoy_contig_mut_rates_full_r_simple():
             0,
             0,
         ]
-    finally:
-        os.remove(bcf_name)
-        os.remove(bcf_name + ".csi")
 
 
 def test_load_and_sanity_check_fdr_file_basic_errors():

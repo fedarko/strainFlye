@@ -1465,7 +1465,7 @@ def run_fix(bcf, fdr_info, fdr, output_bcf, fancylog, verbose):
                 output_bcf,
                 temp_bcf_file.name,
             ],
-            check=True
+            check=True,
         )
         fancylog("Done.", prefix="")
 
