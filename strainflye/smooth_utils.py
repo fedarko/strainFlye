@@ -810,8 +810,8 @@ def run_assemble(
                 )
 
             cmd = (
-                f"{lja_bin} --reads {rfp} {lja_params} --output-dir "
-                f"{output_asm_fp}"
+                f"{lja_bin} --reads {rfp} {lja_params} "
+                f"--output-dir {out_asm_fp}"
             )
             verboselog(f"Running command {cmd}...")
-            # subprocess.run(cmd, shell=True)
+            subprocess.run(cmd, shell=True)
