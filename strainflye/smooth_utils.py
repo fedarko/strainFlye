@@ -840,7 +840,7 @@ def run_assemble(
                 f"--output-dir {out_asm_fp}"
             )
             verboselog(f"Running command {cmd}...")
-            subprocess.run(cmd, shell=True)
+            subprocess.run(cmd, shell=True, check=True)
         else:
             fancylog(
                 (

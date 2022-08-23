@@ -31,7 +31,7 @@ def index_bam(in_bam, bam_descriptor, fancylog):
     None
     """
     fancylog(f"Indexing the {bam_descriptor}...")
-    subprocess.run(["samtools", "index", in_bam])
+    subprocess.run(["samtools", "index", in_bam], check=True)
     fancylog(f"Done indexing the {bam_descriptor}.", prefix="")
 
 
@@ -833,16 +833,19 @@ def run(reads, contigs, graph, output_dir, fancylog, verbose):
             *reads,
         ],
         stdout=subprocess.PIPE,
+        check=True,
     )
     sam_to_bam_run = subprocess.Popen(
         ["samtools", "view", "-b", "-"],
         stdin=minimap2_run.stdout,
         stdout=subprocess.PIPE,
+        check=True,
     )
     minimap2_run.stdout.close()
     bam_to_sorted_bam_run = subprocess.Popen(
         ["samtools", "sort", "-", "-o", first_output_bam],
         stdin=sam_to_bam_run.stdout,
+        check=True,
     )
     sam_to_bam_run.stdout.close()
     bam_to_sorted_bam_run.communicate()

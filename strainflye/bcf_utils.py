@@ -29,7 +29,7 @@ def convert_vcf_to_bcf(vcf_fp, bcf_fp, fancylog):
     None
     """
     fancylog("Converting the VCF file to a compressed BCF file...")
-    subprocess.run(["bcftools", "view", "-O", "b", vcf_fp, "-o", bcf_fp])
+    subprocess.run(["bcftools", "view", "-O", "b", vcf_fp, "-o", bcf_fp], check=True)
     os.remove(vcf_fp)
     fancylog("Done.", prefix="")
 
@@ -52,7 +52,7 @@ def index_bcf(bcf_fp, fancylog):
     None
     """
     fancylog("Indexing the BCF file...")
-    subprocess.run(["bcftools", "index", bcf_fp])
+    subprocess.run(["bcftools", "index", bcf_fp], check=True)
     fancylog("Done indexing the BCF file.", prefix="")
 
 
