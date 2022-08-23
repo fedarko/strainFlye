@@ -1147,7 +1147,12 @@ def create(
     help="Display extra details for each contig during the assembly process.",
 )
 def assemble(reads_dir, lja_params, lja_bin, output_dir, verbose):
-    """Assemble contigs' reads using LJA."""
+    """Assemble contigs' reads using LJA.
+
+    Please note that this command relies on the "simple_ec" branch of LJA being
+    installed on your system. See strainFlye's README for details on installing
+    LJA.
+    """
     fancylog = cli_utils.fancystart(
         "strainFlye smooth assemble",
         (
