@@ -2,6 +2,7 @@
 
 import os
 import gzip
+import shutil
 import subprocess
 import pysamstats
 from collections import defaultdict
@@ -752,6 +753,24 @@ def run_create(
     fancylog("Done.", prefix="")
 
 
+def find_lja_bin(lja_bin, fancylog):
+    if lja_bin is None:
+        fancylog(
+            'Since --lja-bin wasn\'t specified, looking in $PATH for "lja"...'
+        )
+        # Since we require Python >= 3.6, we can use shutil.which() to search
+        # in $PATH: https://stackoverflow.com/a/12611523
+        path_location = shutil.which("lja")
+        if path_location is None:
+            raise ParameterError(
+                '--lja-bin was not specified, and we couldn\'t find "lja" on '
+                "your PATH environment variable."
+            )
+        fancylog(f"Found it at {path_location}!", prefix="")
+        return path_location
+    return lja_bin
+
+
 def run_assemble(
     reads_dir, lja_params, lja_bin, output_dir, verbose, fancylog
 ):
@@ -777,11 +796,17 @@ def run_assemble(
 
     fancylog: function
         Logging function.
+
+    Returns
+    -------
+    None
     """
 
     def verboselog(*args, **kwargs):
         if verbose:
             fancylog(*args, **kwargs)
+
+    lja_bin_loc = find_lja_bin(lja_bin, fancylog)
 
     misc_utils.make_output_dir(output_dir)
 
@@ -792,12 +817,13 @@ def run_assemble(
             f"Doesn't look like {reads_dir} exists as a directory."
         )
 
-    for rfp in os.listdir(reads_dir):
-        if rfp.lower().endswith(".fasta.gz"):
-            contig = rfp[:-9]
+    fancylog(f"Assembling each *.fasta.gz file in {reads_dir}...")
+    for fp in os.listdir(reads_dir):
+        if fp.lower().endswith(".fasta.gz"):
+            contig = fp[:-9]
             verboselog(
                 (
-                    f"Found file {rfp}, presumably for contig {contig}. "
+                    f"Found file {fp}, presumably for contig {contig}. "
                     "Assembling."
                 ),
                 prefix="",
@@ -810,8 +836,17 @@ def run_assemble(
                 )
 
             cmd = (
-                f"{lja_bin} --reads {rfp} {lja_params} "
+                f"{lja_bin_loc} --reads {fp} {lja_params} "
                 f"--output-dir {out_asm_fp}"
             )
             verboselog(f"Running command {cmd}...")
             subprocess.run(cmd, shell=True)
+        else:
+            fancylog(
+                (
+                    f"Warning: found non-*.fasta.gz file, {fp}, in "
+                    f"{reads_dir}. Skipping."
+                ),
+                prefix="",
+            )
+    fancylog("Done.", prefix="")

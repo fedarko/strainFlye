@@ -1153,13 +1153,13 @@ def assemble(reads_dir, lja_params, lja_bin, output_dir, verbose):
         (
             ("reads directory", reads_dir),
             ("LJA parameters", lja_params),
-            ("LJA binary (if None, look in $PATH)", lja_bin),
+            ("LJA binary (if None, we'll look in $PATH)", lja_bin),
         ),
         (("directory", output_dir),),
         extra_info=(f"Verbose?: {cli_utils.b2y(verbose)}",),
     )
     smooth_utils.run_assemble(
-        reads_dir, lja_params, output_dir, verbose, fancylog
+        reads_dir, lja_params, lja_bin, output_dir, verbose, fancylog
     )
     fancylog("Done.")
 
