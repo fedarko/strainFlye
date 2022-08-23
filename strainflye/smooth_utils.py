@@ -752,7 +752,9 @@ def run_create(
     fancylog("Done.", prefix="")
 
 
-def run_assemble(reads_dir, cov_threshold, output_dir, verbose, fancylog):
+def run_assemble(
+    reads_dir, lja_params, lja_bin, output_dir, verbose, fancylog
+):
     """Assembles smoothed and virtual reads using LJA.
 
     Parameters
@@ -761,10 +763,11 @@ def run_assemble(reads_dir, cov_threshold, output_dir, verbose, fancylog):
         Directory containing *.fasta.gz files. Each of these files will be
         assembled individually.
 
-    cov_threshold: int
-        --Cov-threshold parameter to pass to LJA. Note that LJA (as of writing)
-        technically has both "--Cov-threshold" and "--cov-threshold" parameters
-        (note the different capitalizations); we use the one with uppercase C.
+    lja_params: str
+        Parameters to pass to LJA.
+
+    lja_bin: str or None
+        LJA binary file. If None, check in $PATH.
 
     output_dir: str
         Output directory.
@@ -775,13 +778,24 @@ def run_assemble(reads_dir, cov_threshold, output_dir, verbose, fancylog):
     fancylog: function
         Logging function.
     """
+
+    def verboselog(*args, **kwargs):
+        if verbose:
+            fancylog(*args, **kwargs)
+
     misc_utils.make_output_dir(output_dir)
-    # TODO: find LJA bin path, either from PATH or as CLI parameter
-    lja_bin = ""
+
+    # We specify in the CLI that --reads-dir must already exist as a directory
+    # (and not as a file), but let's do a sanity check
+    if not os.path.isdir(reads_dir):
+        raise NotADirectoryError(
+            f"Doesn't look like {reads_dir} exists as a directory."
+        )
+
     for rfp in os.listdir(reads_dir):
         if rfp.lower().endswith(".fasta.gz"):
             contig = rfp[:-9]
-            fancylog(
+            verboselog(
                 (
                     f"Found file {rfp}, presumably for contig {contig}. "
                     "Assembling."
@@ -795,15 +809,9 @@ def run_assemble(reads_dir, cov_threshold, output_dir, verbose, fancylog):
                     f"{out_asm_fp} already exists as a file."
                 )
 
-            subprocess.run(
-                [
-                    lja_bin,
-                    "--reads",
-                    rfp,
-                    "--simpleec",
-                    "--Cov-threshold",
-                    cov_threshold,
-                    "--output-dir",
-                    out_asm_fp,
-                ]
+            cmd = (
+                f"{lja_bin} --reads {rfp} {lja_params} --output-dir "
+                f"{output_asm_fp}"
             )
+            verboselog(f"Running command {cmd}...")
+            # subprocess.run(cmd, shell=True)

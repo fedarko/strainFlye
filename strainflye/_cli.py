@@ -1093,17 +1093,39 @@ def create(
     ),
 )
 @click.option(
-    "-t",
-    "--cov-threshold",
-    required=True,
-    default=10,
-    type=click.IntRange(min=0),
+    "-p",
+    "--lja-params",
+    required=False,
+    default="--simpleec --Cov-threshold 10",
+    show_default=True,
+    type=click.STRING,
     help=(
-        "--Cov-threshold parameter to pass to LJA. Edges with k-mer coverage "
-        "less than this value, as well as reads passing through these edges, "
-        "will be removed from the de Bruijn graph created by LJA (after the "
-        '"jumboDBG" step of the LJA pipeline, and before the "multiplexDBG" '
-        "step)."
+        "Additional parameters to pass to LJA, besides the --reads and "
+        "--output-dir parameters. To explain our defaults: the --simpleec "
+        "flag is currently only available on the simple_ec branch of "
+        'LJA. This flag tells LJA to perform "simple" error correction by '
+        "removing all edges in the de Bruijn graph with k-mer coverage less "
+        "than --Cov-threshold (10), as well as reads passing through these "
+        'edges. This "simple" error correction is done instead of running '
+        "the default LJA error correction module, mowerDBG. Please note that "
+        "we do not perform any validation on this string before passing it to "
+        "LJA."
+    ),
+)
+@click.option(
+    "-b",
+    "--lja-bin",
+    required=False,
+    default=None,
+    show_default="Look for LJA's bin in the PATH environment variable",
+    type=click.Path(
+        exists=True, file_okay=True, dir_okay=False, executable=True
+    ),
+    help=(
+        'Location of LJA\'s "lja" binary file, which can be used to run LJA. '
+        "This should be located in the bin/ folder constructed when you "
+        "compiled LJA. If this is not provided, we will check to see if LJA "
+        "is available in your PATH."
     ),
 )
 @click.option(
@@ -1123,19 +1145,20 @@ def create(
     show_default=True,
     help="Display extra details for each contig during the assembly process.",
 )
-def assemble(reads_dir, cov_threshold, output_dir, verbose):
+def assemble(reads_dir, lja_params, lja_bin, output_dir, verbose):
     """Assemble reads using LJA."""
     fancylog = cli_utils.fancystart(
         "strainFlye smooth assemble",
         (
             ("reads directory", reads_dir),
-            ("--Cov-threshold parameter for LJA", cov_threshold),
+            ("LJA parameters", lja_params),
+            ("LJA binary (if None, look in $PATH)", lja_bin),
         ),
         (("directory", output_dir),),
         extra_info=(f"Verbose?: {cli_utils.b2y(verbose)}",),
     )
     smooth_utils.run_assemble(
-        reads_dir, cov_threshold, output_dir, verbose, fancylog
+        reads_dir, lja_params, output_dir, verbose, fancylog
     )
     fancylog("Done.")
 
