@@ -24,3 +24,5 @@ def test_find_lja_bin_direct(capsys):
     # stuff)
     assert su.find_lja_bin("asdf/asdf", mock_log) == "asdf/asdf"
     assert capsys.readouterr().out == ""
+
+    # TODO: test directly by adding to $PATH temporarily? hm
