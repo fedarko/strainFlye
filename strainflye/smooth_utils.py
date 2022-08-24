@@ -763,8 +763,8 @@ def find_lja_bin(lja_bin, fancylog):
         path_location = shutil.which("lja")
         if path_location is None:
             raise ParameterError(
-                '--lja-bin was not specified, and we couldn\'t find "lja" on '
-                "your PATH environment variable."
+                '--lja-bin was not specified, and we couldn\'t find "lja" in '
+                "any of the system-wide executable locations given by $PATH."
             )
         fancylog(f"Found it at {path_location}!", prefix="")
         return path_location

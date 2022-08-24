@@ -1118,7 +1118,7 @@ def create(
     "--lja-bin",
     required=False,
     default=None,
-    show_default="Look for LJA's bin in the PATH environment variable",
+    show_default="Look for LJA's bin in the $PATH environment variable",
     type=click.Path(
         exists=True, file_okay=True, dir_okay=False, executable=True
     ),
@@ -1126,7 +1126,7 @@ def create(
         'Location of LJA\'s "lja" binary file, which can be used to run LJA. '
         "This should be located in the bin/ folder constructed when you "
         "compiled LJA. If this is not provided, we will check to see if LJA "
-        "is available in your PATH."
+        "is available in your $PATH."
     ),
 )
 @click.option(
@@ -1150,8 +1150,8 @@ def assemble(reads_dir, lja_params, lja_bin, output_dir, verbose):
     """Assemble contigs' reads using LJA.
 
     Please note that this command relies on the "simple_ec" branch of LJA being
-    installed on your system. See strainFlye's README for details on installing
-    LJA.
+    installed on your system. See strainFlye's README (and/or LJA's manual) for
+    details on installing LJA.
     """
     fancylog = cli_utils.fancystart(
         "strainFlye smooth assemble",
