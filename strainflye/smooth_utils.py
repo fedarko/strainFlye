@@ -70,7 +70,8 @@ def get_smooth_aln_replacements(aln, mutated_positions, mp2ra):
         that aln is aligned to) to a tuple of (ref nt, alt nt), as listed in
         the BCF file. Can be generated using
         bcf_utils.get_mutated_position_details_in_contig(). Both the ref and
-        alt nt should be given in uppercase.
+        alt nt should be given in uppercase. We assume that every mutated
+        position in mutated_positions is represented as a key in mp2ra.
 
     Returns
     -------

@@ -120,24 +120,25 @@ def test_verify_vrf2_bad():
     )
 
 
-def fetch_specific_aln():
+def fetch_specific_aln(contig, aln_seq):
+    # or, more accurately, an alignment with a particular sequence.
     bf = pysam.AlignmentFile(BAM)
     found_aln = False
-    for aln in bf.fetch("c1"):
-        if aln.query_sequence == "ACTGACACCCAAACCAAACCTAC":
+    for aln in bf.fetch(contig):
+        if aln.query_sequence == aln_seq:
             found_aln = True
             break
     # This should never happen, but let's check
     if not found_aln:
         raise EnvironmentError(
-            "There aren't any linear alns in our test BAM file that match "
-            "the exact sequence we're looking for. Weird."
+            f"There aren't any linear alns to {contig} in our test BAM file "
+            f"that match the exact sequence we're looking for ({aln_seq})."
         )
     return aln
 
 
 def test_get_smooth_aln_replacements_good():
-    aln = fetch_specific_aln()
+    aln = fetch_specific_aln("c1", "ACTGACACCCAAACCAAACCTAC")
     mp = [3, 10, 12]
     mp2ra = {3: ("G", "T"), 10: ("G", "A"), 12: ("G", "A")}
     repls = su.get_smooth_aln_replacements(aln, mp, mp2ra)
@@ -146,7 +147,7 @@ def test_get_smooth_aln_replacements_good():
 
 def test_get_smooth_aln_replacements_all_alts():
     # still works, even if aln has the "alt" at all mutated positions.
-    aln = fetch_specific_aln()
+    aln = fetch_specific_aln("c1", "ACTGACACCCAAACCAAACCTAC")
     mp = [3, 10, 12]
     mp2ra = {3: ("T", "G"), 10: ("G", "A"), 12: ("G", "A")}
     repls = su.get_smooth_aln_replacements(aln, mp, mp2ra)
@@ -158,8 +159,26 @@ def test_get_smooth_aln_replacements_not_ref_or_alt():
     # ref here is now C. The fact that G is no longer the ref or the alt here
     # means that we should ignore aln, and not generate a smoothed read from
     # it.
-    aln = fetch_specific_aln()
+    aln = fetch_specific_aln("c1", "ACTGACACCCAAACCAAACCTAC")
     mp = [3, 10, 12]
     mp2ra = {3: ("C", "T"), 10: ("G", "A"), 12: ("G", "A")}
+    repls = su.get_smooth_aln_replacements(aln, mp, mp2ra)
+    assert repls is None
+
+
+def test_get_smooth_aln_replacements_deletion_in_aln():
+    aln = fetch_specific_aln("c3", "TTTTTTTTTTTTTTT")
+
+    # If the deletion isn't aligned to a mutated position, things are fine
+    for second_mp_pos in range(7, 15):
+        mp = [6, second_mp_pos]
+        mp2ra = {6: ("A", "T"), second_mp_pos: ("T", "C")}
+        repls = su.get_smooth_aln_replacements(aln, mp, mp2ra)
+        assert repls == {6: "T", second_mp_pos: "T"}
+
+    # However, the deletion is aligned to a mutated position, we have to ignore
+    # this aln
+    mp = [6, 15]
+    mp2ra = {6: ("A", "T"), 15: ("T", "C")}
     repls = su.get_smooth_aln_replacements(aln, mp, mp2ra)
     assert repls is None
