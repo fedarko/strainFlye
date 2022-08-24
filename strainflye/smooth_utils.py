@@ -70,8 +70,7 @@ def get_smooth_aln_replacements(aln, mutated_positions, mp2ra):
         that aln is aligned to) to a tuple of (ref nt, alt nt), as listed in
         the BCF file. Can be generated using
         bcf_utils.get_mutated_position_details_in_contig(). Both the ref and
-        alt nt should be given in uppercase. We assume that every mutated
-        position in mutated_positions is represented as a key in mp2ra.
+        alt nt should be given in uppercase.
 
     Returns
     -------
@@ -86,7 +85,24 @@ def get_smooth_aln_replacements(aln, mutated_positions, mp2ra):
         that aln has aligned to each position. These represent the replacements
         to make to the "reference" contig sequence to create a smoothed read
         based on aln.
+
+    Raises
+    ------
+    WeirdError
+        If the positions in mutated_positions are not identical to the
+        positions given as keys in mp2ra. This should not happen in practice,
+        but we check for it anyway so that we can fail loudly if something goes
+        wrong.
     """
+    mps = set(mutated_positions)
+    mp2ra_mps = set(mp2ra)
+    if mps != mp2ra_mps:
+        raise WeirdError(
+            "The mutated positions given in mutated_positions and mp2ra "
+            f"differ.\nmutated_positions: {sorted(mps)};\n"
+            f"mp2ra: {sorted(mp2ra_mps)}"
+        )
+
     replacements_to_make = {}
 
     # We may choose to ignore this linear alignment, if we think it is

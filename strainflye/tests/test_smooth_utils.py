@@ -4,7 +4,7 @@ import tempfile
 import pytest
 import pysam
 import strainflye.smooth_utils as su
-from strainflye.errors import ParameterError
+from strainflye.errors import ParameterError, WeirdError
 from strainflye.tests.utils_for_testing import mock_log
 
 
@@ -197,6 +197,32 @@ def test_get_smooth_aln_replacements_insertion_in_aln():
     mp2ra = {3: ("T", "G"), 10: ("G", "A"), 12: ("G", "A"), 22: ("C", "G")}
     repls = su.get_smooth_aln_replacements(aln, mp, mp2ra)
     assert repls == {3: "T", 10: "A", 12: "A", 22: "C"}
+
+
+def test_get_smooth_aln_replacements_mp_and_mp2ra_differ_subtly():
+    aln = fetch_specific_aln("c3", "TTTTTTTTTTTTTTT")
+    mp = [6, 8, 11]
+    mp2ra = {6: ("A", "T"), 8: ("G", "T")}
+    with pytest.raises(WeirdError) as ei:
+        su.get_smooth_aln_replacements(aln, mp, mp2ra)
+    assert str(ei.value) == (
+        "The mutated positions given in mutated_positions and mp2ra differ.\n"
+        "mutated_positions: [6, 8, 11];\n"
+        "mp2ra: [6, 8]"
+    )
+
+
+def test_get_smooth_aln_replacements_mp_and_mp2ra_differ_a_lot():
+    aln = fetch_specific_aln("c3", "TTTTTTTTTTTTTTT")
+    mp = [1, 2, 3]
+    mp2ra = {6: ("A", "T"), 8: ("G", "T"), 9: ("T", "C")}
+    with pytest.raises(WeirdError) as ei:
+        su.get_smooth_aln_replacements(aln, mp, mp2ra)
+    assert str(ei.value) == (
+        "The mutated positions given in mutated_positions and mp2ra differ.\n"
+        "mutated_positions: [1, 2, 3];\n"
+        "mp2ra: [6, 8, 9]"
+    )
 
 
 def test_compute_average_coverages_verbose(capsys):
