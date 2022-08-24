@@ -2,9 +2,13 @@ import os
 import stat
 import tempfile
 import pytest
+import pysam
 import strainflye.smooth_utils as su
 from strainflye.errors import ParameterError
 from strainflye.tests.utils_for_testing import mock_log
+
+
+BAM = os.path.join("strainflye", "tests", "inputs", "small", "alignment.bam")
 
 
 def test_convert_to_runs():
@@ -114,3 +118,24 @@ def test_verify_vrf2_bad():
         "goals, you may want to remove short contigs from this FASTA file, "
         "lower --virtual-read-flank, or set --no-virtual-reads."
     )
+
+
+def test_get_smooth_aln_replacements_good():
+    bf = pysam.AlignmentFile(BAM)
+    found_aln = False
+    for aln in bf.fetch("c1"):
+        if aln.query_sequence == "ACTGACACCCAAACCAAACCTAC":
+            found_aln = True
+            break
+    # This should never happen, but let's check
+    if not found_aln:
+        raise EnvironmentError(
+            "There aren't any linear alns in our test BAM file that match "
+            "the exact sequence we're looking for. Weird."
+        )
+
+    # OK, now we're good
+    mp = [3, 10, 12]
+    mp2ra = {3: ("G", "T"), 10: ("G", "A"), 12: ("G", "A")}
+    repls = su.get_smooth_aln_replacements(aln, mp, mp2ra)
+    assert repls == {3: "G", 10: "A", 12: "A"}

@@ -81,7 +81,7 @@ def get_smooth_aln_replacements(aln, mutated_positions, mp2ra):
         smoothed read should be generated from aln.
 
         Otherwise, this will be a dict mapping each zero-indexed mutated
-        positions in the contig (that is spanned by aln) to the nucleotides
+        position in the contig (that is spanned by aln) to the nucleotides
         that aln has aligned to each position. These represent the replacements
         to make to the "reference" contig sequence to create a smoothed read
         based on aln.
