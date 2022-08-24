@@ -18,7 +18,6 @@ from strainflye.bcf_utils import parse_sf_bcf
 from .utils_for_testing import mock_log
 
 
-
 FASTA = os.path.join("strainflye", "tests", "inputs", "small", "contigs.fasta")
 BAM = os.path.join("strainflye", "tests", "inputs", "small", "alignment.bam")
 
@@ -428,7 +427,8 @@ def test_run_small_dataset_p(capsys):
     # Sorry this code is a bit gross.
     with tempfile.TemporaryDirectory() as td:
         run(
-                FASTA, BAM,
+            FASTA,
+            BAM,
             td,
             mock_log,
             True,
