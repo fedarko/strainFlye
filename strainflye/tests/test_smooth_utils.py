@@ -187,7 +187,9 @@ def test_get_smooth_aln_replacements_deletion_in_aln():
 
 def test_compute_average_coverages_verbose(capsys):
     bf = pysam.AlignmentFile(BAM)
-    assert su.compute_average_coverages(FASTA, {"c1": 23}, bf, True, mock_log) == {"c1": 12.0}
+    assert su.compute_average_coverages(
+        FASTA, {"c1": 23}, bf, True, mock_log
+    ) == {"c1": 12.0}
     assert capsys.readouterr().out == (
         "PREFIX\nMockLog: Computing average coverages in each contig, for "
         "use with virtual reads...\n"
@@ -199,7 +201,9 @@ def test_compute_average_coverages_verbose(capsys):
 
 def test_compute_average_coverages_noverbose(capsys):
     bf = pysam.AlignmentFile(BAM)
-    assert su.compute_average_coverages(FASTA, {"c1": 23}, bf, False, mock_log) == {"c1": 12.0}
+    assert su.compute_average_coverages(
+        FASTA, {"c1": 23}, bf, False, mock_log
+    ) == {"c1": 12.0}
     assert capsys.readouterr().out == (
         "PREFIX\nMockLog: Computing average coverages in each contig, for "
         "use with virtual reads...\n"
