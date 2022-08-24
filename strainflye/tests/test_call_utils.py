@@ -18,6 +18,11 @@ from strainflye.bcf_utils import parse_sf_bcf
 from .utils_for_testing import mock_log
 
 
+
+FASTA = os.path.join("strainflye", "tests", "inputs", "small", "contigs.fasta")
+BAM = os.path.join("strainflye", "tests", "inputs", "small", "alignment.bam")
+
+
 def test_get_alt_pos_info():
     # Test data reused from
     # https://github.com/fedarko/sheepgut/blob/main/notebooks/test_pileup.py
@@ -276,8 +281,8 @@ def test_run_small_dataset_r(capsys):
     # "Yeah integration tests are good I guess" -- Sun Tzu
     with tempfile.TemporaryDirectory() as td:
         run(
-            "strainflye/tests/inputs/small/contigs.fasta",
-            "strainflye/tests/inputs/small/alignment.bam",
+            FASTA,
+            BAM,
             td,
             mock_log,
             True,
@@ -423,8 +428,7 @@ def test_run_small_dataset_p(capsys):
     # Sorry this code is a bit gross.
     with tempfile.TemporaryDirectory() as td:
         run(
-            "strainflye/tests/inputs/small/contigs.fasta",
-            "strainflye/tests/inputs/small/alignment.bam",
+                FASTA, BAM,
             td,
             mock_log,
             True,
