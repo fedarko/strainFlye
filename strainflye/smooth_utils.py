@@ -289,6 +289,68 @@ def compute_average_coverages(
     return contig2avgcov
 
 
+def verify_vrf2(contig_name2len, virtual_read_flank, fancylog):
+    """Verifies that all contigs are > (2 * virtual_read_flank) bp long.
+
+    (Let's define vrf2 = 2 * virtual_read_flank, for the sake of brevity.)
+
+    The rationale for this check is that a virtual read is usually surrounded
+    by by vrf2 nucleotides (half on the left, and half on the right). The only
+    case in which this won't happen is if we need to clamp due to this virtual
+    read being adjacent to the left or right end of a contig.
+
+    Ignoring clamping, it doesn't make sense for a contig to be <= vrf2 bp
+    long: in this case, the shortest possible virtual read with a "full flank"
+    could not exist. The minimum possible allowed contig length, vrf2 + 1,
+    ensures that a virtual read of size 1 could be created within a contig
+    while still having a "full flank." (... Although that would be silly.)
+
+    Parameters
+    ----------
+    contig_name2len: dict
+        Maps contig name to length.
+
+    virtual_read_flank: int
+        Should be a nonnegative number.
+
+    fancylog: function
+        Logging function.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    ParameterError
+        If any of the contigs are less than or equal to
+        (2 * virtual_read_flank) bp long.
+    """
+    vrf2 = 2 * virtual_read_flank
+    fancylog(
+        "All contigs must be > (2 \u00d7 --virtual-read-flank) = "
+        f"{vrf2:,} bp long. Checking this..."
+    )
+    # If you encounter this error in practice, you probably just
+    # have a very short contig in your FASTA file. The easy way to
+    # get around this error, then, is to filter all contigs that
+    # are shorter than 2 * virtual_read_flank from your FASTA file.
+    #
+    # (Alternatively, you could decrease virtual_read_flank, but I
+    # don't think you should need to do this unless you manually
+    # set it to something really high.)
+    for contig in contig_name2len:
+        contig_len = contig_name2len[contig]
+        if contig_len <= vrf2:
+            raise ParameterError(
+                f"Contig {contig} is {contig_len:,} bp, which is \u2264 "
+                f"{vrf2:,} bp. Depending on your goals, you may want to "
+                "remove short contigs from this FASTA file, lower "
+                "--virtual-read-flank, or set --no-virtual-reads."
+            )
+    fancylog("All contigs meet this minimum length.", prefix="")
+
+
 def run_create(
     contigs,
     bam,
@@ -371,34 +433,8 @@ def run_create(
 
     contig2avgcov = None
     vrwcp = None
-    vrf2 = 2 * virtual_read_flank
     if virtual_reads:
-        fancylog(
-            (
-                "All contigs must be > (2 \u00d7 --virtual-read-flank) = "
-                f"{vrf2:,} bp long. Checking this..."
-            ),
-            prefix="",
-        )
-        # If you encounter this error in practice, you probably just
-        # have a very short contig in your FASTA file. The easy way to
-        # get around this error, then, is to filter all contigs that
-        # are shorter than 2 * virtual_read_flank from your FASTA file.
-        #
-        # (Alternatively, you could decrease virtual_read_flank, but I
-        # don't think you should need to do this unless you manually
-        # set it to something really high.)
-        for contig in contig_name2len:
-            contig_len = contig_name2len[contig]
-            if contig_len <= vrf2:
-                raise ParameterError(
-                    f"Contig {contig} is {contig_len:,} bp, which is \u2264 "
-                    f"{vrf2:,}. Depending on your goals, you may want to "
-                    "remove short contigs from this FASTA file, lower "
-                    "--virtual-read-flank, or set --no-virtual-reads."
-                )
-        fancylog("All contigs meet this minimum length.", prefix="")
-
+        verify_vrf2(contig_name2len, virtual_read_flank, fancylog)
         rt = "smoothed and virtual reads"
         contig2avgcov = compute_average_coverages(
             contigs, contig_name2len, bam_obj, verbose, fancylog

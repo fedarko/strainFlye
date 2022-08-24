@@ -95,3 +95,22 @@ def test_find_lja_bin_pathsearch_found(capsys):
             '$PATH for "lja"...\n'
             f"MockLog: Found it at {fake_lja_bin_loc}!\n"
         )
+
+
+def test_verify_vrf2_good(capsys):
+    su.verify_vrf2({"D": 101, "E": 10000}, 50, mock_log)
+    assert capsys.readouterr().out == (
+        "PREFIX\nMockLog: All contigs must be > (2 \u00d7 "
+        "--virtual-read-flank) = 100 bp long. Checking this...\n"
+        "MockLog: All contigs meet this minimum length.\n"
+    )
+
+
+def test_verify_vrf2_bad():
+    with pytest.raises(ParameterError) as ei:
+        su.verify_vrf2({"C": 100, "D": 101, "E": 10000}, 50, mock_log)
+    assert str(ei.value) == (
+        "Contig C is 100 bp, which is \u2264 100 bp. Depending on your "
+        "goals, you may want to remove short contigs from this FASTA file, "
+        "lower --virtual-read-flank, or set --no-virtual-reads."
+    )
