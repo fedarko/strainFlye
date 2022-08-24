@@ -86,7 +86,6 @@ def get_smooth_aln_replacements(aln, mutated_positions, mp2ra):
         to make to the "reference" contig sequence to create a smoothed read
         based on aln.
     """
-
     replacements_to_make = {}
 
     # We may choose to ignore this linear alignment, if we think it is
