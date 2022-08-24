@@ -8,6 +8,7 @@ from strainflye.errors import ParameterError
 from strainflye.tests.utils_for_testing import mock_log
 
 
+FASTA = os.path.join("strainflye", "tests", "inputs", "small", "contigs.fasta")
 BAM = os.path.join("strainflye", "tests", "inputs", "small", "alignment.bam")
 
 
@@ -182,3 +183,25 @@ def test_get_smooth_aln_replacements_deletion_in_aln():
     mp2ra = {6: ("A", "T"), 15: ("T", "C")}
     repls = su.get_smooth_aln_replacements(aln, mp, mp2ra)
     assert repls is None
+
+
+def test_compute_average_coverages_verbose(capsys):
+    bf = pysam.AlignmentFile(BAM)
+    assert su.compute_average_coverages(FASTA, {"c1": 23}, bf, True, mock_log) == {"c1": 12.0}
+    assert capsys.readouterr().out == (
+        "PREFIX\nMockLog: Computing average coverages in each contig, for "
+        "use with virtual reads...\n"
+        "MockLog: On contig c1 (23 bp) (1 / 1 = 100.00% done).\n"
+        "MockLog: c1 has average coverage 12.00x.\n"
+        "MockLog: Done.\n"
+    )
+
+
+def test_compute_average_coverages_noverbose(capsys):
+    bf = pysam.AlignmentFile(BAM)
+    assert su.compute_average_coverages(FASTA, {"c1": 23}, bf, False, mock_log) == {"c1": 12.0}
+    assert capsys.readouterr().out == (
+        "PREFIX\nMockLog: Computing average coverages in each contig, for "
+        "use with virtual reads...\n"
+        "MockLog: Done.\n"
+    )
