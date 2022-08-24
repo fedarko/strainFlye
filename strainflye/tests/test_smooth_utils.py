@@ -120,7 +120,7 @@ def test_verify_vrf2_bad():
     )
 
 
-def test_get_smooth_aln_replacements_good():
+def fetch_specific_aln():
     bf = pysam.AlignmentFile(BAM)
     found_aln = False
     for aln in bf.fetch("c1"):
@@ -133,9 +133,33 @@ def test_get_smooth_aln_replacements_good():
             "There aren't any linear alns in our test BAM file that match "
             "the exact sequence we're looking for. Weird."
         )
+    return aln
 
-    # OK, now we're good
+
+def test_get_smooth_aln_replacements_good():
+    aln = fetch_specific_aln()
     mp = [3, 10, 12]
     mp2ra = {3: ("G", "T"), 10: ("G", "A"), 12: ("G", "A")}
     repls = su.get_smooth_aln_replacements(aln, mp, mp2ra)
     assert repls == {3: "G", 10: "A", 12: "A"}
+
+
+def test_get_smooth_aln_replacements_all_alts():
+    # still works, even if aln has the "alt" at all mutated positions.
+    aln = fetch_specific_aln()
+    mp = [3, 10, 12]
+    mp2ra = {3: ("T", "G"), 10: ("G", "A"), 12: ("G", "A")}
+    repls = su.get_smooth_aln_replacements(aln, mp, mp2ra)
+    assert repls == {3: "G", 10: "A", 12: "A"}
+
+
+def test_get_smooth_aln_replacements_not_ref_or_alt():
+    # Although aln has a G at 0-indexed position 3, we change mp2ra so that the
+    # ref here is now C. The fact that G is no longer the ref or the alt here
+    # means that we should ignore aln, and not generate a smoothed read from
+    # it.
+    aln = fetch_specific_aln()
+    mp = [3, 10, 12]
+    mp2ra = {3: ("C", "T"), 10: ("G", "A"), 12: ("G", "A")}
+    repls = su.get_smooth_aln_replacements(aln, mp, mp2ra)
+    assert repls is None
