@@ -158,7 +158,7 @@ def get_smooth_aln_replacements(aln, mutated_positions, mp2ra):
         # (...unless I messed something up in how I designed this.)
         if refpos != mutpos:
             raise WeirdError(
-                f"refpos = {refpos}, but mutpos = {mutpos}. "
+                f"refpos = {refpos:,}, but mutpos = {mutpos:,}. "
                 "refpos and mutpos should match. This "
                 "should never happen; please, open an issue on GitHub "
                 "so you can yell at Marcus."

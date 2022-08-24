@@ -8,8 +8,9 @@ from strainflye.errors import ParameterError
 from strainflye.tests.utils_for_testing import mock_log
 
 
-FASTA = os.path.join("strainflye", "tests", "inputs", "small", "contigs.fasta")
-BAM = os.path.join("strainflye", "tests", "inputs", "small", "alignment.bam")
+IN_DIR = os.path.join("strainflye", "tests", "inputs", "small")
+FASTA = os.path.join(IN_DIR, "contigs.fasta")
+BAM = os.path.join(IN_DIR, "alignment.bam")
 
 
 def test_convert_to_runs():
@@ -121,9 +122,9 @@ def test_verify_vrf2_bad():
     )
 
 
-def fetch_specific_aln(contig, aln_seq):
+def fetch_specific_aln(contig, aln_seq, alnfile="alignment.bam"):
     # or, more accurately, an alignment with a particular sequence.
-    bf = pysam.AlignmentFile(BAM)
+    bf = pysam.AlignmentFile(os.path.join(IN_DIR, alnfile))
     found_aln = False
     for aln in bf.fetch(contig):
         if aln.query_sequence == aln_seq:
@@ -183,6 +184,19 @@ def test_get_smooth_aln_replacements_deletion_in_aln():
     mp2ra = {6: ("A", "T"), 15: ("T", "C")}
     repls = su.get_smooth_aln_replacements(aln, mp, mp2ra)
     assert repls is None
+
+
+def test_get_smooth_aln_replacements_insertion_in_aln():
+    aln = fetch_specific_aln(
+        "c1", "ACTTACACCCAAACCTTTAAACCTAC", alnfile="insertion.bam"
+    )
+    # ensure that insertions are ignored -- the TTT in the middle of this
+    # linear alignment is an insertion, but we can handle mutations before and
+    # after it
+    mp = [3, 10, 12, 22]
+    mp2ra = {3: ("T", "G"), 10: ("G", "A"), 12: ("G", "A"), 22: ("C", "G")}
+    repls = su.get_smooth_aln_replacements(aln, mp, mp2ra)
+    assert repls == {3: "T", 10: "A", 12: "A", 22: "C"}
 
 
 def test_compute_average_coverages_verbose(capsys):
