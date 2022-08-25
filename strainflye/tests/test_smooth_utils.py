@@ -249,3 +249,23 @@ def test_compute_average_coverages_noverbose(capsys):
         "use with virtual reads...\n"
         "MockLog: Done.\n"
     )
+
+
+def test_compute_average_coverages_badlength():
+    bf = pysam.AlignmentFile(BAM)
+
+    # Case 1: BAM has more than FASTA
+    with pytest.raises(WeirdError) as ei:
+        su.compute_average_coverages(FASTA, {"c1": 22}, bf, False, mock_log)
+    assert str(ei.value) == (
+        "Contig c1 has length 22 bp, but we saw 23 positions in the alignment "
+        "for this contig."
+    )
+
+    # Case 2: BAM has less than FASTA
+    with pytest.raises(WeirdError) as ei:
+        su.compute_average_coverages(FASTA, {"c1": 12345}, bf, False, mock_log)
+    assert str(ei.value) == (
+        "Contig c1 has length 12,345 bp, but we saw 23 positions in the "
+        "alignment for this contig."
+    )
