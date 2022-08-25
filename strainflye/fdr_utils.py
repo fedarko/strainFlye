@@ -164,7 +164,9 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
     # We require that the diversity indices file describes at least two
     # contigs, so that -- once we select one contig as a decoy -- we still have
     # at least one target contig left!
-    di = misc_utils.load_and_sanity_check_diversity_indices(diversity_indices, min_num_contigs=2)
+    di = misc_utils.load_and_sanity_check_diversity_indices(
+        diversity_indices, min_num_contigs=2
+    )
 
     # Filter to contigs that pass both the length and coverage thresholds.
     # https://stackoverflow.com/a/13616382
