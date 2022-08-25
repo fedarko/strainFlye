@@ -49,8 +49,8 @@ def test_autoselect_decoy_missing_required_cols():
         with pytest.raises(ParameterError) as ei:
             fu.autoselect_decoy(StringIO(tsv_text), 1e6, 1e2, mock_log)
         assert str(ei.value) == (
-            "Diversity indices file must include the Length and "
-            "AverageCoverage columns."
+            'Diversity indices file must include the "Length" and '
+            '"AverageCoverage" columns.'
         )
 
     # Check 1: omit AverageCoverage
