@@ -1,5 +1,6 @@
 import os
 import stat
+import gzip
 import tempfile
 import pytest
 import pysam
@@ -348,3 +349,33 @@ def test_get_average_coverages_from_di_everything_is_on_fire():
     assert str(ei.value) == (
         "Can't find contig edge_5 in the diversity index file."
     )
+
+
+def test_append_reads():
+    # "programming is my passion"
+    a_100_times = "A" * 100
+    exp_initial_lines = [
+        ">r1\n",
+        "ACGT\n",
+        ">r2\n",
+        a_100_times + "\n",
+        ">r3\n",
+        "CGTAC\n",
+    ]
+    with tempfile.NamedTemporaryFile() as fh:
+        su.append_reads(
+            fh.name, {"r1": "ACGT", "r2": a_100_times, "r3": "CGTAC"}
+        )
+        with gzip.open(fh.name, "rt") as written_fh:
+            assert written_fh.readlines() == exp_initial_lines
+
+        # importantly, test that append_reads() *appends* to the end of the
+        # file rather than overwriting the stuff that may have already been
+        # in it
+        su.append_reads(fh.name, {"surprise_its_more_reads": "TACAT"})
+
+        with gzip.open(fh.name, "rt") as written_fh:
+            assert written_fh.readlines() == exp_initial_lines + [
+                ">surprise_its_more_reads\n",
+                "TACAT\n",
+            ]
