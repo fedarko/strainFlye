@@ -1,4 +1,6 @@
 import os
+import pandas as pd
+from strainflye import config
 from strainflye.errors import ParameterError
 
 
@@ -123,3 +125,32 @@ def verify_contig_lengths(fasta_name2len, bam_obj=None, bcf_obj=None):
                     f"Contig {contig} has length {faslen:,} in the FASTA "
                     f"file, but length {bcflen:,} in the BCF file."
                 )
+
+
+def load_and_sanity_check_diversity_indices(
+    diversity_indices, min_num_contigs=1, min_num_di_columns=1
+):
+    """Loads and validates a file containing diversity index information."""
+    di = pd.read_csv(diversity_indices, sep="\t", index_col=0)
+
+    if len(di.index) < min_num_contigs:
+        raise ParameterError(
+            f"Diversity indices file describes < {min_num_contigs:,} contigs."
+        )
+       
+    if "Length" not in di.columns or "AverageCoverage" not in di.columns:
+         raise ParameterError(
+            'Diversity indices file must include the "Length" and '
+            '"AverageCoverage" columns.'
+        )
+
+    num_di_cols = 0
+    for col in di.columns:
+        if col.startswith(config.DI_PREF):
+            num_di_cols += 1
+    if num_di_cols < min_num_di_columns:
+        raise ParameterError(
+            f"Diversity indices file describes < {min_num_di_columns:,} "
+            "columns of diversity indices."
+        )
+    return di

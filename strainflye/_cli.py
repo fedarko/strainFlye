@@ -976,6 +976,26 @@ strainflye.add_command(smooth)
     help=desc.INPUT_BCF_DOWNSTREAM,
 )
 @click.option(
+    "-di",
+    "--diversity-indices",
+    default=None,
+    show_default="nothing",
+    required=False,
+    type=click.Path(exists=True),
+    help=(
+        "TSV file describing the diversity indices of a set of contigs, "
+        'produced by one of the "strainFlye call" commands. '
+        "Only used if --virtual-reads is specified. Along with "
+        "diversity indices, these files list contigs' average coverages. "
+        "If --virtual-reads is specified, we will need to know contigs' "
+        "average coverages. So, if a diversity indices file is provided here, "
+        "then we can avoid re-computing average coverages. "
+        "(Otherwise, if --virtual-reads is specified but no diversity indices "
+        "file is provided, we'll need to compute average coverages; this will "
+        "take some extra time.)"
+    ),
+)
+@click.option(
     "--virtual-reads/--no-virtual-reads",
     is_flag=True,
     default=True,
@@ -1039,6 +1059,7 @@ def create(
     contigs,
     bam,
     bcf,
+    diversity_indices,
     virtual_reads,
     virtual_read_well_covered_perc,
     virtual_read_flank,
@@ -1052,6 +1073,7 @@ def create(
             ("contig file", contigs),
             ("BAM file", bam),
             ("BCF file", bcf),
+            ("diversity indices file", diversity_indices),
             (
                 'virtual read "well-covered" percentage',
                 virtual_read_well_covered_perc,
@@ -1068,6 +1090,7 @@ def create(
         contigs,
         bam,
         bcf,
+        diversity_indices,
         virtual_reads,
         virtual_read_well_covered_perc,
         virtual_read_flank,
