@@ -41,7 +41,7 @@ def test_autoselect_decoy_not_enough_contigs():
     )
     with pytest.raises(ParameterError) as ei:
         fu.autoselect_decoy(tsv, 1e6, 1e2, mock_log)
-    assert str(ei.value) == "Diversity indices file describes < 2 contigs."
+    assert str(ei.value) == "Diversity indices file describes < 2 contig(s)."
 
 
 def test_autoselect_decoy_missing_required_cols():

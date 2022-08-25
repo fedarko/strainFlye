@@ -4,8 +4,10 @@ import tempfile
 import pytest
 import pysam
 import strainflye.misc_utils as mu
+from io import StringIO
 from strainflye.bcf_utils import parse_sf_bcf
 from strainflye.errors import ParameterError
+from strainflye.config import DI_PREF
 
 
 TEST_DIR = os.path.join(
@@ -157,3 +159,34 @@ def test_verify_contig_lengths_mismatch_with_just_bcf():
         "Contig c3 has length 1,024 in the FASTA file, but length 16 in the "
         "BCF file."
     )
+
+
+def test_load_and_sanity_check_diversity_indices_not_enough_di_cols():
+    # this function is already indirectly tested by the FDR utils tests,
+    # because it originated as code in fdr_utils.autoselect_decoy().
+    # So we can just test some of the weird cases that aren't covered by that.
+
+    tsv_text = (
+        f"Contig\tAverageCoverage\tLength\t{DI_PREF}1\t{DI_PREF}2\n"
+        "edge_1\t35.2\t100\t0.5\t0.2\n"
+    )
+
+    # Case 1: Just the DI cols error
+    tsv = StringIO(tsv_text)
+    with pytest.raises(ParameterError) as ei:
+        mu.load_and_sanity_check_diversity_indices(tsv, min_num_di_columns=3)
+    assert str(ei.value) == (
+        "Diversity indices file describes < 3 column(s) of diversity indices."
+    )
+
+    # Case 2: Both the DI cols and contigs error -- in this case, the contigs
+    # error is found first
+    # (we gotta recreate the StringIO because at this point it's "empty." [IDK
+    # if "empty" is the correct term to use in this case but whatever you get
+    # the idea])
+    tsv = StringIO(tsv_text)
+    with pytest.raises(ParameterError) as ei:
+        mu.load_and_sanity_check_diversity_indices(
+            tsv, min_num_di_columns=3, min_num_contigs=2
+        )
+    assert str(ei.value) == ("Diversity indices file describes < 2 contig(s).")

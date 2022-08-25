@@ -158,7 +158,7 @@ def load_and_sanity_check_diversity_indices(
 
     if len(di.index) < min_num_contigs:
         raise ParameterError(
-            f"Diversity indices file describes < {min_num_contigs:,} contigs."
+            f"Diversity indices file describes < {min_num_contigs:,} contig(s)."
         )
 
     if "Length" not in di.columns or "AverageCoverage" not in di.columns:
@@ -174,6 +174,6 @@ def load_and_sanity_check_diversity_indices(
     if num_di_cols < min_num_di_columns:
         raise ParameterError(
             f"Diversity indices file describes < {min_num_di_columns:,} "
-            "columns of diversity indices."
+            "column(s) of diversity indices."
         )
     return di
