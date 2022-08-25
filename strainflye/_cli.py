@@ -769,10 +769,9 @@ strainflye.add_command(spot)
     type=click.Path(exists=True),
     help=(
         'Generic Feature Format version 3 (GFF3) file describing "features" '
-        "(e.g. predicted protein-coding genes) in the contigs. Not all "
-        "contigs in the BCF file need to have associated features; however, "
-        "all contigs in the GFF3 file should at least be mentioned in the "
-        "BCF file's header."
+        "(e.g. predicted protein-coding genes) in the contigs. We will ignore "
+        "features located on contigs that are not described in the BCF file's "
+        "header."
     ),
 )
 @click.option(

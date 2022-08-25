@@ -114,13 +114,19 @@ def run_hotspot_feature_detection(
     # features within this sequence.
     contig_and_im_tuples = skbio.io.read(features, format="gff3")
     at_least_one_feature_seen = False
+    at_least_one_feature_on_input_contigs_seen = False
     for contig, im in contig_and_im_tuples:
+
         at_least_one_feature_seen = True
+
+        # Skip features that are not located on contigs described in the BCF
+        # file. Not raising an error here is nice, in the case where our BCF
+        # file describes contigs that are a subset of those in the GFF3 file --
+        # for example, we have gene predictions for *all* contigs in a dataset,
+        # but we only bothered to do mutation calling on some of these contigs.
         if contig not in bcf_contigs:
-            raise ParameterError(
-                "The GFF3 file describes feature(s) located on contig "
-                f"{contig}, but this contig is not described in the BCF file."
-            )
+            continue
+        at_least_one_feature_on_input_contigs_seen = True
 
         # Using the BCF file, record all mutated positions in this contig
         mutated_positions = bcf_utils.get_mutated_positions_in_contig(
@@ -295,6 +301,12 @@ def run_hotspot_feature_detection(
     if not at_least_one_feature_seen:
         raise ParameterError(
             "The GFF3 file doesn't seem to describe any features."
+        )
+
+    if not at_least_one_feature_on_input_contigs_seen:
+        raise ParameterError(
+            "None of the feature(s) described in the GFF3 file are located "
+            "on contigs that are described in the BCF file."
         )
 
     fancylog(

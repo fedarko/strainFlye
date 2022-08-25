@@ -92,8 +92,9 @@ c3	marcus	exon	9	9	.	+	.	ID=single_nt_feature"""
         ) in str(ei.value)
 
 
-def test_hotspot_contig_in_gff3_but_not_bcf():
-    # Here is our "table" of what's ok and what isn't here:
+def test_hotspot_all_contigs_in_gff3_but_not_bcf():
+    # Here is our "table" of what's ok and what isn't here, where each row
+    # represents the "status" of a contig:
     # (I put too much effort into formatting this)
     #
     # In BCF? | In GFF3? | Result
@@ -102,22 +103,21 @@ def test_hotspot_contig_in_gff3_but_not_bcf():
     # --------|----------|----------------------------------------------
     #   Yes   |   No     | OK -- this contig just doesn't have any features
     # --------|----------|----------------------------------------------
-    #         |          | strainFlye should throw an error! Something's wrong.
-    #   No    |   Yes    | (Or we could just ignore this contig, I guess, but
-    #         |          | whatever.)
+    #         |          | OK -- just skip this contig and move on.
+    #   No    |   Yes    | (Previously, we raised an error, but that was
+    #         |          | clunky and annoying.)
     # --------|----------|----------------------------------------------
     #   No    |   No     | Literally doesn't matter LOL
     # --------|----------|----------------------------------------------
     #
-    # ... Anyway, we check row 3 (the throw-an-error case) in this test.
+    # We raise an error if no features are described at all in the GFF3 file,
+    # or if the features described in the GFF3 file are not located on any of
+    # the BCF contigs. (So, if every feature in the GFF3 file falls into "row
+    # 3" in the table above, then we'd throw an error.) We test this case here.
 
     gff_text = """##gff-version 3
-c1	marcus	cds	5	19	.	+	0	ID=first_feature_that_i_made_up
-c1	marcus	gene	1	5	.	+	0	ID=split_feature
-c2	marcus	polyA_site	1	6	50	+	.	ID=another_thing
-c2	marcus	gene	6	7	100	-	.	ID=worlds_shittiest_gene
-c9	marcus	gene	6	7	100	-	.	ID=sus_feature
-c3	marcus	exon	9	9	.	+	.	ID=single_nt_feature"""
+c20	marcus	polyA_site	1	6	50	+	.	ID=another_thing
+c9	marcus	gene	6	7	100	-	.	ID=sus_feature"""
     with tempfile.NamedTemporaryFile() as out_fh:
         with pytest.raises(ParameterError) as ei:
             su.run_hotspot_feature_detection(
@@ -129,9 +129,50 @@ c3	marcus	exon	9	9	.	+	.	ID=single_nt_feature"""
                 mock_log,
             )
         assert str(ei.value) == (
-            "The GFF3 file describes feature(s) located on contig c9, but "
-            "this contig is not described in the BCF file."
+            "None of the feature(s) described in the GFF3 file are located on "
+            "contigs that are described in the BCF file."
         )
+
+
+def test_hotspot_some_contigs_in_gff3_but_not_bcf(capsys):
+    # Unlike the above test, just having a few GFF3 contigs not be in the BCF
+    # is ok
+    gff_text = """##gff-version 3
+c1	marcus	gene	1	5	.	+	0	ID=split_feature
+c20	marcus	polyA_site	1	6	50	+	.	ID=another_thing
+c9	marcus	gene	6	7	100	-	.	ID=sus_feature"""
+    with tempfile.NamedTemporaryFile() as out_fh:
+        su.run_hotspot_feature_detection(
+            TEST_BCF_PATH,
+            io.StringIO(gff_text),
+            1,
+            None,
+            out_fh.name,
+            mock_log,
+        )
+        obs_df = pd.read_csv(out_fh, sep="\t")
+        exp_df = pd.DataFrame(
+            {
+                "Contig": ["c1"],
+                "FeatureID": ["split_feature"],
+                "FeatureStart_1IndexedInclusive": [1],
+                "FeatureEnd_1IndexedInclusive": [5],
+                "NumberMutatedPositions": [1],
+                "PercentMutatedPositions": ["20.00%"],
+            }
+        )
+        pd.testing.assert_frame_equal(obs_df, exp_df)
+    exp_out = (
+        "PREFIX\nMockLog: Loading and checking the BCF file...\n"
+        "MockLog: Looks good so far.\n"
+        "PREFIX\nMockLog: Going through features in the GFF3 file and "
+        "identifying hotspot features...\n"
+        "MockLog: Identified 1 hotspot feature(s) across all 3 contigs in the "
+        "BCF file.\n"
+        "PREFIX\nMockLog: Writing out this information to a TSV file...\n"
+        "MockLog: Done.\n"
+    )
+    assert capsys.readouterr().out == exp_out
 
 
 def test_hotspot_empty_gff3():
