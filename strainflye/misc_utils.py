@@ -153,12 +153,24 @@ def load_and_sanity_check_diversity_indices(
     di: pd.DataFrame
         Represents the input diversity index file. The indices are contigs; the
         columns are, well, columns in the diversity index TSV file.
+
+    Raises
+    ------
+    ParameterError
+        If the diversity index file does not have the expected numbers of
+        contig(s) and diversity index column(s), or if it does not have Length
+        or AverageCoverage columns.
+
+    Other errors
+        Can be raised by pd.read_csv() if the file seems malformed.
+        We don't attempt to catch these errors.
     """
     di = pd.read_csv(diversity_indices, sep="\t", index_col=0)
 
     if len(di.index) < min_num_contigs:
         raise ParameterError(
-            f"Diversity indices file describes < {min_num_contigs:,} contig(s)."
+            f"Diversity indices file describes < {min_num_contigs:,} "
+            "contig(s)."
         )
 
     if "Length" not in di.columns or "AverageCoverage" not in di.columns:

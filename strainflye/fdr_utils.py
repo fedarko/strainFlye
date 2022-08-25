@@ -1136,9 +1136,10 @@ def load_and_sanity_check_fdr_file(fdr_info, thresh_type):
     ------
     ParameterError
         If the TSV file seems malformed.
-    ParserError
+
+    Other errors
         Can be raised by pd.read_csv() if the file seems malformed.
-        We don't attempt to catch this sort of error.
+        We don't attempt to catch these errors.
     """
     fi = pd.read_csv(fdr_info, sep="\t", index_col=0)
     # error prefix -- saves us some typing...

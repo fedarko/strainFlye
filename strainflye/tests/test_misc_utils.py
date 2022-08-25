@@ -3,6 +3,7 @@ import shutil
 import tempfile
 import pytest
 import pysam
+import pandas as pd
 import strainflye.misc_utils as mu
 from io import StringIO
 from strainflye.bcf_utils import parse_sf_bcf
@@ -190,3 +191,20 @@ def test_load_and_sanity_check_diversity_indices_not_enough_di_cols():
             tsv, min_num_di_columns=3, min_num_contigs=2
         )
     assert str(ei.value) == ("Diversity indices file describes < 2 contig(s).")
+
+
+def test_load_and_sanity_check_diversity_indices_one_of_each():
+    tsv = StringIO(
+        f"Contig\tAverageCoverage\tLength\t{DI_PREF}1\n"
+        "edge_1\t35.2\t100\t0.5\n"
+    )
+    obs_df = mu.load_and_sanity_check_diversity_indices(tsv)
+    exp_df = pd.DataFrame(
+        {
+            "AverageCoverage": [35.2],
+            "Length": [100],
+            f"{DI_PREF}1": [0.5],
+        },
+        index=pd.Index(["edge_1"], name="Contig"),
+    )
+    pd.testing.assert_frame_equal(obs_df, exp_df)
