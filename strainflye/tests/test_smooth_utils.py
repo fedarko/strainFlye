@@ -4,6 +4,8 @@ import tempfile
 import pytest
 import pysam
 import strainflye.smooth_utils as su
+from io import StringIO
+from strainflye.config import DI_PREF
 from strainflye.errors import ParameterError, WeirdError
 from strainflye.tests.utils_for_testing import mock_log
 
@@ -268,4 +270,81 @@ def test_compute_average_coverages_badlength():
     assert str(ei.value) == (
         "Contig c1 has length 12,345 bp, but we saw 23 positions in the "
         "alignment for this contig."
+    )
+
+
+def test_get_average_coverages_from_di_single_contig():
+    tsv = StringIO(
+        f"Contig\tAverageCoverage\tLength\t{DI_PREF}1\n"
+        "edge_1\t35.2\t100\t0.5\n"
+    )
+    assert su.get_average_coverages_from_di({"edge_1": 100}, tsv) == {
+        "edge_1": 35.2
+    }
+
+
+def test_get_average_coverages_from_di_multiple_contigs():
+    tsv_text = (
+        f"Contig\tAverageCoverage\tLength\t{DI_PREF}1\n"
+        "edge_1\t35.2\t100\t0.5\n"
+        "edge_2\t12.3\t456\t7.8\n"
+        "edge_3\t77.7\t7777\t7.7\n"
+    )
+
+    # Case 1: sets of contig names match exactly
+    tsv = StringIO(tsv_text)
+    assert su.get_average_coverages_from_di(
+        {"edge_1": 100, "edge_2": 456, "edge_3": 7777}, tsv
+    ) == {"edge_1": 35.2, "edge_2": 12.3, "edge_3": 77.7}
+
+    # Case 2: name2len is a subset of div idx's contigs
+    tsv = StringIO(tsv_text)
+    assert su.get_average_coverages_from_di(
+        {"edge_2": 456, "edge_3": 7777}, tsv
+    ) == {"edge_2": 12.3, "edge_3": 77.7}
+
+
+def test_get_average_coverages_from_di_contig_not_in_di():
+    tsv = StringIO(
+        f"Contig\tAverageCoverage\tLength\t{DI_PREF}1\n"
+        "edge_1\t35.2\t100\t0.5\n"
+    )
+    with pytest.raises(ParameterError) as ei:
+        su.get_average_coverages_from_di({"edge_2": 100}, tsv)
+    assert str(ei.value) == (
+        "Can't find contig edge_2 in the diversity index file."
+    )
+
+
+def test_get_average_coverages_from_di_differing_contig_lengths():
+    tsv = StringIO(
+        f"Contig\tAverageCoverage\tLength\t{DI_PREF}1\n"
+        "edge_1\t35.2\t100\t0.5\n"
+    )
+    with pytest.raises(ParameterError) as ei:
+        su.get_average_coverages_from_di({"edge_1": 99}, tsv)
+    assert str(ei.value) == (
+        "Length of contig edge_1 is 99 bp according to the FASTA file, "
+        "but the diversity index file says its length is 100 bp."
+    )
+
+
+def test_get_average_coverages_from_di_everything_is_on_fire():
+    tsv = StringIO(
+        f"Contig\tAverageCoverage\tLength\t{DI_PREF}1\n"
+        "edge_1\t35.2\t100\t0.5\n"
+    )
+    # If both the "missing contig" and "length mismatch" problems happen, then
+    # ... well they both can't happen at the same time, at least not for a
+    # single contig! I guess one could happen after the other for different
+    # contigs, so which error pops up first is dependent on how we traverse
+    # through contig_name2len. Not worth testing, probably.
+    #
+    # But, look, in any case the "missing contig" error is what the user sees
+    # if contig_name2len and the diversity index file are completely different,
+    # as they are here.
+    with pytest.raises(ParameterError) as ei:
+        su.get_average_coverages_from_di({"edge_5": 99}, tsv)
+    assert str(ei.value) == (
+        "Can't find contig edge_5 in the diversity index file."
     )
