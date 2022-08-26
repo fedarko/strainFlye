@@ -19,7 +19,7 @@ please feel free to open an issue.
 
 Long story short, strainFlye is an ordinary Python package. However, it
 dependends on a few external non-Python tools (e.g. minimap2, Prodigal,
-SAMtools) which it is probably easiest to install via
+SAMtools); almost all of these can be installed using
 [conda](https://conda.io).
 
 Assuming that you already have conda installed, the following installation
@@ -47,16 +47,17 @@ pip install git+https://github.com/fedarko/strainFlye.git
 strainFlye's `smooth` module includes two commands. The first,
 `strainFlye smooth create`, creates smoothed and virtual reads for each contig;
 the second, `strainFlye smooth assemble`, assembles these reads using
-[LJA](https://github.com/AntonBankevich/LJA).
-
-So, in order to run the `strainFlye smooth assemble` command, you will need to
+[LJA](https://github.com/AntonBankevich/LJA). LJA is not installed using the
+conda installation instructions above, so—in order to run the
+`strainFlye smooth assemble` command—you will need to
 install the [LJA](https://github.com/AntonBankevich/LJA) software (in
 particular, the
 [`simple_ec` branch](https://github.com/AntonBankevich/LJA/tree/simple_ec) of
 LJA's code).
+
 Please see [LJA's manual](https://github.com/AntonBankevich/LJA/blob/main/docs/lja_manual.md)
-for installation instructions. Assuming that you have all of LJA's requirements
-installed, something like the following should work:
+for the most up-to-date installation instructions. Assuming that you have all
+of LJA's requirements installed, something like the following should work:
 
 ```bash
 git clone https://github.com/AntonBankevich/LJA.git
