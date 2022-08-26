@@ -386,7 +386,39 @@ def test_write_virtual_reads_length_disagreement():
     with tempfile.NamedTemporaryFile() as fh:
         with pytest.raises(WeirdError) as ei:
             su.write_virtual_reads(
-                "c1", skbio.DNA("ACCGT"), 100, [101, 99, 100, 100], 1, 0.5, fh.name, mock_log)
+                "c1",
+                skbio.DNA("ACCGT"),
+                100,
+                [101, 99, 100, 100],
+                1,
+                0.5,
+                fh.name,
+                mock_log,
+            )
         assert str(ei.value) == (
             "len(pos2srcov) == 4 bp, but len(contig_seq) == 5 bp."
         )
+
+
+def test_write_virtual_reads_no_low_coverage(capsys):
+    with tempfile.NamedTemporaryFile() as fh:
+        su.write_virtual_reads(
+            "c1",
+            skbio.DNA("ACGT"),
+            100,
+            [101, 99, 100, 100],
+            1,
+            0.5,
+            fh.name,
+            mock_log,
+        )
+        assert capsys.readouterr().out == (
+            "MockLog: Contig c1 (average coverage 100.00x, based on the BAM "
+            "file) has no low-coverage (\u2264 50.00x) positions (based on "
+            "smoothed read coverages). No need to create virtual reads.\n"
+        )
+        # Make sure that no reads were written out -- the file should be empty,
+        # or at least unmodified (by strainFlye) from before
+        # write_virtual_reads() was called
+        with gzip.open(fh.name, "rt") as written_fh:
+            assert written_fh.readlines() == []

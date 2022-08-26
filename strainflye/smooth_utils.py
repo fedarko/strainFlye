@@ -751,7 +751,7 @@ def write_virtual_reads(
                 f"{avgcov:,.2f}x, based on the BAM "
                 "file) has no low-coverage (\u2264 "
                 f"{min_well_cov:,.2f}x) positions (based on smoothed "
-                "reads). No need to create virtual reads."
+                "read coverages). No need to create virtual reads."
             ),
             prefix="",
         )
