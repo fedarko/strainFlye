@@ -400,7 +400,7 @@ def test_write_virtual_reads_length_disagreement():
         )
 
 
-def test_write_virtual_reads_no_low_coverage(capsys):
+def test_write_virtual_reads_no_low_coverage_positions(capsys):
     with tempfile.NamedTemporaryFile() as fh:
         su.write_virtual_reads(
             "c1",
@@ -412,6 +412,7 @@ def test_write_virtual_reads_no_low_coverage(capsys):
             fh.name,
             mock_log,
         )
+        # check expected logging output
         assert capsys.readouterr().out == (
             "MockLog: Contig c1 (average coverage 100.00x, based on the BAM "
             "file) has no low-coverage (\u2264 50.00x) positions (based on "
@@ -422,3 +423,48 @@ def test_write_virtual_reads_no_low_coverage(capsys):
         # write_virtual_reads() was called
         with gzip.open(fh.name, "rt") as written_fh:
             assert written_fh.readlines() == []
+
+
+def test_write_virtual_reads_one_low_coverage_position(capsys):
+    with tempfile.NamedTemporaryFile() as fh:
+        su.write_virtual_reads(
+            "c1",
+            skbio.DNA("ACGT"),
+            100,
+            [101, 30, 100, 100],
+            1,
+            0.5,
+            fh.name,
+            mock_log,
+        )
+        # notably, the average coverage does NOT have to be equal to the
+        # average of pos2srcov (and this will probably usually not happen in
+        # practice). this is because, as i have tried to make clear in the logs
+        # here, the average coverage is based on the BAM, while pos2srcov is
+        # just based on coverages by smoothed reads.
+        assert capsys.readouterr().out == (
+            "MockLog: Contig c1 (average coverage 100.00x, based on the BAM "
+            "file) has 1 run(s) of consecutive low-coverage (\u2264 50.00x) "
+            "positions (based on smoothed read coverages). Creating virtual "
+            "reads...\n"
+            "MockLog: Created 70 virtual read(s) total for contig c1.\n"
+        )
+        with gzip.open(fh.name, "rt") as written_fh:
+            linenum = 0
+            curr_readnum = 1
+            for line in written_fh:
+                if linenum % 2 == 0:
+                    assert line.startswith(">vr_1_1_")
+                    split_line = line.strip().split("_")
+                    assert len(split_line) == 4
+                    vr_num = split_line[3]
+                    assert int(vr_num) == curr_readnum
+                else:
+                    # we used a vr flank of 1, so we include 1 position before
+                    # and after the "run" of this one low-coverage position (C)
+                    assert line == "ACG\n"
+                    curr_readnum += 1
+                linenum += 1
+            # we should've seen exactly 140 lines -- two lines for each of the
+            # 70 virtual reads we should've created
+            assert linenum == 140
