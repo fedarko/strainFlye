@@ -383,6 +383,11 @@ def write_smoothed_reads(
         # (But let's not optimize this prematurely...)
         if contig_seq is None:
             contig_seq = fasta_utils.get_single_seq(contigs, contig)
+            if len(contig_seq) != contig_len:
+                raise WeirdError(
+                    f"len(contig_seq) == {len(contig_seq):,} bp, but "
+                    f"contig_len == {contig_len:,} bp."
+                )
 
         # Although we disallow secondary alignments, supplementary
         # alignments are ok! We implicitly handle these here.
@@ -626,7 +631,7 @@ def write_virtual_reads(
         # This should never happen during normal usage of this, hence why we
         # raise a WeirdError and not a ParameterError
         raise WeirdError(
-            f"len(pos2srcov) = {len(pos2srcov):,} bp, but len(contig_seq) = "
+            f"len(pos2srcov) == {len(pos2srcov):,} bp, but len(contig_seq) == "
             f"{len(contig_seq):,} bp."
         )
     contig_len = len(contig_seq)

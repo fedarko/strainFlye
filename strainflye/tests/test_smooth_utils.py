@@ -4,6 +4,7 @@ import gzip
 import tempfile
 import pytest
 import pysam
+import skbio
 import strainflye.smooth_utils as su
 from io import StringIO
 from strainflye.config import DI_PREF
@@ -379,3 +380,13 @@ def test_append_reads():
                 ">surprise_its_more_reads\n",
                 "TACAT\n",
             ]
+
+
+def test_write_virtual_reads_length_disagreement():
+    with tempfile.NamedTemporaryFile() as fh:
+        with pytest.raises(WeirdError) as ei:
+            su.write_virtual_reads(
+                "c1", skbio.DNA("ACCGT"), 100, [101, 99, 100, 100], 1, 0.5, fh.name, mock_log)
+        assert str(ei.value) == (
+            "len(pos2srcov) == 4 bp, but len(contig_seq) == 5 bp."
+        )
