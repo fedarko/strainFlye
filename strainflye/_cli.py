@@ -1015,8 +1015,9 @@ strainflye.add_command(smooth)
     show_default=True,
     help=(
         "Only used if --virtual-reads is specified. In a contig with average "
-        "coverage (only considering match + mismatch counts) C, we will "
-        "define a position in this contig (with coverage P) as low-coverage "
+        "coverage (based on the BAM file, and only considering match + "
+        "mismatch counts) C, we will define a position in this contig (with "
+        "coverage P, based only on the smoothed reads) as low-coverage "
         "if ((P / C) \u00d7 100) is less than this percentage."
     ),
 )

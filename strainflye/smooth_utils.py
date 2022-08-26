@@ -264,6 +264,187 @@ def convert_to_runs(positions):
     return runs
 
 
+def write_virtual_reads(
+    contig,
+    contig_seq,
+    avgcov,
+    pos2srcov,
+    virtual_read_flank,
+    vrwcp,
+    out_reads_fp,
+    fancylog,
+):
+    """Creates and writes out virtual reads for a contig, if needed.
+
+    Parameters
+    ----------
+    contig: str
+        Name of the contig for which we will try to create virtual reads.
+
+    contig_seq: skbio.DNA
+        Sequence of this contig.
+
+    avgcov: float
+        Average coverage of this contig.
+
+    pos2srcov: list
+        Maps zero-indexed positions in the contig to their coverage, based just
+        on smoothed reads. (So, the length of this list should be equal to the
+        length of the contig, and the zero-th entry corresponds to the first
+        position in the contig.)
+
+    virtual_read_flank: int
+        A virtual read spanning a low-coverage region of length L will be
+        extended by this many positions on both the left and right sides
+        (clamping to the end of the contig if needed).
+
+    vrwcp: float
+
+    out_reads_fp: str
+        Path to a file to which we'll append virtual reads for this contig.
+
+    fancylog: function
+        Logging function.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    WeirdError
+        If the contig lengths implied by contig_seq and pos2srcov don't match.
+    """
+    if len(contig_seq) != len(pos2srcov):
+        # This should never happen during normal usage of this, hence why we
+        # raise a WeirdError and not a ParameterError
+        raise WeirdError(
+            f"len(pos2srcov) = {len(pos2srcov):,} bp, but len(contig_seq) = "
+            f"{len(contig_seq):,} bp."
+        )
+    contig_len = len(contig_seq)
+    # Task 2: iterate through runs of low-coverage positions and create
+    # virtual reads.
+    # First, let's detect low-coverage positions.
+    min_well_cov = vrwcp * avgcov
+    low_cov_positions = []
+    for pos, srcov in enumerate(pos2srcov):
+        if srcov < min_well_cov:
+            low_cov_positions.append(pos)
+
+    if len(low_cov_positions) > 0:
+        lc_runs = convert_to_runs(low_cov_positions)
+        fancylog(
+            (
+                f"Contig {contig} (average coverage "
+                f"{avgcov:,.2f}x, based on the BAM "
+                f"file) has {len(lc_runs):,} run(s) of consecutive "
+                f"low-coverage (\u2264 {min_well_cov:,.2f}x) "
+                "positions (based on smoothed reads). Creating "
+                "virtual reads."
+            ),
+            prefix="",
+        )
+        num_vr = 0
+        for run in lc_runs:
+            # We write out virtual reads for a given run all at the
+            # same time. This differs from the analysis notebook
+            # version of this code, in which we just write out all
+            # virtual reads for a contig at once. (I guess this has
+            # less risk of running out of memory...?)
+            vr_buffer = {}
+
+            # The first question we ask: how many copies of this
+            # virtual read should we add?
+            # Our goal is, essentially, "lifting" the coverage of this
+            # region back up to the average coverage of this contig. Of
+            # course, the average coverage of this contig takes into
+            # account the relatively low coverage of these positions,
+            # so you could argue that this is a somewhat silly way of
+            # doing this, but it should be decent enough for our
+            # purposes (convincing the assembler later on that no,
+            # these positions really do connect to elsewhere in the
+            # contig).
+            #
+            # First, let's figure out the average coverage of this run
+            # of low-coverage positions (just considering the
+            # "interior" positions that were truly labelled as
+            # "low-coverage", and not the --virtual-read-flank
+            # positions we'll add in later).
+            run_avgcov = mean(
+                [pos2srcov[lcpos] for lcpos in range(run[0], run[1] + 1)]
+            )
+
+            # Now, we can figure out the (rounded) difference between
+            # the contig's average coverage and this run's average
+            # coverage. We'll add this many copies of the virtual read
+            # corresponding to this run.
+            vr_cov = round(avgcov - run_avgcov)
+
+            # Construct a virtual read that includes this entire run of
+            # uncovered positions as well as --virtual-read-flank
+            # positions before and after (clamping to the start/end of
+            # the contig if needed).
+            #
+            # Notably, we could try to make this loop around from end
+            # -> start if this is a cyclic contig, but to remain
+            # consistent with how we handle supplementary alignments
+            # above -- and because implementing the loop around would
+            # be a lot of work and life is hard -- we ignore this for
+            # now.
+            #
+            # Also, note that run_start can equal run_end, if only a
+            # single isolated position is uncovered. This is fine --
+            # the code handles this case automatically.
+            run_start = max(run[0] - virtual_read_flank, 0)
+            run_end = min(run[1] + virtual_read_flank, contig_len - 1)
+
+            # Generate a sequence matching the "reference" contig seq
+            # at these positions. Mutations may or may not exist in
+            # this region; we ignore them, in any case.
+            vr_seq = contig_seq[run_start : run_end + 1]
+
+            # We need to assign reads unique names, and including the
+            # run coordinates here is a nice way to preserve uniqueness
+            # across runs and also make our smoothed reads files easier
+            # to interpret
+            vr_name_prefix = f"vr_{run[0]}_{run[1]}"
+
+            # Add vr_cov copies of this virtual read
+            # (Note that vr_num is 1-indexed, to match our naming
+            # convention for smoothed reads above)
+            for vr_num in range(1, vr_cov + 1):
+                vr_name = f"{vr_name_prefix}_{vr_num}"
+                vr_buffer[vr_name] = vr_seq
+                num_vr += 1
+
+            # TODO: Rather than store |vr_cov| copies of vr_seq in
+            # memory, make a new util function that just stores 1 copy
+            # and writes it out |vr_cov| times for the diff vr_names
+            append_reads(out_reads_fp, vr_buffer)
+            vr_buffer = {}
+
+        fancylog(
+            (
+                f"Created {num_vr:,} virtual read(s) total for contig "
+                f"{contig}."
+            ),
+            prefix="",
+        )
+
+    else:
+        fancylog(
+            (
+                f"Contig {contig} (average coverage "
+                f"{avgcov:,.2f}x, based on the BAM "
+                "file) has no low-coverage (\u2264 "
+                f"{min_well_cov:,.2f}x) positions (based on smoothed "
+                "reads). No need to create virtual reads."
+            ),
+            prefix="",
+        )
+
+
 def get_average_coverages_from_di(contig_name2len, diversity_indices):
     """Retrieves average coverages for contigs from a diversity index file.
 
@@ -503,7 +684,9 @@ def run_create(
     virtual_read_well_covered_perc: float
         Only used if virtual_reads is True. Used to define whether or not a
         position in a contig is "low-coverage," and should thus be spanned by
-        virtual reads.
+        virtual reads: we define a position in an arbitrary contig as
+        "low-coverage" if its coverage (just based on smoothed reads) is less
+        than virtual_read_well_covered_perc% of the contig's average coverage.
 
     virtual_read_flank: int
         Only used if virtual_reads is True. A virtual read spanning a
@@ -786,131 +969,16 @@ def run_create(
             continue
 
         if virtual_reads:
-            ###################################################################
-            # Task 2: iterate through runs of low-coverage positions and create
-            # virtual reads.
-            ###################################################################
-            # First, let's detect low-coverage positions.
-            low_cov_positions = []
-            min_well_cov = contig2avgcov[contig] * vrwcp
-            for pos, srcov in enumerate(pos2srcov):
-                if srcov < min_well_cov:
-                    low_cov_positions.append(pos)
-
-            if len(low_cov_positions) > 0:
-                lc_runs = convert_to_runs(low_cov_positions)
-                verboselog(
-                    (
-                        f"Contig {contig} (average coverage "
-                        f"{contig2avgcov[contig]:,.2f}x, based on the BAM "
-                        f"file) has {len(lc_runs):,} run(s) of consecutive "
-                        f"low-coverage (\u2264 {min_well_cov:,.2f}x) "
-                        "positions (based on smoothed reads). Creating "
-                        "virtual reads."
-                    ),
-                    prefix="",
-                )
-                num_vr = 0
-                for run in lc_runs:
-                    # We write out virtual reads for a given run all at the
-                    # same time. This differs from the analysis notebook
-                    # version of this code, in which we just write out all
-                    # virtual reads for a contig at once. (I guess this has
-                    # less risk of running out of memory...?)
-                    vr_buffer = {}
-
-                    # The first question we ask: how many copies of this
-                    # virtual read should we add?
-                    # Our goal is, essentially, "lifting" the coverage of this
-                    # region back up to the average coverage of this contig. Of
-                    # course, the average coverage of this contig takes into
-                    # account the relatively low coverage of these positions,
-                    # so you could argue that this is a somewhat silly way of
-                    # doing this, but it should be decent enough for our
-                    # purposes (convincing the assembler later on that no,
-                    # these positions really do connect to elsewhere in the
-                    # contig).
-                    #
-                    # First, let's figure out the average coverage of this run
-                    # of low-coverage positions (just considering the
-                    # "interior" positions that were truly labelled as
-                    # "low-coverage", and not the --virtual-read-flank
-                    # positions we'll add in later).
-                    run_avgcov = mean(
-                        [
-                            pos2srcov[lcpos]
-                            for lcpos in range(run[0], run[1] + 1)
-                        ]
-                    )
-
-                    # Now, we can figure out the (rounded) difference between
-                    # the contig's average coverage and this run's average
-                    # coverage. We'll add this many copies of the virtual read
-                    # corresponding to this run.
-                    vr_cov = round(contig2avgcov[contig] - run_avgcov)
-
-                    # Construct a virtual read that includes this entire run of
-                    # uncovered positions as well as --virtual-read-flank
-                    # positions before and after (clamping to the start/end of
-                    # the contig if needed).
-                    #
-                    # Notably, we could try to make this loop around from end
-                    # -> start if this is a cyclic contig, but to remain
-                    # consistent with how we handle supplementary alignments
-                    # above -- and because implementing the loop around would
-                    # be a lot of work and life is hard -- we ignore this for
-                    # now.
-                    #
-                    # Also, note that run_start can equal run_end, if only a
-                    # single isolated position is uncovered. This is fine --
-                    # the code handles this case automatically.
-                    run_start = max(run[0] - virtual_read_flank, 0)
-                    run_end = min(run[1] + virtual_read_flank, contig_len - 1)
-
-                    # Generate a sequence matching the "reference" contig seq
-                    # at these positions. Mutations may or may not exist in
-                    # this region; we ignore them, in any case.
-                    vr_seq = contig_seq[run_start : run_end + 1]
-
-                    # We need to assign reads unique names, and including the
-                    # run coordinates here is a nice way to preserve uniqueness
-                    # across runs and also make our smoothed reads files easier
-                    # to interpret
-                    vr_name_prefix = f"vr_{run[0]}_{run[1]}"
-
-                    # Add vr_cov copies of this virtual read
-                    # (Note that vr_num is 1-indexed, to match our naming
-                    # convention for smoothed reads above)
-                    for vr_num in range(1, vr_cov + 1):
-                        vr_name = f"{vr_name_prefix}_{vr_num}"
-                        vr_buffer[vr_name] = vr_seq
-                        num_vr += 1
-
-                    # TODO: Rather than store |vr_cov| copies of vr_seq in
-                    # memory, make a new util function that just stores 1 copy
-                    # and writes it out |vr_cov| times for the diff vr_names
-                    append_reads(out_reads_fp, vr_buffer)
-                    vr_buffer = {}
-
-                verboselog(
-                    (
-                        f"Created {num_vr:,} virtual read(s) total for contig "
-                        f"{contig}."
-                    ),
-                    prefix="",
-                )
-
-            else:
-                verboselog(
-                    (
-                        f"Contig {contig} (average coverage "
-                        f"{contig2avgcov[contig]:,.2f}x, based on the BAM "
-                        "file) has no low-coverage (\u2264 "
-                        f"{min_well_cov:,.2f}x) positions (based on smoothed "
-                        "reads). No need to create virtual reads."
-                    ),
-                    prefix="",
-                )
+            write_virtual_reads(
+                contig,
+                contig_seq,
+                contig2avgcov[contig],
+                pos2srcov,
+                virtual_read_flank,
+                vrwcp,
+                out_reads_fp,
+                verboselog,
+            )
 
     fancylog("Done.", prefix="")
 
