@@ -716,8 +716,8 @@ def write_virtual_reads(
             # that these coordinates are zero-indexed, just like pos2srcov.
             vr_name_prefix = f"vr_{run[0]}_{run[1]}"
 
-            # Add vr_cov copies of this virtual read. (Note that vr_num is 1-indexe
-            # , to match our naming convention for smoothed reads.)
+            # Add vr_cov copies of this virtual read. (Note that vr_num is
+            # 1-indexed, to match our naming convention for smoothed reads.)
             for vr_num in range(1, vr_cov + 1):
                 vr_name = f"{vr_name_prefix}_{vr_num}"
                 vr_buffer[vr_name] = vr_seq
