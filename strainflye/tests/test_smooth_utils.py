@@ -468,3 +468,63 @@ def test_write_virtual_reads_one_low_coverage_position(capsys):
             # we should've seen exactly 140 lines -- two lines for each of the
             # 70 virtual reads we should've created
             assert linenum == 140
+
+
+def test_write_virtual_reads_multi_run_clamp_and_overlap(capsys):
+    with tempfile.NamedTemporaryFile() as fh:
+        # two runs: one of (0-indexed) positions [2, 3], another of [6, 7]
+        # notably, we use virtual_read_flank = 2 -- so the right run will have
+        # to be clamped on the right side. also, there will be some overlap due
+        # to these runs being so close together. it is what it is -- will note
+        # in the paper
+        su.write_virtual_reads(
+            "c1",
+            skbio.DNA("ACGTCCAC"),
+            100,
+            [101, 60, 30, 0, 50, 70, 20, 5],
+            2,
+            0.5,
+            fh.name,
+            mock_log,
+        )
+        # average coverage of left  run: (30 + 0) / 2 = 15.00x.
+        # average coverage of right run: (20 + 5) / 2 = 12.50x.
+        # So, gotta create 85 VRs for left, and
+        # round(100 - 12.5) == round(87.5) == 88 VRs for right.
+        assert capsys.readouterr().out == (
+            "MockLog: Contig c1 (average coverage 100.00x, based on the BAM "
+            "file) has 2 run(s) of consecutive low-coverage (\u2264 50.00x) "
+            "positions (based on smoothed read coverages). Creating virtual "
+            "reads...\n"
+            "MockLog: Created 173 virtual read(s) total for contig c1.\n"
+        )
+        with gzip.open(fh.name, "rt") as written_fh:
+            linenum = 0
+            curr_readnum = 1
+            for line in written_fh:
+                if linenum == 170:
+                    curr_readnum = 1
+                if linenum <= 169:
+                    if linenum % 2 == 0:
+                        assert line.startswith(">vr_2_3_")
+                        split_line = line.strip().split("_")
+                        assert len(split_line) == 4
+                        vr_num = split_line[3]
+                        assert int(vr_num) == curr_readnum
+                    else:
+                        assert line == "ACGTCC\n"
+                        curr_readnum += 1
+                    linenum += 1
+                else:
+                    if linenum % 2 == 0:
+                        assert line.startswith(">vr_6_7_")
+                        split_line = line.strip().split("_")
+                        assert len(split_line) == 4
+                        vr_num = split_line[3]
+                        assert int(vr_num) == curr_readnum
+                    else:
+                        # should have been clamped on the right side
+                        assert line == "CCAC\n"
+                        curr_readnum += 1
+                    linenum += 1
+            assert linenum == 346
