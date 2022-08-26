@@ -499,9 +499,15 @@ def test_write_virtual_reads_multi_run_clamp_and_overlap(capsys):
             "MockLog: Created 173 virtual read(s) total for contig c1.\n"
         )
         with gzip.open(fh.name, "rt") as written_fh:
+            # Go through and verify that the reads look as we expect. The
+            # leftmost run's reads should be included first, although please
+            # note that this is less a strict guarantee of strainFlye and more
+            # an artifact of how convert_to_runs() works.
             linenum = 0
             curr_readnum = 1
             for line in written_fh:
+                # line 170 (0-indexed) is the "cross-over point" -- after this,
+                # we get to the reads from the rightmost run
                 if linenum == 170:
                     curr_readnum = 1
                 if linenum <= 169:
