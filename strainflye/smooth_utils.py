@@ -898,8 +898,9 @@ def verify_vrf2(contig_name2len, virtual_read_flank, fancylog):
     Ignoring clamping, it doesn't make sense for a contig to be <= vrf2 bp
     long: in this case, the shortest possible virtual read with a "full flank"
     could not exist. The minimum possible allowed contig length, vrf2 + 1,
-    ensures that a virtual read of size 1 could be created within a contig
-    while still having a "full flank." (... Although that would be silly.)
+    ensures that a virtual read for a "run" of just 1 position could be created
+    within a contig, while still having a "full flank." (... Although that
+    would be kind of silly.)
 
     Parameters
     ----------
