@@ -1075,7 +1075,9 @@ def run_create(
         if os.path.exists(out_reads_fp):
             raise FileExistsError(f"File {out_reads_fp} already exists.")
 
-        # Write out smoothed reads.
+        # Write out smoothed reads (or, at least, try to do so -- maybe a
+        # contig has no linear alignments in the BAM file, or maybe all of its
+        # alignments need to be "ignored"...)
         pos2srcov, contig_seq = write_smoothed_reads(
             contig,
             contigs,
