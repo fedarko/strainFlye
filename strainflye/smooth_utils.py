@@ -220,6 +220,309 @@ def get_smooth_aln_replacements(aln, mutated_positions, mp2ra):
         return replacements_to_make
 
 
+def write_smoothed_reads(
+    contig,
+    contigs,
+    contig_len,
+    mp2ra,
+    bam_obj,
+    gen_pos2srcov,
+    out_reads_fp,
+    fancylog,
+    verboselog,
+    sr_chunk_size=1000,
+):
+    """Creates and writes out smoothed reads for a contig, if possible.
+
+    Parameters
+    ----------
+    contig: str
+        Name of the contig for which we will try to create smoothed reads.
+
+    contigs: str
+        Path to a FASTA file describing contigs' sequences. Used to load the
+        sequence of the contig, if needed.
+
+    contig_len: int
+        Length of the contig.
+
+    mp2ra: dict
+        Maps (zero-indexed) mutated positions in the contig to a tuple of
+        (ref nt, alt nt), as listed in the BCF file. Can be generated using
+        bcf_utils.get_mutated_position_details_in_contig(). Both the ref and
+        alt nt should be given in uppercase.
+
+    bam_obj: pysam.AlignmentFile
+        Describes an alignment of reads to contigs. "contig" should be included
+        as a reference sequence in this file.
+
+    gen_pos2srcov: bool
+        Whether or not to do the work of creating the "pos2srcov" output of
+        this function. Long story short, this shouldn't be necessary unless you
+        want information about coverage of this contig by smoothed reads (e.g.
+        if you are creating virtual reads after this).
+
+    out_reads_fp: str
+        Path to a *.fasta.gz file to which we'll write / append smooth reads
+        for this contig.
+
+    fancylog: function
+        Logging function. Within the context of write_smoothed_reads(), we'll
+        only use this to log really weird stuff that the user should know
+        about.
+
+    verboselog: function
+        Logging function for minor details. We can use this more freely, since
+        we assume that this won't do anything unless the user specified
+        --verbose.
+
+    sr_chunk_size: int
+        After creating this many smoothed reads, we'll write out their
+        sequences. (Like in graph_utils.gfa_to_fasta(), there's a tradeoff here
+        between storing a lot of stuff in memory vs. making a lot of slow write
+        operations.)
+
+    Returns
+    -------
+    (pos2srcov, contig_seq): (list or None, skbio.DNA or None)
+        pos2srcov will be None, unless 1) gen_pos2srcov is True and 2) we were
+        able to generate at least one smoothed read.
+
+        If pos2srcov is not None, then it is a list that maps zero-indexed
+        positions in the contig to their coverage -- defining "coverage" based
+        just on the smoothed reads computed here. (So, the length of pos2srcov
+        will be equal to the length of the contig; the zero-th entry will
+        correspond to the number of smoothed reads covering the first position
+        in the contig, the one-th entry will correspond to how many smoothed
+        reads cover the second position in the contig, and so on.)
+
+        Similarly, contig_seq will be None less we were able to generate at
+        least one smoothed read. If contig_seq is not None, it is a skbio.DNA
+        object giving the DNA sequence of the contig, retrieved from the
+        "contigs" FASTA file.
+
+    Raises
+    ------
+    ParameterError
+        If we find a secondary alignment to the contig in bam_obj. Secondary
+        alignments should already have been filtered out of the alignment.
+
+    WeirdError
+        If strange, unexpected things go wrong (e.g. a linear alignment in the
+        BAM object is malformed). These errors should hopefully never happen.
+    """
+
+    pos2srcov = None
+    if gen_pos2srcov:
+        # This will zero-indexed positions to coverage by smoothed reads.
+        # Here, we initialize it.
+        pos2srcov = [0] * contig_len
+
+    # (These positions are zero-indexed.)
+    mutated_positions = sorted(mp2ra.keys())
+    verboselog(
+        f"This contig has {len(mutated_positions):,} mutated position(s).",
+        prefix="",
+    )
+
+    # We'll store the full sequence of the contig here. I imagine that many
+    # contigs in most datasets (like in SheepGut) will have zero
+    # alignments; so, we defer loading the sequence until we actually know
+    # that this contig actually has alignments.
+    contig_seq = None
+
+    # Instead of just writing out every smoothed read as soon as we
+    # generate it, we build up a "buffer" of these reads and then write a
+    # bunch out at once. This way we limit slowdown due to constantly
+    # having to open/close files.
+    #
+    # This object maps the name of a smoothed read to its sequence. The
+    # name of a smoothed read includes the name of the original
+    # (un-smoothed) read from that was used to create it; it's useful to
+    # preserve this information, so we know where smoothed reads came from.
+    sr_buffer = {}
+
+    # Smoothed read names also include a number, after the original read
+    # name. This is because one original read can result in multiple linear
+    # alignments to a contig (e.g. a read with supplementary alignments
+    # that spans the left and right sides of a circular contig), and each
+    # of these linear alignments is considered separately (and could end
+    # up being used to create a smoothed read). So, the number
+    # distinguishes these linear alignments.
+    readname2freq_so_far = defaultdict(int)
+
+    # Keep some stats on our progress; useful for logging and sanity-checking.
+    num_ignored_alns = 0
+    num_sr_generated = 0
+    num_alns_total = 0
+
+    # Go through all linear alignments of each read to this contig, and try to
+    # generate smoothed reads for each...
+    for ai, aln in enumerate(bam_obj.fetch(contig), 1):
+
+        readname = aln.query_name
+
+        if aln.is_secondary:
+            raise ParameterError(
+                f"Found a secondary alignment to contig {contig} (from a "
+                f"read named {readname}). "
+                "The BAM file should not contain secondary alignments."
+            )
+
+        num_alns_total += 1
+
+        # OK, we know this contig actually has (non-secondary) alignments,
+        # so load its sequence if we haven't already.
+        #
+        # NOTE: get_single_seq() is kind of inefficient -- in the
+        # worst case, it has to iterate over the entire FASTA file to find
+        # a contig's sequence. If this ends up being a bottleneck, we can
+        # speed this process up by modifying get_name2len() to figure out
+        # which lines a sequence's entry takes up in the FASTA file -- and,
+        # from there, use this information to speed up get_single_seq().
+        # (But let's not optimize this prematurely...)
+        if contig_seq is None:
+            contig_seq = fasta_utils.get_single_seq(contigs, contig)
+
+        # Although we disallow secondary alignments, supplementary
+        # alignments are ok! We implicitly handle these here.
+        #
+        # As mentioned above, different alignments of the same read will
+        # have different new_readnames, because we're gonna be treating
+        # them as distinct "reads" (yes I'm aware that this is a limitation
+        # of this method; the paper mentions this). We should have
+        # already filtered reference-overlapping supplementary alignments,
+        # so these "reads" shouldn't intersect on the contig at least.
+        readname2freq_so_far[readname] += 1
+        new_readname = f"{readname}_{readname2freq_so_far[readname]}"
+
+        # Should never happen.
+        if new_readname in sr_buffer:
+            raise WeirdError(
+                f"{new_readname} is already in the smoothed read buffer?"
+            )
+
+        # Figure out where on the contig this alignment "hits." These are
+        # 0-indexed positions. (reference_end points to the position after
+        # the actual final position, since these are designed to be
+        # interoperable with Python's half-open intervals.)
+        #
+        # Of course, there likely will be indels within this range: we're
+        # purposefully ignoring those here.
+        ref_start = aln.reference_start
+        ref_end = aln.reference_end - 1
+
+        # This should never happen (TM)
+        if ref_start > ref_end:
+            raise WeirdError(
+                f"Ref start {ref_start:,} >= ref end {ref_end:,} for "
+                f"linear alignment {new_readname}?"
+            )
+
+        repls = get_smooth_aln_replacements(aln, mutated_positions, mp2ra)
+
+        if repls is None:
+            num_ignored_alns += 1
+        else:
+            # Smoothed read sequence from the start to end of the linear
+            # alignment, completely skipping over indels and mutations.
+            # Edit this seq so that if the alignment has (mis)matches to
+            # any called mutated positions within this sequence, these
+            # positions will be updated to match.
+            # NOTE that this isn't a string -- it's a skbio.DNA object.
+            sr_seq = contig_seq[ref_start : ref_end + 1]
+            # Unfortunately, skbio.DNA.replace() doesn't seem to be able to
+            # replace multiple positions in multiple ways at the same time,
+            # so we've gotta loop through repls ourselves.
+            for aln_pos in repls:
+                sr_seq = sr_seq.replace([aln_pos], repls[aln_pos])
+
+            # Prepare this smoothed read to be written out to a FASTA file.
+            # See comments above on sr_buffer. (Also, we've already
+            # guaranteed new_readname isn't already in sr_buffer, so no
+            # need to worry about accidentally overwriting something from
+            # earlier.)
+            sr_buffer[new_readname] = str(sr_seq)
+            num_sr_generated += 1
+
+            if ai % sr_chunk_size == 0:
+                append_reads(out_reads_fp, sr_buffer)
+                # Clear the buffer
+                sr_buffer = {}
+
+            # If we care about coverage info due to creating virtual reads,
+            # record which positions this smoothed read covers (of course,
+            # the original read may not exactly "cover" these positions due
+            # to indels, but the smoothed version will cover them).
+            #
+            # We purposefully delay performing this update until right now
+            # -- this way, if we choose to "ignore" this linear alignment
+            # at any point in the process above, we won't increase anything
+            # in pos2srcov for this linear alignment.
+            if gen_pos2srcov:
+                for pos_in_sr in range(ref_start, ref_end + 1):
+                    pos2srcov[pos_in_sr] += 1
+
+    if num_alns_total == 0:
+        verboselog(
+            (
+                f"No linear alignments to contig {contig} exist. Not creating "
+                "any smoothed or virtual reads."
+            ),
+            prefix="",
+        )
+        return None, None
+
+    # (If we have made it here, then we did see at least one linear alignment
+    # to this contig.)
+    #
+    # We're probably going to have left over smoothed reads that we still
+    # haven't written out, unless things worked out so that on the final
+    # alignment we saw ai was exactly divisible by sr_chunk_size (that's
+    # pretty unlikely unless you set sr_chunk_size to a low number).
+    # So let's make one last dump of the buffer.
+    if len(sr_buffer) > 0:
+        append_reads(out_reads_fp, sr_buffer)
+        # I am not sure that it would be useful to say "del sr_buffer" here or
+        # something, because I think Python's garbage collection should
+        # automatically handle this. But... IDK
+
+    if num_alns_total != num_sr_generated + num_ignored_alns:
+        # Should never happen unless something went horribly wrong
+        raise WeirdError(
+            f"Contig {contig}: # total alns = {num_alns_total:,}, but "
+            f"# sr = {num_sr_generated:,} and # ignored = "
+            f"{num_ignored_alns:,}."
+        )
+
+    if num_sr_generated == 0:
+        # This we don't lock behind fancy, because this is weird and the
+        # user should know about it
+        fancylog(
+            (
+                f"Ignored all linear alignments for contig {contig}: "
+                "couldn't generate any smoothed reads. Ignoring this "
+                "contig."
+            ),
+            prefix="",
+        )
+        return None, None
+
+    # OK, if we have made it to this beautiful golden perfect part of the
+    # function, then 1) we saw at least one linear alignment to this contig and
+    # 2) we were able to create at least one smoothed read for this contig.
+    verboselog(
+        (
+            f"From the {num_alns_total:,} linear alignment(s) to "
+            f"contig {contig}: created {num_sr_generated:,} "
+            f"smoothed read(s) and ignored {num_ignored_alns:,} "
+            "linear alignment(s)."
+        ),
+        prefix="",
+    )
+    return pos2srcov, contig_seq
+
+
 def convert_to_runs(positions):
     """Converts a (sorted) list of ints to a list of runs of consecutive ints.
 
@@ -290,8 +593,8 @@ def write_virtual_reads(
     pos2srcov: list
         Maps zero-indexed positions in the contig to their coverage, based just
         on smoothed reads. (So, the length of this list should be equal to the
-        length of the contig, and the zero-th entry corresponds to the first
-        position in the contig.)
+        length of the contig, and the zero-th entry corresponds to the number
+        of smoothed reads covering the first position in the contig.)
 
     virtual_read_flank: int
         A virtual read spanning a low-coverage region of length L will be
@@ -299,9 +602,13 @@ def write_virtual_reads(
         (clamping to the end of the contig if needed).
 
     vrwcp: float
+        In the range [0, 1]. The value of (vrwcp * avgcov) will be used as the
+        minimum for considering a position in this contig as "well-covered,"
+        aka not "low-coverage."
 
     out_reads_fp: str
-        Path to a file to which we'll append virtual reads for this contig.
+        Path to a *.fasta.gz file to which we'll write / append virtual reads
+        for this contig.
 
     fancylog: function
         Logging function.
@@ -654,7 +961,6 @@ def run_create(
     output_dir,
     verbose,
     fancylog,
-    sr_chunk_size=1000,
 ):
     """Generates smoothed and virtual reads.
 
@@ -702,12 +1008,6 @@ def run_create(
 
     fancylog: function
         Logging function.
-
-    sr_chunk_size: int
-        After creating this many smoothed reads, we'll write out their
-        sequences. (Like in graph_utils.gfa_to_fasta(), there's a tradeoff here
-        between storing a lot of stuff in memory vs. making a lot of slow write
-        operations.)
 
     Returns
     -------
@@ -771,204 +1071,29 @@ def run_create(
             )
             continue
 
-        pos2srcov = None
-        if virtual_reads:
-            # Map zero-indexed positions to coverage by smoothed reads
-            # (This is only used if we're adding virtual reads)
-            pos2srcov = [0] * contig_len
-
         out_reads_fp = os.path.join(output_dir, f"{contig}.fasta.gz")
         if os.path.exists(out_reads_fp):
             raise FileExistsError(f"File {out_reads_fp} already exists.")
-        # (These are zero-indexed.)
-        mutated_positions = sorted(mp2ra.keys())
-        verboselog(
-            (
-                f"This contig has {len(mutated_positions):,} mutated "
-                "position(s)."
-            ),
-            prefix="",
+
+        # Write out smoothed reads.
+        pos2srcov, contig_seq = write_smoothed_reads(
+            contig,
+            contigs,
+            contig_len,
+            mp2ra,
+            bam_obj,
+            virtual_reads,
+            out_reads_fp,
+            fancylog,
+            verboselog,
         )
 
-        # We'll store the full sequence of the contig here. I imagine that many
-        # contigs in most datasets (like in SheepGut) will have zero
-        # alignments; so, we defer loading the sequence until we actually know
-        # that this contig actually has alignments.
-        contig_seq = None
-
-        ######################################################################
-        # Task 1: iterate through all alignments to this contig and create
-        # smoothed reads.
-        ######################################################################
-        # Instead of just writing out every smoothed read as soon as we
-        # generate it, we build up a "buffer" of these reads and then write a
-        # bunch out at once. This way we limit slowdown due to constantly
-        # having to open/close files.
-        #
-        # This object maps the name of a smoothed read to its sequence. The
-        # name of a smoothed read includes the name of the original
-        # (un-smoothed) read from that was used to create it; it's useful to
-        # preserve this information, so we know where smoothed reads came from.
-        sr_buffer = {}
-
-        # Just for logging
-        num_ignored_alns = 0
-        num_sr_generated = 0
-        num_alns_total = 0
-
-        # Smoothed read names also include a number, after the original read
-        # name. This is because one original read can result in multiple linear
-        # alignments to a contig (e.g. a read with supplementary alignments
-        # that spans the left and right sides of a circular contig), and each
-        # of these linear alignments is considered separately (and could end
-        # up being used to create a smoothed read). So, the number
-        # distinguishes these linear alignments.
-        readname2freq_so_far = defaultdict(int)
-
-        # Go through all linear alignments of each read to this contig...
-        for ai, aln in enumerate(bam_obj.fetch(contig), 1):
-
-            readname = aln.query_name
-
-            if aln.is_secondary:
-                raise ParameterError(
-                    f"Found a secondary alignment to contig {contig} (from a "
-                    f"read named {readname}). "
-                    "The BAM file should not contain secondary alignments."
-                )
-
-            num_alns_total += 1
-
-            # OK, we know this contig actually has (non-secondary) alignments,
-            # so load its sequence if we haven't already.
-            #
-            # NOTE: get_single_seq() is kind of inefficient -- in the
-            # worst case, it has to iterate over the entire FASTA file to find
-            # a contig's sequence. If this ends up being a bottleneck, we can
-            # speed this process up by modifying get_name2len() to figure out
-            # which lines a sequence's entry takes up in the FASTA file -- and,
-            # from there, use this information to speed up get_single_seq().
-            # (But let's not optimize this prematurely...)
-            if contig_seq is None:
-                contig_seq = fasta_utils.get_single_seq(contigs, contig)
-
-            # Although we disallow secondary alignments, supplementary
-            # alignments are ok! We implicitly handle these here.
-            #
-            # As mentioned above, different alignments of the same read will
-            # have different new_readnames, because we're gonna be treating
-            # them as distinct "reads" (yes I'm aware that this is a limitation
-            # of this method; the paper mentions this). We should have
-            # already filtered reference-overlapping supplementary alignments,
-            # so these "reads" shouldn't intersect on the contig at least.
-            readname2freq_so_far[readname] += 1
-            new_readname = f"{readname}_{readname2freq_so_far[readname]}"
-
-            # Should never happen.
-            if new_readname in sr_buffer:
-                raise WeirdError(
-                    f"{new_readname} is already in the smoothed read buffer?"
-                )
-
-            # Figure out where on the contig this alignment "hits." These are
-            # 0-indexed positions. (reference_end points to the position after
-            # the actual final position, since these are designed to be
-            # interoperable with Python's half-open intervals.)
-            #
-            # Of course, there likely will be indels within this range: we're
-            # purposefully ignoring those here.
-            ref_start = aln.reference_start
-            ref_end = aln.reference_end - 1
-
-            # This should never happen (TM)
-            if ref_start > ref_end:
-                raise WeirdError(
-                    f"Ref start {ref_start:,} >= ref end {ref_end:,} for "
-                    f"linear alignment {new_readname}?"
-                )
-
-            repls = get_smooth_aln_replacements(aln, mutated_positions, mp2ra)
-
-            if repls is None:
-                num_ignored_alns += 1
-            else:
-                # Smoothed read sequence from the start to end of the linear
-                # alignment, completely skipping over indels and mutations.
-                # Edit this seq so that if the alignment has (mis)matches to
-                # any called mutated positions within this sequence, these
-                # positions will be updated to match.
-                # NOTE that this isn't a string -- it's a skbio.DNA object.
-                sr_seq = contig_seq[ref_start : ref_end + 1]
-                # Unfortunately, skbio.DNA.replace() doesn't seem to be able to
-                # replace multiple positions in multiple ways at the same time,
-                # so we've gotta loop through repls ourselves.
-                for aln_pos in repls:
-                    sr_seq = sr_seq.replace([aln_pos], repls[aln_pos])
-
-                # Prepare this smoothed read to be written out to a FASTA file.
-                # See comments above on sr_buffer. (Also, we've already
-                # guaranteed new_readname isn't already in sr_buffer, so no
-                # need to worry about accidentally overwriting something from
-                # earlier.)
-                sr_buffer[new_readname] = str(sr_seq)
-                num_sr_generated += 1
-
-                if ai % sr_chunk_size == 0:
-                    append_reads(out_reads_fp, sr_buffer)
-                    # Clear the buffer
-                    sr_buffer = {}
-
-                # If we care about coverage info due to creating virtual reads,
-                # record which positions this smoothed read covers (of course,
-                # the original read may not exactly "cover" these positions due
-                # to indels, but the smoothed version will cover them).
-                #
-                # We purposefully delay performing this update until right now
-                # -- this way, if we choose to "ignore" this linear alignment
-                # at any point in the process above, we won't increase anything
-                # in pos2srcov for this linear alignment.
-                if virtual_reads:
-                    for pos_in_sr in range(ref_start, ref_end + 1):
-                        pos2srcov[pos_in_sr] += 1
-
-        # We're probably going to have left over smoothed reads that we still
-        # haven't written out, unless things worked out so that on the final
-        # alignment we saw ai was exactly divisible by sr_chunk_size (that's
-        # pretty unlikely unless you set sr_chunk_size to a low number).
-        # So let's make one last dump of the buffer.
-        if len(sr_buffer) > 0:
-            append_reads(out_reads_fp, sr_buffer)
-
-        if num_alns_total != num_sr_generated + num_ignored_alns:
-            raise WeirdError(
-                f"Contig {contig}: # total alns = {num_alns_total:,}, but "
-                f"# sr = {num_sr_generated:,} and # ignored = "
-                f"{num_ignored_alns:,}."
-            )
-        if num_sr_generated > 0:
-            verboselog(
-                (
-                    f"From the {num_alns_total:,} linear alignment(s) to "
-                    f"contig {contig}: created {num_sr_generated:,} "
-                    f"smoothed read(s) and ignored {num_ignored_alns:,} "
-                    "linear alignment(s)."
-                ),
-                prefix="",
-            )
-        else:
-            # This we don't lock behind verbose, because this is weird and the
-            # user should know about it
-            fancylog(
-                (
-                    f"Ignored all linear alignments for contig {contig}: "
-                    "couldn't generate any smoothed reads. Ignoring this "
-                    "contig."
-                ),
-                prefix="",
-            )
-            continue
-
-        if virtual_reads:
+        # If pos2srcov is None, it means that write_smoothed_reads() failed to
+        # create any smoothed reads (maybe a contig had zero linear alignments,
+        # or maybe all of the alignments the contig had were "ignored"). We
+        # only create virtual reads if we also created smoothed reads, so we
+        # check both (virtual_reads) and (pos2srcov is not None) here.
+        if virtual_reads and pos2srcov is not None:
             write_virtual_reads(
                 contig,
                 contig_seq,
