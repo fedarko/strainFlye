@@ -714,3 +714,22 @@ def test_write_smoothed_reads_c1_one_mutation_no_pos2srcov(capsys):
             "12 smoothed read(s) and ignored 0 linear alignment(s).\n"
         )
         verify_c1_1mut_smoothedreads(fh.name)
+
+
+def test_write_smoothed_reads_bad_length():
+    with tempfile.NamedTemporaryFile() as fh:
+        with pytest.raises(WeirdError) as ei:
+            pos2srcov, contig_seq = su.write_smoothed_reads(
+                "c1",
+                FASTA,
+                24,
+                {10: ("G", "A")},
+                pysam.AlignmentFile(BAM),
+                False,
+                fh.name,
+                mock_log,
+                mock_log,
+            )
+        assert str(ei.value) == (
+            "len(contig_seq) == 23 bp, but contig_len == 24 bp."
+        )
