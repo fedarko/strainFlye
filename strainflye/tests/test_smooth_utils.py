@@ -860,3 +860,68 @@ def test_write_smoothed_reads_c3_two_mutations_deletion_smoothed(capsys):
                         assert line == "TTTTTTTCTTTTTTTT\n"
             # Should've seen exactly 26 lines.
             assert linenum == 25
+
+
+def test_write_smoothed_reads_c3_deletion_at_mutation(capsys):
+    with tempfile.NamedTemporaryFile() as fh:
+        pos2srcov, contig_seq = su.write_smoothed_reads(
+            "c3",
+            FASTA,
+            16,
+            {6: ("T", "A"), 7: ("T", "C"), 15: ("T", "G")},
+            pysam.AlignmentFile(BAM),
+            True,
+            fh.name,
+            mock_log_2,
+            mock_log,
+        )
+        # Most of the reads to c3 end in a deletion. Now that this final
+        # position is marked as a mutation, these reads should all be ignored.
+        # (Of course, we'd then need to fill stuff in with virtual reads
+        # later on...)
+        assert pos2srcov == [2] * 16
+        assert str(contig_seq) == "TTTTTTTTTTTTTTTT"
+        assert capsys.readouterr().out == (
+            "MockLog: Contig c3 has 3 mutated position(s).\n"
+            "MockLog: From the 13 linear alignment(s) to contig c3: created "
+            "2 smoothed read(s) and ignored 11 linear alignment(s).\n"
+        )
+        with gzip.open(fh.name, "rt") as written_fh:
+            curr_read_num = None
+            assert written_fh.readlines() == [
+                ">r24_1\n",
+                "TTTTTTATTTTTTTTT\n",
+                ">r36_1\n",
+                "TTTTTTATTTTTTTTG\n",
+            ]
+
+
+def test_write_smoothed_reads_c3_deletion_at_mutation_only_1_sr(capsys):
+    with tempfile.NamedTemporaryFile() as fh:
+        pos2srcov, contig_seq = su.write_smoothed_reads(
+            "c3",
+            FASTA,
+            16,
+            # by changing the G to a C, only one of the linear alignments now
+            # is not ignored -- so this results in only one smoothed read being
+            # created
+            {6: ("T", "A"), 7: ("T", "C"), 15: ("T", "C")},
+            pysam.AlignmentFile(BAM),
+            True,
+            fh.name,
+            mock_log_2,
+            mock_log,
+        )
+        assert pos2srcov == [1] * 16
+        assert str(contig_seq) == "TTTTTTTTTTTTTTTT"
+        assert capsys.readouterr().out == (
+            "MockLog: Contig c3 has 3 mutated position(s).\n"
+            "MockLog: From the 13 linear alignment(s) to contig c3: created "
+            "1 smoothed read(s) and ignored 12 linear alignment(s).\n"
+        )
+        with gzip.open(fh.name, "rt") as written_fh:
+            curr_read_num = None
+            assert written_fh.readlines() == [
+                ">r24_1\n",
+                "TTTTTTATTTTTTTTT\n",
+            ]
