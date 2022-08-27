@@ -445,6 +445,7 @@ def run(
     # part) of this -- go through each position in each contig and call
     # mutations, as well as observe coverages / etc.
     fancylog(f"Running {call_str} and computing diversity indices...")
+    any_muts_called_across_any_contigs = False
     for si, seq in enumerate(contig_name2len, 1):
         contig_len = contig_name2len[seq]
         if verbose:
@@ -504,6 +505,7 @@ def run(
                 is_mut = call_r_mutation(alt_freq, min_r)
 
             if is_mut:
+                any_muts_called_across_any_contigs = True
                 info = get_pos_info_str(alt_freq, cov)
                 # 1. CHROM = seq (aka contig name)
                 #
@@ -618,6 +620,12 @@ def run(
                 ),
                 prefix="",
             )
+    if not any_muts_called_across_any_contigs:
+        raise ParameterError(
+            "Could not call any mutations across any of the "
+            f"{num_fasta_contigs:,} contigs. Try adjusting the minimum "
+            "threshold value, or other parameters?"
+        )
     fancylog(
         f"Done running {call_str} and computing diversity indices.", prefix=""
     )

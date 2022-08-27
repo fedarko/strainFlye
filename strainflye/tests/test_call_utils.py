@@ -18,8 +18,9 @@ from strainflye.bcf_utils import parse_sf_bcf
 from .utils_for_testing import mock_log
 
 
-FASTA = os.path.join("strainflye", "tests", "inputs", "small", "contigs.fasta")
-BAM = os.path.join("strainflye", "tests", "inputs", "small", "alignment.bam")
+IN_DIR = os.path.join("strainflye", "tests", "inputs", "small")
+FASTA = os.path.join(IN_DIR, "contigs.fasta")
+BAM = os.path.join(IN_DIR, "alignment.bam")
 
 
 def test_get_alt_pos_info():
@@ -274,6 +275,25 @@ def test_run_p_r_conflict():
     with pytest.raises(ParameterError) as errorinfo:
         run("c", "b", "od", mock_log, True)
     assert "Either p or r needs to be specified." == str(errorinfo.value)
+
+
+def test_run_no_muts_called():
+    with tempfile.TemporaryDirectory() as td:
+        with pytest.raises(ParameterError) as ei:
+            run(
+                FASTA,
+                BAM,
+                td,
+                mock_log,
+                True,
+                min_r=200,
+                div_index_r_list=[1, 2, 3, 4, 5, 6, 7],
+                min_cov_factor=2,
+            )
+        assert str(ei.value) == (
+            "Could not call any mutations across any of the 3 contigs. Try "
+            "adjusting the minimum threshold value, or other parameters?"
+        )
 
 
 def test_run_small_dataset_r(capsys):
