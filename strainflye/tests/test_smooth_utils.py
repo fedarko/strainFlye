@@ -534,3 +534,22 @@ def test_write_virtual_reads_multi_run_clamp_and_overlap(capsys):
                         curr_readnum += 1
                     linenum += 1
             assert linenum == 346
+
+
+def test_write_smoothed_reads_zero_mutations():
+    with tempfile.NamedTemporaryFile() as fh:
+        with pytest.raises(WeirdError) as ei:
+            su.write_smoothed_reads(
+                "c1",
+                FASTA,
+                23,
+                {},
+                pysam.AlignmentFile(BAM),
+                True,
+                fh.name,
+                mock_log,
+                mock_log,
+            )
+        assert str(ei.value) == (
+            "Contig c1 has zero mutations. Can't create smoothed reads."
+        )

@@ -250,7 +250,9 @@ def write_smoothed_reads(
         Maps (zero-indexed) mutated positions in the contig to a tuple of
         (ref nt, alt nt), as listed in the BCF file. Can be generated using
         bcf_utils.get_mutated_position_details_in_contig(). Both the ref and
-        alt nt should be given in uppercase.
+        alt nt should be given in uppercase. This should have at least one
+        entry -- write_smoothed_reads() should not be called for contigs with
+        zero mutations (because otherwise, why generate smoothed reads?).
 
     bam_obj: pysam.AlignmentFile
         Describes an alignment of reads to contigs. "contig" should be included
@@ -311,6 +313,11 @@ def write_smoothed_reads(
         If strange, unexpected things go wrong (e.g. a linear alignment in the
         BAM object is malformed). These errors should hopefully never happen.
     """
+    # Should never happen in practice, given the way I've written this code
+    if len(mp2ra) == 0:
+        raise WeirdError(
+            f"Contig {contig} has zero mutations. Can't create smoothed reads."
+        )
 
     pos2srcov = None
     if gen_pos2srcov:
