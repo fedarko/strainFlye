@@ -1149,6 +1149,18 @@ def test_run_create_no_di_passed_vr_verbose(capsys):
     assert capsys.readouterr().out == exp_out
 
 
+def test_run_create_out_reads_fp_already_exists():
+    with tempfile.TemporaryDirectory() as td:
+        annoying_fp = os.path.join(td, "c1.fasta.gz")
+        with gzip.open(annoying_fp, "wt") as annoying_fh:
+            annoying_fh.write("Muahaha i am so evil")
+        with pytest.raises(FileExistsError) as ei:
+            su.run_create(
+                FASTA, BAM, BCF, None, False, 50, 1, td, False, mock_log
+            )
+        assert str(ei.value) == f"File {annoying_fp} already exists."
+
+
 def test_run_assemble_reads_dir_is_file():
     # Test the case where --reads-dir points to a file (fh), not a directory
     with get_fake_lja_bin() as fake_lja_bin_loc:
