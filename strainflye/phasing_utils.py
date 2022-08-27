@@ -47,7 +47,8 @@ def load_triplet(contigs, bam, bcf, fancylog):
     contig_name2len = fasta_utils.get_name2len(contigs)
     fasta_contigs = set(contig_name2len)
     fancylog(
-        f"The FASTA file describes {len(fasta_contigs):,} contig(s).", prefix=""
+        f"The FASTA file describes {len(fasta_contigs):,} contig(s).",
+        prefix="",
     )
 
     bam_obj = pysam.AlignmentFile(bam, "rb")
