@@ -400,6 +400,11 @@ def test_write_virtual_reads_length_disagreement():
         )
 
 
+def verify_gz_file_empty(fp):
+    with gzip.open(fp, "rt") as fh:
+        assert fh.readlines() == []
+
+
 def test_write_virtual_reads_no_low_coverage_positions(capsys):
     with tempfile.NamedTemporaryFile() as fh:
         su.write_virtual_reads(
@@ -421,8 +426,7 @@ def test_write_virtual_reads_no_low_coverage_positions(capsys):
         # Make sure that no reads were written out -- the file should be empty,
         # or at least unmodified (by strainFlye) from before
         # write_virtual_reads() was called
-        with gzip.open(fh.name, "rt") as written_fh:
-            assert written_fh.readlines() == []
+        verify_gz_file_empty(fh.name)
 
 
 def test_write_virtual_reads_one_low_coverage_position(capsys):
@@ -733,3 +737,30 @@ def test_write_smoothed_reads_bad_length():
         assert str(ei.value) == (
             "len(contig_seq) == 23 bp, but contig_len == 24 bp."
         )
+
+
+def test_write_smoothed_reads_c1_one_mutation_all_alns_ignored(capsys):
+    with tempfile.NamedTemporaryFile() as fh:
+        pos2srcov, contig_seq = su.write_smoothed_reads(
+            "c1",
+            FASTA,
+            23,
+            # All of c1's alignments to 10 have an A or a G. If we act like
+            # this mutation doesn't include either of these nts, then we'll
+            # ignore all of these alignments.
+            {10: ("C", "T")},
+            pysam.AlignmentFile(BAM),
+            False,
+            fh.name,
+            mock_log,
+            mock_log,
+        )
+        assert pos2srcov is None
+        assert contig_seq is None
+        assert capsys.readouterr().out == (
+            "MockLog: Contig c1 has 1 mutated position(s).\n"
+            "MockLog: Ignored all 12 linear alignments to contig c1: couldn't "
+            "generate any smoothed reads. Ignoring this contig.\n"
+        )
+        # Nothing shoulda gotten written out
+        verify_gz_file_empty(fh.name)

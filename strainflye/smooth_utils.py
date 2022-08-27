@@ -517,9 +517,9 @@ def write_smoothed_reads(
         # user should know about it
         fancylog(
             (
-                f"Ignored all linear alignments for contig {contig}: "
-                "couldn't generate any smoothed reads. Ignoring this "
-                "contig."
+                f"Ignored all {num_alns_total:,} linear alignments to contig "
+                f"{contig}: couldn't generate any smoothed reads. Ignoring "
+                "this contig."
             ),
             prefix="",
         )
