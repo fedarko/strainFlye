@@ -1038,13 +1038,7 @@ def run_create(
     This should be very parallelizable, since each contig can be processed
     independently.
     """
-    # silly utility function to limit the amount of times we gotta check if
-    # verbose is True -- yanked from align_utils (maybe worth abstracting this
-    # into cli_utils?)
-    def verboselog(*args, **kwargs):
-        if verbose:
-            fancylog(*args, **kwargs)
-
+    verboselog = cli_utils.get_verboselog(fancylog, verbose)
     contig_name2len, bam_obj, bcf_obj = phasing_utils.load_triplet(
         contigs, bam, bcf, fancylog
     )
@@ -1174,10 +1168,7 @@ def run_assemble(
     -------
     None
     """
-
-    def verboselog(*args, **kwargs):
-        if verbose:
-            fancylog(*args, **kwargs)
+    verboselog = cli_utils.get_verboselog(fancylog, verbose)
 
     lja_bin_loc = find_lja_bin(lja_bin, fancylog)
 

@@ -159,9 +159,7 @@ def filter_osa_reads(in_bam, out_bam, fancylog, verbose):
         "Filtering reads with overlapping supplementary alignments (OSAs)..."
     )
 
-    def verboselog(*args, **kwargs):
-        if verbose:
-            fancylog(*args, **kwargs)
+    verboselog = cli_utils.get_verboselog(fancylog, verbose)
 
     bf = pysam.AlignmentFile(in_bam, "rb")
 
@@ -379,9 +377,7 @@ def filter_pm_reads(
     """
     fancylog("Filtering partially-mapped reads...")
 
-    def verboselog(*args, **kwargs):
-        if verbose:
-            fancylog(*args, **kwargs)
+    verboselog = cli_utils.get_verboselog(fancylog, verbose)
 
     # Sanity check
     if min_percent_aligned < 0 or min_percent_aligned > 100:

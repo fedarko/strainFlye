@@ -129,3 +129,11 @@ def proglog(
         ),
         prefix="",
     )
+
+
+def get_verboselog(fancylog, verbose):
+    """Returns a new function which calls fancylog only if verbose is True."""
+    def verboselog(*args, **kwargs):
+        if verbose:
+            fancylog(*args, **kwargs)
+    return verboselog
