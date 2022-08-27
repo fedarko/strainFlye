@@ -1,4 +1,4 @@
-from strainflye.cli_utils import fancystart, b2y, proglog
+from strainflye.cli_utils import fancystart, b2y, proglog, get_verboselog
 from .utils_for_testing import mock_log
 
 
@@ -89,4 +89,17 @@ def test_proglog(capsys):
     assert captured.out == (
         "MockLog: LOLcontig c1 (1,234,567,890 bp) (5 / 10,000 contigs = "
         "0.05%).\n"
+    )
+
+
+def test_get_verboselog(capsys):
+    vl = get_verboselog(mock_log, False)
+    vl("HI")
+    vl("I SHOULDN'T BE DISPLAYED", prefix="butts lol")
+    assert capsys.readouterr().out == ""
+    vl = get_verboselog(mock_log, True)
+    vl("OK SO LIKE")
+    vl("NOW I SHOULD SHOW UP", prefix="")
+    assert capsys.readouterr().out == (
+        "PREFIX\nMockLog: OK SO LIKE\n" "MockLog: NOW I SHOULD SHOW UP\n"
     )
