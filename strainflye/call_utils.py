@@ -523,8 +523,10 @@ def run(
             # Sanity checks
             if rec["N"] > 0:
                 raise SequencingDataError(
-                    "Alignments including degenerate nucleotides (e.g. N) are "
-                    "not supported."
+                    "Found a degenerate nucleotide aligned to contig "
+                    f"{seq} at (1-indexed) position {pos:,}. Alignments "
+                    "including degenerate nucleotides (e.g. N) are not "
+                    "supported."
                 )
 
             rpos = rec["pos"] + 1

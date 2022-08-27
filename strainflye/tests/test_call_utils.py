@@ -3,7 +3,7 @@ import tempfile
 import pytest
 import numpy as np
 import pandas as pd
-from strainflye.errors import ParameterError
+from strainflye.errors import ParameterError, SequencingDataError
 from strainflye.call_utils import (
     get_alt_pos_info,
     get_pos_info_str,
@@ -829,3 +829,23 @@ def test_run_contig_with_no_alns_nonverbose_r(capsys):
     )
     captured = capsys.readouterr()
     assert captured.out == exp_out
+
+
+def test_run_degen_nts():
+    with tempfile.TemporaryDirectory() as td:
+        with pytest.raises(SequencingDataError) as ei:
+            run(
+                FASTA,
+                os.path.join(IN_DIR, "degen.bam"),
+                td,
+                mock_log,
+                True,
+                min_r=2,
+                div_index_r_list=[1, 2, 3, 4, 5, 6, 7],
+                min_cov_factor=2,
+            )
+        assert str(ei.value) == (
+            "Found a degenerate nucleotide aligned to contig c1 at "
+            "(1-indexed) position 9. Alignments including degenerate "
+            "nucleotides (e.g. N) are not supported."
+        )
