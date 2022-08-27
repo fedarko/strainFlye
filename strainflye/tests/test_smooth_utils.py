@@ -691,3 +691,26 @@ def test_write_smoothed_reads_c1_one_mutation_tiny_buffer(capsys):
             "12 smoothed read(s) and ignored 0 linear alignment(s).\n"
         )
         verify_c1_1mut_smoothedreads(fh.name)
+
+
+def test_write_smoothed_reads_c1_one_mutation_no_pos2srcov(capsys):
+    with tempfile.NamedTemporaryFile() as fh:
+        pos2srcov, contig_seq = su.write_smoothed_reads(
+            "c1",
+            FASTA,
+            23,
+            {10: ("G", "A")},
+            pysam.AlignmentFile(BAM),
+            False,
+            fh.name,
+            mock_log,
+            mock_log,
+        )
+        assert pos2srcov is None
+        assert str(contig_seq) == "ACTGACACCCAAACCAAACCTAC"
+        assert capsys.readouterr().out == (
+            "MockLog: Contig c1 has 1 mutated position(s).\n"
+            "MockLog: From the 12 linear alignment(s) to contig c1: created "
+            "12 smoothed read(s) and ignored 0 linear alignment(s).\n"
+        )
+        verify_c1_1mut_smoothedreads(fh.name)
