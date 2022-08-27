@@ -3,7 +3,7 @@ import pytest
 import networkx as nx
 import strainflye.graph_utils as gu
 from io import StringIO
-from strainflye.errors import GraphParsingError
+from strainflye.errors import GraphParsingError, WeirdError
 
 
 def check_sample1_graph(g):
@@ -115,6 +115,19 @@ def test_gfa_to_fasta_smallchunksize():
         "strainflye/tests/inputs/sample1.gfa", sio, chunk_size=2
     )
     check_sample1_fasta(sio.getvalue(), num_seqs)
+
+
+def test_gfa_to_fasta_badchunksize():
+    """Verifies that using a chunk size < 1 causes an error."""
+    for cs in (-100, -2, -1, 0):
+        sio = StringIO()
+        with pytest.raises(WeirdError) as ei:
+            gu.gfa_to_fasta(
+                "strainflye/tests/inputs/sample1.gfa", sio, chunk_size=cs
+            )
+        assert str(ei.value) == (
+            f"chunk_size should be a positive integer, but it's {cs}?"
+        )
 
 
 def test_gfa_to_fasta_noseq():

@@ -1,5 +1,5 @@
 import networkx as nx
-from .errors import GraphParsingError
+from .errors import GraphParsingError, WeirdError
 
 
 def load_gfa(gfa_fp, min_num_nodes=1):
@@ -131,9 +131,9 @@ def gfa_to_fasta(gfa_fp, fasta_file, chunk_size=500):
         sort of abstraction.
 
     chunk_size: int
-        After seeing this many segments, we'll write out their sequences to
-        fasta_file. This way, we avoid storing every sequence in the GFA file
-        in memory at once.
+        This should be a positive integer. After seeing this many segments,
+        we'll write out their sequences to fasta_file. This way, we avoid
+        storing every sequence in the GFA file in memory at once.
 
         Note that there's a tradeoff here, since writing things out to the
         FASTA file too frequently will slow things down. The default should be
@@ -150,7 +150,14 @@ def gfa_to_fasta(gfa_fp, fasta_file, chunk_size=500):
     GraphParsingError
         If any segment has no sequence given (i.e. the provided sequence is *),
         or if there are no segments contained in the GFA file.
+
+    WeirdError
+        If chunk_size is less than 1.
     """
+    if chunk_size < 1:
+        raise WeirdError(
+            f"chunk_size should be a positive integer, but it's {chunk_size}?"
+        )
     num_seqs = 0
     fout = ""
     with open(gfa_fp, "r") as gfa_file:
