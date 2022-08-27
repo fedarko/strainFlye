@@ -761,8 +761,8 @@ def test_write_smoothed_reads_c1_one_mutation_all_alns_ignored(capsys):
         # warning, because this is super weird and should hopefully be uncommon
         assert capsys.readouterr().out == (
             "MockLog: Contig c1 has 1 mutated position(s).\n"
-            "MockLog2: Ignored all 12 linear alignments to contig c1: couldn't "
-            "generate any smoothed reads. Ignoring this contig.\n"
+            "MockLog2: Ignored all 12 linear alignments to contig c1: "
+            "couldn't generate any smoothed reads. Ignoring this contig.\n"
         )
         # Nothing shoulda gotten written out
         verify_gz_file_empty(fh.name)
