@@ -633,7 +633,6 @@ def test_run_small_dataset_p_noverbose_diff_params(capsys):
     assert captured.out == exp_out
 
 
-
 def test_run_contig_with_no_alns_verbose_p(capsys):
     with tempfile.TemporaryDirectory() as td:
         run(
@@ -686,9 +685,24 @@ def test_run_contig_with_no_alns_verbose_p(capsys):
             {
                 "AverageCoverage": [c1_avg_cov, c2_avg_cov, c3_avg_cov, 0],
                 "Length": [23, 12, 16, 100],
-                "DivIdx(p=1,minSuffCov=10000.0)": [np.nan, np.nan, np.nan, np.nan],
-                "DivIdx(p=500,minSuffCov=20.0)": [np.nan, np.nan, np.nan, np.nan],
-                "DivIdx(p=1000,minSuffCov=10.0)": [(3 / 23), 0.0, (2 / 15), np.nan],
+                "DivIdx(p=1,minSuffCov=10000.0)": [
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                ],
+                "DivIdx(p=500,minSuffCov=20.0)": [
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                ],
+                "DivIdx(p=1000,minSuffCov=10.0)": [
+                    (3 / 23),
+                    0.0,
+                    (2 / 15),
+                    np.nan,
+                ],
                 "DivIdx(p=5000,minSuffCov=2.0)": [0.0, 0.0, 0.0, np.nan],
             },
             index=pd.Index(["c1", "c2", "c3", "c4"], name="Contig"),
@@ -784,7 +798,7 @@ def test_run_contig_with_no_alns_nonverbose_r(capsys):
             {
                 "AverageCoverage": [c1_avg_cov, c2_avg_cov, c3_avg_cov, 0],
                 "Length": [23, 12, 16, 100],
-                "DivIdx(r=1,minSuffCov=2)": [3/23, 0, 3/16,np.nan],
+                "DivIdx(r=1,minSuffCov=2)": [3 / 23, 0, 3 / 16, np.nan],
             },
             index=pd.Index(["c1", "c2", "c3", "c4"], name="Contig"),
         )

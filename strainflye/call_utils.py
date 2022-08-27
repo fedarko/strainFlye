@@ -348,7 +348,6 @@ def run(
     # Set up the header for the diversity index TSV file
     di_header = "Contig\tAverageCoverage\tLength"
 
-
     # ... And the header for the mutation calls' VCF file, at the same time.
     # The filter_header is important, since we will parse its ID later on to
     # determine what the minimum p or r value was. I'm not sure if there's
