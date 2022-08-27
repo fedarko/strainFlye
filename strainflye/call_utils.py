@@ -524,14 +524,14 @@ def run(
             if rec["N"] > 0:
                 raise SequencingDataError(
                     "Alignments including degenerate nucleotides (e.g. N) are "
-                    "not supported"
+                    "not supported."
                 )
 
             rpos = rec["pos"] + 1
             if rpos != pos:
                 raise WeirdError(
                     f"Found discontinuity in traversal: {pos:,}-th pos, but "
-                    f"rec['pos'] + 1 is {rpos:,}"
+                    f"rec['pos'] + 1 is {rpos:,}."
                 )
 
             cov, alt_freq, alt_nt, ref_freq, ref_nt = get_alt_pos_info(rec)
