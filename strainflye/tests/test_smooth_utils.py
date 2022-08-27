@@ -427,6 +427,12 @@ def test_write_virtual_reads_no_low_coverage_positions(capsys):
 
 def test_write_virtual_reads_one_low_coverage_position(capsys):
     with tempfile.NamedTemporaryFile() as fh:
+        # Add some fake data to the file before calling write_virtual_reads()
+        # -- this lets us incidentally test that this data is not overwritten,
+        # and that the virtual reads occur after this
+        with gzip.open(fh.name, "wt") as pre_vr_fh:
+            pre_vr_fh.write(">example_fake_smoothed_read\nCATCATCAT\n")
+
         su.write_virtual_reads(
             "c1",
             skbio.DNA("ACGT"),
@@ -437,6 +443,7 @@ def test_write_virtual_reads_one_low_coverage_position(capsys):
             fh.name,
             mock_log,
         )
+
         # notably, the average coverage does NOT have to be equal to the
         # average of pos2srcov (and this will probably usually not happen in
         # practice). this is because, as i have tried to make clear in the logs
@@ -450,9 +457,21 @@ def test_write_virtual_reads_one_low_coverage_position(capsys):
             "MockLog: Created 70 virtual read(s) total for contig c1.\n"
         )
         with gzip.open(fh.name, "rt") as written_fh:
-            linenum = 0
             curr_readnum = 1
-            for line in written_fh:
+            for linenum, line in enumerate(written_fh):
+
+                # The first two lines are a special case, since they represent
+                # the smoothed read that was already there. Shouldn't have been
+                # overwritten!
+                if linenum == 0:
+                    assert line == ">example_fake_smoothed_read\n"
+                    continue
+                elif linenum == 1:
+                    assert line == "CATCATCAT\n"
+                    continue
+
+                # Okay, after the first two lines, we can care about the
+                # virtual reads
                 if linenum % 2 == 0:
                     assert line.startswith(">vr_1_1_")
                     split_line = line.strip().split("_")
@@ -464,10 +483,11 @@ def test_write_virtual_reads_one_low_coverage_position(capsys):
                     # and after the "run" of this one low-coverage position (C)
                     assert line == "ACG\n"
                     curr_readnum += 1
-                linenum += 1
-            # we should've seen exactly 140 lines -- two lines for each of the
-            # 70 virtual reads we should've created
-            assert linenum == 140
+            # we should've seen exactly 142 lines -- two lines for each of the
+            # 70 virtual reads we should've created, plus two for that one
+            # smoothed read. And linenum is 0-indexed, since it's managed by
+            # enumerate() above.
+            assert linenum == 141
 
 
 def test_write_virtual_reads_multi_run_clamp_and_overlap(capsys):
@@ -503,6 +523,9 @@ def test_write_virtual_reads_multi_run_clamp_and_overlap(capsys):
             # leftmost run's reads should be included first, although please
             # note that this is less a strict guarantee of strainFlye and more
             # an artifact of how convert_to_runs() works.
+            #
+            # (note that linenum here is not bundled in with enumerate(), we
+            # manage it ourselves. sorry this test code is kinda gross.)
             linenum = 0
             curr_readnum = 1
             for line in written_fh:
@@ -553,3 +576,22 @@ def test_write_smoothed_reads_zero_mutations():
         assert str(ei.value) == (
             "Contig c1 has zero mutations. Can't create smoothed reads."
         )
+
+
+#def test_write_smoothed_reads_c1_one_mutation():
+#    with tempfile.NamedTemporaryFile() as fh:
+#        # Let's act like c1 only has one mutation, at position 10 (0-indexed).
+#        # Five of the reads aligned to c1 have an A at pos 10, and seven of the
+#        # reads aligned to c1 have a G at pos 10. So we should expect to see
+#        # some very simple smoothed reads reflecting this.
+#        su.write_smoothed_reads(
+#            "c1",
+#            FASTA,
+#            23,
+#            {},
+#            pysam.AlignmentFile(BAM),
+#            True,
+#            fh.name,
+#            mock_log,
+#            mock_log,
+#        )
