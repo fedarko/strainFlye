@@ -313,7 +313,9 @@ def write_smoothed_reads(
         If strange, unexpected things go wrong (e.g. a linear alignment in the
         BAM object is malformed). These errors should hopefully never happen.
     """
-    # Should never happen in practice, given the way I've written this code
+    # Should never happen in practice, given the way I've written the code that
+    # calls this function from run_create() (which should ignore contigs
+    # without mutations)... but we check for this case anyway.
     if len(mp2ra) == 0:
         raise WeirdError(
             f"Contig {contig} has zero mutations. Can't create smoothed reads."

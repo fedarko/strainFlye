@@ -15,6 +15,8 @@ from strainflye.tests.utils_for_testing import mock_log, mock_log_2
 IN_DIR = os.path.join("strainflye", "tests", "inputs", "small")
 FASTA = os.path.join(IN_DIR, "contigs.fasta")
 BAM = os.path.join(IN_DIR, "alignment.bam")
+BCF = os.path.join(IN_DIR, "call-r-min3-di12345", "naive-calls.bcf")
+DI = os.path.join(IN_DIR, "call-r-min3-di12345", "diversity-indices.tsv")
 
 
 def test_convert_to_runs():
@@ -924,3 +926,100 @@ def test_write_smoothed_reads_c3_deletion_at_mutation_only_1_sr(capsys):
                 ">r24_1\n",
                 "TTTTTTATTTTTTTTT\n",
             ]
+
+
+def test_run_create_di_passed_vr_verbose(capsys):
+    with tempfile.TemporaryDirectory() as td:
+        su.run_create(FASTA, BAM, BCF, DI, True, 50, 1, td, True, mock_log)
+
+        assert set(os.listdir(td)) == set(["c1.fasta.gz", "c3.fasta.gz"])
+        with gzip.open(os.path.join(td, "c1.fasta.gz"), "rt") as fh:
+            # sorry this is gross
+            # tldr, order of smoothed reads should match order of alignments in
+            # alignment.sam
+            exp_rns = [
+                "r01_1",
+                "r02_1",
+                "r06_1",
+                "r07_1",
+                "r08_1",
+                "r09_1",
+                "r10_1",
+                "r11_1",
+                "r12_1",
+            ]
+            for linenum, line in enumerate(fh):
+                if linenum % 2 == 0:
+                    assert line == ">" + exp_rns[int(linenum / 2)] + "\n"
+                else:
+                    if linenum == 1:
+                        assert line == "ACTGACACCCAAACCAAACCTAC\n"
+                    elif linenum == 3:
+                        assert line == "ACTTACACCCAAACCAAACCTAC\n"
+                    elif linenum == 5 or linenum == 7:
+                        assert line == "ACTTACACCCGAGCCAAACCTAC\n"
+                    else:
+                        assert line == "ACTGACACCCGAGCCAAACCTAC\n"
+            # should see 9 smoothed reads (so, 18 lines)
+            assert linenum == 17
+
+    # For reference (same test data used for other parts of the code)
+    # c1 has len 23 and mutations at (1-idx) pos 4 (G->T), 11 (G->A), 13 (G->A)
+    # c2 has len 12 and no mutations
+    # c3 has len 16 and mutations at (1-idx) pos 7 (A->T), 8 (T->C)
+    # (don't read too much into the -> arrows above. they just indicate ref ->
+    # alt, as based on naivefreq (so, ref = consensus, alt = second most common
+    # nt)
+
+    exp_out = (
+        (
+            "PREFIX\nMockLog: Loading and checking FASTA, BAM, and BCF "
+            "files...\n"
+            "MockLog: The FASTA file describes 3 contig(s).\n"
+            "MockLog: All FASTA contig(s) are included in the BAM file (this "
+            "BAM file has 3 reference(s)).\n"
+            "MockLog: All FASTA contig(s) are included in the BCF file (the "
+            "header of this BCF file describes 3 contig(s)).\n"
+            "MockLog: The lengths of all contig(s) in the FASTA file match "
+            "the corresponding lengths in the BAM and BCF files.\n"
+            "MockLog: So far, these files seem good.\n"
+        )
+        + (
+            "PREFIX\nMockLog: All contigs must be > (2 \u00d7 "
+            "--virtual-read-flank) = 2 bp long. Checking this...\n"
+            "MockLog: All contigs meet this minimum length.\n"
+        )
+        + (
+            "PREFIX\nMockLog: Going through contigs and creating smoothed and "
+            "virtual reads...\n"
+        )
+        + (
+            # We'll ignore three alns for c1. r03, r04, r05 don't match
+            # the ref or alt of the mut at pos 4 (r03 has C, r04 has A,
+            # r05 has C).
+            "MockLog: On contig c1 (23 bp) (1 / 3 contigs = 33.33%).\n"
+            "MockLog: Contig c1 has 3 mutated position(s).\n"
+            "MockLog: From the 12 linear alignment(s) to contig c1: created 9 "
+            "smoothed read(s) and ignored 3 linear alignment(s).\n"
+            "MockLog: Contig c1 (average coverage 12.00x, based on the BAM "
+            "file) has no low-coverage (\u2264 6.00x) positions (based on "
+            "smoothed read coverages). No need to create virtual reads.\n"
+        )
+        + (
+            "MockLog: On contig c2 (12 bp) (2 / 3 contigs = 66.67%).\n"
+            "MockLog: Contig c2 has no mutations; ignoring it.\n"
+        )
+        + (
+            # None of the alns get ignored for c3 (at least, not using these
+            # mutations).
+            "MockLog: On contig c3 (16 bp) (3 / 3 contigs = 100.00%).\n"
+            "MockLog: Contig c3 has 2 mutated position(s).\n"
+            "MockLog: From the 13 linear alignment(s) to contig c3: created "
+            "13 smoothed read(s) and ignored 0 linear alignment(s).\n"
+            "MockLog: Contig c3 (average coverage 12.31x, based on the BAM "
+            "file) has no low-coverage (\u2264 6.16x) positions (based on "
+            "smoothed read coverages). No need to create virtual reads.\n"
+        )
+        + "MockLog: Done.\n"
+    )
+    assert capsys.readouterr().out == exp_out
