@@ -245,7 +245,7 @@ def test_compute_average_coverages_verbose(capsys):
     )
 
 
-def test_compute_average_coverages_noverbose(capsys):
+def test_compute_average_coverages_no_verbose(capsys):
     bf = pysam.AlignmentFile(BAM)
     assert su.compute_average_coverages(
         FASTA, {"c1": 23}, bf, False, mock_log
@@ -634,6 +634,27 @@ def verify_c1_1mut_smoothedreads(reads_fp):
         # header + sequence). linenum is zero-indexed.
         assert linenum == 23
 
+def verify_c3_2mut_smoothedreads(reads_fp):
+    with gzip.open(reads_fp, "rt") as written_fh:
+        curr_read_num = None
+        for linenum, line in enumerate(written_fh):
+            if linenum % 2 == 0:
+                curr_read_num = int((linenum / 2)) + 24
+                exp_read_name = "r" + str(curr_read_num)
+                assert line == f">{exp_read_name}_1\n"
+            else:
+                # Four possible "haplotypes"
+                if curr_read_num in [24, 25, 26, 28, 29, 36]:
+                    assert line == "TTTTTTATTTTTTTTT\n"
+                elif curr_read_num == 27:
+                    assert line == "TTTTTTACTTTTTTTT\n"
+                elif curr_read_num in [30, 31, 34, 35]:
+                    assert line == "TTTTTTTTTTTTTTTT\n"
+                else:
+                    assert line == "TTTTTTTCTTTTTTTT\n"
+        # Should've seen exactly 26 lines.
+        assert linenum == 25
+
 
 def test_write_smoothed_reads_c1_one_mutation_basic(capsys):
     with tempfile.NamedTemporaryFile() as fh:
@@ -844,25 +865,7 @@ def test_write_smoothed_reads_c3_two_mutations_deletion_smoothed(capsys):
             "MockLog: From the 13 linear alignment(s) to contig c3: created "
             "13 smoothed read(s) and ignored 0 linear alignment(s).\n"
         )
-        with gzip.open(fh.name, "rt") as written_fh:
-            curr_read_num = None
-            for linenum, line in enumerate(written_fh):
-                if linenum % 2 == 0:
-                    curr_read_num = int((linenum / 2)) + 24
-                    exp_read_name = "r" + str(curr_read_num)
-                    assert line == f">{exp_read_name}_1\n"
-                else:
-                    # Four possible "haplotypes"
-                    if curr_read_num in [24, 25, 26, 28, 29, 36]:
-                        assert line == "TTTTTTATTTTTTTTT\n"
-                    elif curr_read_num == 27:
-                        assert line == "TTTTTTACTTTTTTTT\n"
-                    elif curr_read_num in [30, 31, 34, 35]:
-                        assert line == "TTTTTTTTTTTTTTTT\n"
-                    else:
-                        assert line == "TTTTTTTCTTTTTTTT\n"
-            # Should've seen exactly 26 lines.
-            assert linenum == 25
+        verify_c3_2mut_smoothedreads(fh.name)
 
 
 def test_write_smoothed_reads_c3_deletion_at_mutation(capsys):
@@ -962,6 +965,11 @@ def test_run_create_di_passed_vr_verbose(capsys):
                         assert line == "ACTGACACCCGAGCCAAACCTAC\n"
             # should see 9 smoothed reads (so, 18 lines)
             assert linenum == 17
+
+        # we've already tested the process of generating smoothed reads for c3
+        # in this case. so, since no virtual reads were generated for it, we
+        # can just run that same test code again
+        verify_c3_2mut_smoothedreads(os.path.join(td, "c3.fasta.gz"))
 
     # For reference (same test data used for other parts of the code)
     # c1 has len 23 and mutations at (1-idx) pos 4 (G->T), 11 (G->A), 13 (G->A)
