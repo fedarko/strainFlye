@@ -574,7 +574,7 @@ def test_write_smoothed_reads_zero_mutations():
                 pysam.AlignmentFile(BAM),
                 True,
                 fh.name,
-                mock_log,
+                mock_log_2,
                 mock_log,
             )
         assert str(ei.value) == (
@@ -598,7 +598,7 @@ def test_write_smoothed_reads_bad_chunk_size():
                     pysam.AlignmentFile(BAM),
                     True,
                     fh.name,
-                    mock_log,
+                    mock_log_2,
                     mock_log,
                     sr_chunk_size=scs,
                 )
@@ -681,7 +681,7 @@ def test_write_smoothed_reads_c1_one_mutation_tiny_buffer(capsys):
             pysam.AlignmentFile(BAM),
             True,
             fh.name,
-            mock_log,
+            mock_log_2,
             mock_log,
             # Setting sr_chunk_size to 1 will make us do a lot of write
             # operations, but we should get the same results
@@ -707,7 +707,7 @@ def test_write_smoothed_reads_c1_one_mutation_no_pos2srcov(capsys):
             pysam.AlignmentFile(BAM),
             False,
             fh.name,
-            mock_log,
+            mock_log_2,
             mock_log,
         )
         assert pos2srcov is None
@@ -731,7 +731,7 @@ def test_write_smoothed_reads_bad_length():
                 pysam.AlignmentFile(BAM),
                 False,
                 fh.name,
-                mock_log,
+                mock_log_2,
                 mock_log,
             )
         assert str(ei.value) == (
@@ -752,14 +752,16 @@ def test_write_smoothed_reads_c1_one_mutation_all_alns_ignored(capsys):
             pysam.AlignmentFile(BAM),
             False,
             fh.name,
-            mock_log,
+            mock_log_2,
             mock_log,
         )
         assert pos2srcov is None
         assert contig_seq is None
+        # MockLog2 (aka the non-verbose-only logger) should be used for this
+        # warning, because this is super weird and should hopefully be uncommon
         assert capsys.readouterr().out == (
             "MockLog: Contig c1 has 1 mutated position(s).\n"
-            "MockLog: Ignored all 12 linear alignments to contig c1: couldn't "
+            "MockLog2: Ignored all 12 linear alignments to contig c1: couldn't "
             "generate any smoothed reads. Ignoring this contig.\n"
         )
         # Nothing shoulda gotten written out
