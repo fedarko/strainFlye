@@ -610,6 +610,8 @@ def test_write_smoothed_reads_bad_chunk_size():
 
 
 def verify_c1_1mut_smoothedreads(reads_fp):
+    # Context: Only one mutation is called on c1, at position 10 (zero-indexed;
+    # aka, position 11, one-indexed).
     with gzip.open(reads_fp, "rt") as written_fh:
         for linenum, line in enumerate(written_fh):
             if linenum % 2 == 0:
@@ -633,6 +635,44 @@ def verify_c1_1mut_smoothedreads(reads_fp):
         # Should've seen exactly 24 lines (12 smoothed reads including
         # header + sequence). linenum is zero-indexed.
         assert linenum == 23
+
+
+def verify_c1_3mut_smoothedreads(reads_fp):
+    # Context: Three mutations are called on c1, at one-indxed positions 4, 11,
+    # 13 (this matches the test BCF file we use in many cases).
+    # ... Also, we assume that these mutations match the following nts:
+    #               4 (G->T), 11 (G->A), 13 (G->A)
+    # ...So reads r03, r04, and r05 are ignored by the read smoothing code.
+    with gzip.open(reads_fp, "rt") as fh:
+        # sorry this is gross
+        # tldr, order of smoothed reads should match order of alignments in
+        # alignment.sam
+        exp_rns = [
+            "r01_1",
+            "r02_1",
+            "r06_1",
+            "r07_1",
+            "r08_1",
+            "r09_1",
+            "r10_1",
+            "r11_1",
+            "r12_1",
+        ]
+        for linenum, line in enumerate(fh):
+            if linenum % 2 == 0:
+                assert line == ">" + exp_rns[int(linenum / 2)] + "\n"
+            else:
+                if linenum == 1:
+                    assert line == "ACTGACACCCAAACCAAACCTAC\n"
+                elif linenum == 3:
+                    assert line == "ACTTACACCCAAACCAAACCTAC\n"
+                elif linenum == 5 or linenum == 7:
+                    assert line == "ACTTACACCCGAGCCAAACCTAC\n"
+                else:
+                    assert line == "ACTGACACCCGAGCCAAACCTAC\n"
+        # should see 9 smoothed reads (so, 18 lines)
+        assert linenum == 17
+
 
 def verify_c3_2mut_smoothedreads(reads_fp):
     with gzip.open(reads_fp, "rt") as written_fh:
@@ -936,35 +976,7 @@ def test_run_create_di_passed_vr_verbose(capsys):
         su.run_create(FASTA, BAM, BCF, DI, True, 50, 1, td, True, mock_log)
 
         assert set(os.listdir(td)) == set(["c1.fasta.gz", "c3.fasta.gz"])
-        with gzip.open(os.path.join(td, "c1.fasta.gz"), "rt") as fh:
-            # sorry this is gross
-            # tldr, order of smoothed reads should match order of alignments in
-            # alignment.sam
-            exp_rns = [
-                "r01_1",
-                "r02_1",
-                "r06_1",
-                "r07_1",
-                "r08_1",
-                "r09_1",
-                "r10_1",
-                "r11_1",
-                "r12_1",
-            ]
-            for linenum, line in enumerate(fh):
-                if linenum % 2 == 0:
-                    assert line == ">" + exp_rns[int(linenum / 2)] + "\n"
-                else:
-                    if linenum == 1:
-                        assert line == "ACTGACACCCAAACCAAACCTAC\n"
-                    elif linenum == 3:
-                        assert line == "ACTTACACCCAAACCAAACCTAC\n"
-                    elif linenum == 5 or linenum == 7:
-                        assert line == "ACTTACACCCGAGCCAAACCTAC\n"
-                    else:
-                        assert line == "ACTGACACCCGAGCCAAACCTAC\n"
-            # should see 9 smoothed reads (so, 18 lines)
-            assert linenum == 17
+        verify_c1_3mut_smoothedreads(os.path.join(td, "c1.fasta.gz"))
 
         # we've already tested the process of generating smoothed reads for c3
         # in this case. so, since no virtual reads were generated for it, we
@@ -1029,5 +1041,34 @@ def test_run_create_di_passed_vr_verbose(capsys):
             "smoothed read coverages). No need to create virtual reads.\n"
         )
         + "MockLog: Done.\n"
+    )
+    assert capsys.readouterr().out == exp_out
+
+
+def test_run_create_no_di_passed_no_vr_no_verbose(capsys):
+    # testing some other paths through the code...
+    # (the reads generated end up being the same, so we can reuse the code for
+    # checking reads)
+    with tempfile.TemporaryDirectory() as td:
+        su.run_create(FASTA, BAM, BCF, None, False, 50, 1, td, False, mock_log)
+
+        assert set(os.listdir(td)) == set(["c1.fasta.gz", "c3.fasta.gz"])
+        verify_c1_3mut_smoothedreads(os.path.join(td, "c1.fasta.gz"))
+        verify_c3_2mut_smoothedreads(os.path.join(td, "c3.fasta.gz"))
+
+    exp_out = (
+        "PREFIX\nMockLog: Loading and checking FASTA, BAM, and BCF "
+        "files...\n"
+        "MockLog: The FASTA file describes 3 contig(s).\n"
+        "MockLog: All FASTA contig(s) are included in the BAM file (this "
+        "BAM file has 3 reference(s)).\n"
+        "MockLog: All FASTA contig(s) are included in the BCF file (the "
+        "header of this BCF file describes 3 contig(s)).\n"
+        "MockLog: The lengths of all contig(s) in the FASTA file match "
+        "the corresponding lengths in the BAM and BCF files.\n"
+        "MockLog: So far, these files seem good.\n"
+        "PREFIX\nMockLog: Going through contigs and creating smoothed "
+        "reads...\n"
+        "MockLog: Done.\n"
     )
     assert capsys.readouterr().out == exp_out

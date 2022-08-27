@@ -1077,7 +1077,7 @@ def run_create(
         )
 
         if len(mp2ra) == 0:
-            fancylog(
+            verboselog(
                 f"Contig {contig} has no mutations; ignoring it.", prefix=""
             )
             continue
