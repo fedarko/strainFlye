@@ -101,6 +101,7 @@ Commands:
   fdr     [+] Estimate and fix FDRs for contigs' naïve mutation calls.
   spot    [+] Identify putative mutational hotspots or coldspots in contigs.
   smooth  [+] Create and assemble smoothed and virtual reads.
+  link    [+] Create link graphs in order to show mutations' co-occurrences.
   utils   [+] Various utility commands provided with strainFlye.
 ```
 
