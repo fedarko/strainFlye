@@ -73,16 +73,20 @@ def test_b2y():
 def test_proglog(capsys):
     proglog("c1", 5, 10000, mock_log)
     captured = capsys.readouterr()
-    assert captured.out == "MockLog: On contig c1 (5 / 10,000 contigs = 0.05%).\n"
+    assert (
+        captured.out == "MockLog: On contig c1 (5 / 10,000 contigs = 0.05%).\n"
+    )
 
     proglog("c1", 5, 10000, mock_log, contig_len=1234567890)
     captured = capsys.readouterr()
     assert captured.out == (
-        "MockLog: On contig c1 (1,234,567,890 bp) (5 / 10,000 contigs = 0.05%).\n"
+        "MockLog: On contig c1 (1,234,567,890 bp) (5 / 10,000 contigs = "
+        "0.05%).\n"
     )
 
     proglog("c1", 5, 10000, mock_log, contig_len=1234567890, prefix="LOL")
     captured = capsys.readouterr()
     assert captured.out == (
-        "MockLog: LOLcontig c1 (1,234,567,890 bp) (5 / 10,000 contigs = 0.05%).\n"
+        "MockLog: LOLcontig c1 (1,234,567,890 bp) (5 / 10,000 contigs = "
+        "0.05%).\n"
     )
