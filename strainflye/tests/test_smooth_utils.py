@@ -887,7 +887,6 @@ def test_write_smoothed_reads_c3_deletion_at_mutation(capsys):
             "2 smoothed read(s) and ignored 11 linear alignment(s).\n"
         )
         with gzip.open(fh.name, "rt") as written_fh:
-            curr_read_num = None
             assert written_fh.readlines() == [
                 ">r24_1\n",
                 "TTTTTTATTTTTTTTT\n",
@@ -920,7 +919,6 @@ def test_write_smoothed_reads_c3_deletion_at_mutation_only_1_sr(capsys):
             "1 smoothed read(s) and ignored 12 linear alignment(s).\n"
         )
         with gzip.open(fh.name, "rt") as written_fh:
-            curr_read_num = None
             assert written_fh.readlines() == [
                 ">r24_1\n",
                 "TTTTTTATTTTTTTTT\n",
