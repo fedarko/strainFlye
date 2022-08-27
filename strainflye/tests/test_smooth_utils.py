@@ -816,3 +816,47 @@ def test_write_smoothed_reads_no_alns_to_contig(capsys):
         )
         # Nothing shoulda gotten written out
         verify_gz_file_empty(fh.name)
+
+
+def test_write_smoothed_reads_c3_two_mutations_deletion_smoothed(capsys):
+    with tempfile.NamedTemporaryFile() as fh:
+        pos2srcov, contig_seq = su.write_smoothed_reads(
+            "c3",
+            FASTA,
+            16,
+            {6: ("T", "A"), 7: ("T", "C")},
+            pysam.AlignmentFile(BAM),
+            True,
+            fh.name,
+            mock_log_2,
+            mock_log,
+        )
+        # Most of the reads to c3 end in a deletion. This is technically
+        # counted as part of the read, so it should get "smoothed over" to
+        # match the reference.
+        assert pos2srcov == [13] * 16
+        assert str(contig_seq) == "TTTTTTTTTTTTTTTT"
+        assert capsys.readouterr().out == (
+            "MockLog: Contig c3 has 2 mutated position(s).\n"
+            "MockLog: From the 13 linear alignment(s) to contig c3: created "
+            "13 smoothed read(s) and ignored 0 linear alignment(s).\n"
+        )
+        with gzip.open(fh.name, "rt") as written_fh:
+            curr_read_num = None
+            for linenum, line in enumerate(written_fh):
+                if linenum % 2 == 0:
+                    curr_read_num = int((linenum / 2)) + 24
+                    exp_read_name = "r" + str(curr_read_num)
+                    assert line == f">{exp_read_name}_1\n"
+                else:
+                    # Four possible "haplotypes"
+                    if curr_read_num in [24, 25, 26, 28, 29, 36]:
+                        assert line == "TTTTTTATTTTTTTTT\n"
+                    elif curr_read_num == 27:
+                        assert line == "TTTTTTACTTTTTTTT\n"
+                    elif curr_read_num in [30, 31, 34, 35]:
+                        assert line == "TTTTTTTTTTTTTTTT\n"
+                    else:
+                        assert line == "TTTTTTTCTTTTTTTT\n"
+            # Should've seen exactly 26 lines.
+            assert linenum == 25
