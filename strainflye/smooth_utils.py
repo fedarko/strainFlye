@@ -279,10 +279,10 @@ def write_smoothed_reads(
         --verbose.
 
     sr_chunk_size: int
-        After creating this many smoothed reads, we'll write out their
-        sequences. (Like in graph_utils.gfa_to_fasta(), there's a tradeoff here
-        between storing a lot of stuff in memory vs. making a lot of slow write
-        operations.)
+        Should be a positive integer. After creating this many smoothed reads,
+        we'll write out their sequences. (Like in graph_utils.gfa_to_fasta(),
+        there's a tradeoff here between storing a lot of stuff in memory vs.
+        making a lot of slow write operations.)
 
     Returns
     -------
@@ -318,6 +318,11 @@ def write_smoothed_reads(
         raise WeirdError(
             f"Contig {contig} has zero mutations. Can't create smoothed reads."
         )
+    if sr_chunk_size < 1:
+        raise WeirdError(
+            "sr_chunk_size should be a positive integer, but it's "
+            f"{sr_chunk_size}?"
+        )
 
     pos2srcov = None
     if gen_pos2srcov:
@@ -328,7 +333,7 @@ def write_smoothed_reads(
     # (These positions are zero-indexed.)
     mutated_positions = sorted(mp2ra.keys())
     verboselog(
-        f"This contig has {len(mutated_positions):,} mutated position(s).",
+        f"Contig {contig} has {len(mutated_positions):,} mutated position(s).",
         prefix="",
     )
 

@@ -8,6 +8,13 @@ def mock_log(text, prefix="PREFIX\n"):
     print(f"{prefix}MockLog: {text}")
 
 
+def mock_log_2(text, prefix="PREFIX\n"):
+    # "if mock_log() is so good, why isn't there a mock_log_2()?"
+    # (this is useful if e.g. a function accepts both fancylog and verboselog,
+    # so in the tests we can distinguish between which was called)
+    print(f"{prefix}MockLog2: {text}")
+
+
 def write_vcf(text, delete=True):
     """Writes out text to a tempfile that can be used as a test VCF file.
 

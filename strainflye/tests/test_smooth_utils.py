@@ -9,7 +9,7 @@ import strainflye.smooth_utils as su
 from io import StringIO
 from strainflye.config import DI_PREF
 from strainflye.errors import ParameterError, WeirdError
-from strainflye.tests.utils_for_testing import mock_log
+from strainflye.tests.utils_for_testing import mock_log, mock_log_2
 
 
 IN_DIR = os.path.join("strainflye", "tests", "inputs", "small")
@@ -578,20 +578,116 @@ def test_write_smoothed_reads_zero_mutations():
         )
 
 
-#def test_write_smoothed_reads_c1_one_mutation():
-#    with tempfile.NamedTemporaryFile() as fh:
-#        # Let's act like c1 only has one mutation, at position 10 (0-indexed).
-#        # Five of the reads aligned to c1 have an A at pos 10, and seven of the
-#        # reads aligned to c1 have a G at pos 10. So we should expect to see
-#        # some very simple smoothed reads reflecting this.
-#        su.write_smoothed_reads(
-#            "c1",
-#            FASTA,
-#            23,
-#            {},
-#            pysam.AlignmentFile(BAM),
-#            True,
-#            fh.name,
-#            mock_log,
-#            mock_log,
-#        )
+def test_write_smoothed_reads_bad_chunk_size():
+    # We don't test for the case where scs is a float, because we don't
+    # explicitly check for that in write_smoothed_reads(). I guess we could,
+    # but I've made the assumption that things will be of the correct type
+    # usually.
+    for scs in (-100, -2, -1, 0):
+        with tempfile.NamedTemporaryFile() as fh:
+            with pytest.raises(WeirdError) as ei:
+                su.write_smoothed_reads(
+                    "c1",
+                    FASTA,
+                    23,
+                    {10: ("G", "A")},
+                    pysam.AlignmentFile(BAM),
+                    True,
+                    fh.name,
+                    mock_log,
+                    mock_log,
+                    sr_chunk_size=scs,
+                )
+            assert str(ei.value) == (
+                f"sr_chunk_size should be a positive integer, but it's {scs}?"
+            )
+
+
+def verify_c1_1mut_smoothedreads(reads_fp):
+    with gzip.open(reads_fp, "rt") as written_fh:
+        for linenum, line in enumerate(written_fh):
+            if linenum % 2 == 0:
+                exp_read_num = int((linenum / 2)) + 1
+                # since read names go r01, r02, ... r09, r10, r11, ...
+                # something something left pad joke goes here
+                exp_read_name = "r" + str(exp_read_num).zfill(2)
+                # The _1 is because each of these reads is only aligned
+                # once to c1. If we'd have supp alignments, then we'd see
+                # _2, etc.
+                assert line == f">{exp_read_name}_1\n"
+            else:
+                # Each smoothed read should spell out the exact c1
+                # sequence, except for the lone mutation at pos 10. (For
+                # the first 5 alignments, there's an A here; for the
+                # remaining alignments, there's a G.)
+                if linenum <= 9:
+                    assert line == "ACTGACACCCAAACCAAACCTAC\n"
+                else:
+                    assert line == "ACTGACACCCGAACCAAACCTAC\n"
+        # Should've seen exactly 24 lines (12 smoothed reads including
+        # header + sequence). linenum is zero-indexed.
+        assert linenum == 23
+
+
+def test_write_smoothed_reads_c1_one_mutation_basic(capsys):
+    with tempfile.NamedTemporaryFile() as fh:
+        # Let's act like c1 only has one mutation, at position 10 (0-indexed).
+        # Five of the reads aligned to c1 have an A at pos 10, and seven of the
+        # reads aligned to c1 have a G at pos 10. So we should expect to see
+        # some very simple smoothed reads reflecting this.
+        pos2srcov, contig_seq = su.write_smoothed_reads(
+            "c1",
+            FASTA,
+            23,
+            {10: ("G", "A")},
+            pysam.AlignmentFile(BAM),
+            True,
+            fh.name,
+            mock_log_2,
+            mock_log,
+        )
+        # First, let's test return values.
+        #
+        # Each of the 12 reads aligned to c1 can be a smoothed read -- and
+        # since these reads all span all of c1, the coverage in c1 should be
+        # uniformly set to 12x.
+        assert pos2srcov == [12] * 23
+        # And we should be able to load c1's sequence without problems.
+        assert str(contig_seq) == "ACTGACACCCAAACCAAACCTAC"
+
+        # Second, let's test that the log output looks good.
+        assert capsys.readouterr().out == (
+            "MockLog: Contig c1 has 1 mutated position(s).\n"
+            "MockLog: From the 12 linear alignment(s) to contig c1: created "
+            "12 smoothed read(s) and ignored 0 linear alignment(s).\n"
+        )
+
+        # Finally, let's verify that the smoothed reads that were written out
+        # are correct.
+        verify_c1_1mut_smoothedreads(fh.name)
+
+
+def test_write_smoothed_reads_c1_one_mutation_tiny_buffer(capsys):
+    with tempfile.NamedTemporaryFile() as fh:
+        pos2srcov, contig_seq = su.write_smoothed_reads(
+            "c1",
+            FASTA,
+            23,
+            {10: ("G", "A")},
+            pysam.AlignmentFile(BAM),
+            True,
+            fh.name,
+            mock_log,
+            mock_log,
+            # Setting sr_chunk_size to 1 will make us do a lot of write
+            # operations, but we should get the same results
+            sr_chunk_size=1,
+        )
+        assert pos2srcov == [12] * 23
+        assert str(contig_seq) == "ACTGACACCCAAACCAAACCTAC"
+        assert capsys.readouterr().out == (
+            "MockLog: Contig c1 has 1 mutated position(s).\n"
+            "MockLog: From the 12 linear alignment(s) to contig c1: created "
+            "12 smoothed read(s) and ignored 0 linear alignment(s).\n"
+        )
+        verify_c1_1mut_smoothedreads(fh.name)
