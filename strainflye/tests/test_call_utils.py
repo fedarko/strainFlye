@@ -631,3 +631,187 @@ def test_run_small_dataset_p_noverbose_diff_params(capsys):
     )
     captured = capsys.readouterr()
     assert captured.out == exp_out
+
+
+
+def test_run_contig_with_no_alns_verbose_p(capsys):
+    with tempfile.TemporaryDirectory() as td:
+        run(
+            os.path.join(IN_DIR, "contigs-with-c4.fasta"),
+            os.path.join(IN_DIR, "c4-and-secondary.bam"),
+            td,
+            mock_log,
+            True,
+            min_p=3300,
+            min_alt_pos=2,
+            div_index_p_list=[1, 500, 1000, 5000],
+            min_read_number=1,
+        )
+
+        # Check BCF
+        bcf_obj, tt, tm = parse_sf_bcf(os.path.join(td, "naive-calls.bcf"))
+        # Make sure that c4 is included in the BCF header, even though it has
+        # no mutations called
+        assert set(bcf_obj.header.contigs) == set(["c1", "c2", "c3", "c4"])
+        # other stuff in the bcf -- same as before
+        assert tt == "p"
+        assert tm == 3300
+        exp_contigs = ["c1", "c1", "c3"]
+        exp_pos = [11, 13, 7]
+        exp_ref = ["G", "G", "A"]
+        exp_mdp = [12, 12, 13]
+        exp_alt = ["A", "A", "T"]
+        exp_aad = [5, 5, 6]
+        for ri, rec in enumerate(bcf_obj.fetch()):
+            assert rec.contig == exp_contigs[ri]
+            assert rec.pos == exp_pos[ri]
+            assert rec.ref == exp_ref[ri]
+            assert rec.info.get("MDP") == exp_mdp[ri]
+            assert len(rec.alts) == 1
+            assert rec.alts[0] == exp_alt[ri]
+            rec_aad = rec.info.get("AAD")
+            assert len(rec_aad) == 1
+            assert rec_aad[0] == exp_aad[ri]
+
+        # Check diversity index file
+        # c4 should be included here, but with completely undefined diversity
+        # indices.
+        obs_di_df = pd.read_csv(
+            os.path.join(td, "diversity-indices.tsv"), sep="\t", index_col=0
+        )
+        c1_avg_cov = 12.0
+        c2_avg_cov = ((11 * 10) + (10 * 2)) / 12
+        c3_avg_cov = ((13 * 15) + 2) / 16
+        exp_di_df = pd.DataFrame(
+            {
+                "AverageCoverage": [c1_avg_cov, c2_avg_cov, c3_avg_cov, 0],
+                "Length": [23, 12, 16, 100],
+                "DivIdx(p=1,minSuffCov=10000.0)": [np.nan, np.nan, np.nan, np.nan],
+                "DivIdx(p=500,minSuffCov=20.0)": [np.nan, np.nan, np.nan, np.nan],
+                "DivIdx(p=1000,minSuffCov=10.0)": [(3 / 23), 0.0, (2 / 15), np.nan],
+                "DivIdx(p=5000,minSuffCov=2.0)": [0.0, 0.0, 0.0, np.nan],
+            },
+            index=pd.Index(["c1", "c2", "c3", "c4"], name="Contig"),
+        )
+        pd.testing.assert_frame_equal(obs_di_df, exp_di_df)
+
+    exp_out = (
+        "PREFIX\nMockLog: Loading and checking contig information...\n"
+        "MockLog: The FASTA file describes 4 contigs.\n"
+        "MockLog: All of these are included in the BAM file (which has 4 "
+        "references), with the same lengths.\n"
+        "PREFIX\nMockLog: Creating and writing diversity index and VCF file "
+        "headers...\n"
+        "MockLog: Wrote out diversity index and VCF file headers.\n"
+        "MockLog: (We'll convert the VCF file to an indexed BCF afterwards.)\n"
+    )
+    exp_out += (
+        "PREFIX\nMockLog: Running p-mutation calling (--min-p = 33.00%) and "
+        "computing diversity indices...\n"
+        "MockLog: On contig c1 (23 bp) (1 / 4 = 25.00% done).\n"
+        "MockLog: Called 2 p-mutation(s) (using --min-p = 33.00%) in contig "
+        "c1.\n"
+        "MockLog: 2 / 4 diversity indices were defined for contig c1.\n"
+        "MockLog: On contig c2 (12 bp) (2 / 4 = 50.00% done).\n"
+        "MockLog: Called 0 p-mutation(s) (using --min-p = 33.00%) in contig "
+        "c2.\n"
+        "MockLog: 2 / 4 diversity indices were defined for contig c2.\n"
+        "MockLog: On contig c3 (16 bp) (3 / 4 = 75.00% done).\n"
+        "MockLog: Called 1 p-mutation(s) (using --min-p = 33.00%) in contig "
+        "c3.\n"
+        "MockLog: 2 / 4 diversity indices were defined for contig c3.\n"
+        "MockLog: On contig c4 (100 bp) (4 / 4 = 100.00% done).\n"
+        "MockLog: No linear alignments to contig c4 exist in the BAM file. "
+        "Not performing mutation calling within this contig.\n"
+    )
+    exp_out += (
+        "MockLog: Done running p-mutation calling (--min-p = 33.00%) and "
+        "computing diversity indices.\n"
+        "PREFIX\nMockLog: Converting the VCF file to a "
+        "compressed BCF file...\n"
+        "MockLog: Done.\n"
+        "PREFIX\nMockLog: Indexing the BCF file...\n"
+        "MockLog: Done indexing the BCF file.\n"
+    )
+    captured = capsys.readouterr()
+    assert captured.out == exp_out
+
+
+def test_run_contig_with_no_alns_nonverbose_r(capsys):
+    with tempfile.TemporaryDirectory() as td:
+        run(
+            os.path.join(IN_DIR, "contigs-with-c4.fasta"),
+            os.path.join(IN_DIR, "c4-and-secondary.bam"),
+            td,
+            mock_log,
+            False,
+            min_r=2,
+            div_index_r_list=[1],
+            min_cov_factor=2,
+        )
+
+        # Check BCF
+        bcf_obj, tt, tm = parse_sf_bcf(os.path.join(td, "naive-calls.bcf"))
+        assert set(bcf_obj.header.contigs) == set(["c1", "c2", "c3", "c4"])
+        assert tt == "r"
+        assert tm == 2
+
+        exp_contigs = ["c1", "c1", "c1", "c3", "c3"]
+        exp_pos = [4, 11, 13, 7, 8]
+        exp_ref = ["G", "G", "G", "A", "T"]
+        exp_mdp = [12, 12, 12, 13, 13]
+        exp_alt = ["T", "A", "A", "T", "C"]
+        exp_aad = [3, 5, 5, 6, 3]
+        for ri, rec in enumerate(bcf_obj.fetch()):
+            assert rec.contig == exp_contigs[ri]
+            assert rec.pos == exp_pos[ri]
+            assert rec.ref == exp_ref[ri]
+            assert rec.info.get("MDP") == exp_mdp[ri]
+            assert len(rec.alts) == 1
+            assert rec.alts[0] == exp_alt[ri]
+            rec_aad = rec.info.get("AAD")
+            assert len(rec_aad) == 1
+            assert rec_aad[0] == exp_aad[ri]
+
+        # Check diversity index file
+        obs_di_df = pd.read_csv(
+            os.path.join(td, "diversity-indices.tsv"), sep="\t", index_col=0
+        )
+        c1_avg_cov = 12.0
+        c2_avg_cov = ((11 * 10) + (10 * 2)) / 12
+        c3_avg_cov = ((13 * 15) + 2) / 16
+        exp_di_df = pd.DataFrame(
+            {
+                "AverageCoverage": [c1_avg_cov, c2_avg_cov, c3_avg_cov, 0],
+                "Length": [23, 12, 16, 100],
+                "DivIdx(r=1,minSuffCov=2)": [3/23, 0, 3/16,np.nan],
+            },
+            index=pd.Index(["c1", "c2", "c3", "c4"], name="Contig"),
+        )
+        pd.testing.assert_frame_equal(obs_di_df, exp_di_df)
+
+    exp_out = (
+        "PREFIX\nMockLog: Loading and checking contig information...\n"
+        "MockLog: The FASTA file describes 4 contigs.\n"
+        "MockLog: All of these are included in the BAM file (which has 4 "
+        "references), with the same lengths.\n"
+        "PREFIX\nMockLog: Creating and writing diversity index and VCF file "
+        "headers...\n"
+        "MockLog: Wrote out diversity index and VCF file headers.\n"
+        "MockLog: (We'll convert the VCF file to an indexed BCF afterwards.)\n"
+    )
+    exp_out += (
+        "PREFIX\nMockLog: Running r-mutation calling (--min-r = 2) and "
+        "computing diversity indices...\n"
+    )
+    exp_out += (
+        "MockLog: Done running r-mutation calling (--min-r = 2) and "
+        "computing diversity indices.\n"
+        "PREFIX\nMockLog: Converting the VCF file to a "
+        "compressed BCF file...\n"
+        "MockLog: Done.\n"
+        "PREFIX\nMockLog: Indexing the BCF file...\n"
+        "MockLog: Done indexing the BCF file.\n"
+    )
+    captured = capsys.readouterr()
+    assert captured.out == exp_out

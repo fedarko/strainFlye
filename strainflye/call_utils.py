@@ -453,6 +453,46 @@ def run(
                 seq, si, num_fasta_contigs, fancylog, contig_len=contig_len
             )
 
+        # Bail out early if this contig has no linear alignments. Speeds things
+        # up a bit, and lets us be clear about this to the user.
+        at_least_one_aln_to_this_seq = False
+        for aln in bf.fetch(seq):
+            at_least_one_aln_to_this_seq = True
+            break
+        if not at_least_one_aln_to_this_seq:
+            # We lock this behind verbose because a fair amount of contigs in,
+            # for example, SheepGut are completely uncovered -- this can happen
+            # if contigs are shorter than read length (weird alignment
+            # artifact)
+            if verbose:
+                fancylog(
+                    (
+                        f"No linear alignments to contig {seq} exist in the "
+                        "BAM file. Not performing mutation calling within "
+                        "this contig."
+                    ),
+                    prefix="",
+                )
+            di_line = f"{seq}\t0\t{contig_len}"
+            # Write out a line in the div idx file. This code was copied from
+            # down below in this function, which is a little gross, sorry.
+            if using_p:
+                di_list = div_index_p_list
+            else:
+                di_list = div_index_r_list
+            for di in range(len(di_list)):
+                di_line += "\tNA"
+            with open(output_diversity_indices, "a") as di_file:
+                di_file.write(f"{di_line}\n")
+            # We can just exit the loop at this point. We've already included
+            # this contig in the BCF header, so downstream analyses will see
+            # that this contig is included in the BCF but just doesn't have any
+            # mutations called within it. And we have added this contig to the
+            # diversity index file, so downstream analyses can see that this
+            # contig has completely undefined diversity indices and an average
+            # coverage of 0x.
+            continue
+
         # keep a running sum of coverages, so we can get the average coverage
         # for each contig. ideally i guess we'd use a fancy algorithm for
         # computing a running average (e.g.

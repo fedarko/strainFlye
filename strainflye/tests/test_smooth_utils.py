@@ -811,8 +811,9 @@ def test_write_smoothed_reads_no_alns_to_contig(capsys):
         assert contig_seq is None
         assert capsys.readouterr().out == (
             "MockLog: Contig c4 has 1 mutated position(s).\n"
-            "MockLog2: No linear alignments to contig c4 exist. Ignoring this "
-            "contig: not creating any smoothed or virtual reads.\n"
+            "MockLog2: No linear alignments to contig c4 exist in the BAM "
+            "file. Ignoring this contig: not creating any smoothed or virtual "
+            "reads.\n"
         )
         # Nothing shoulda gotten written out
         verify_gz_file_empty(fh.name)

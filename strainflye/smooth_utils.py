@@ -487,8 +487,9 @@ def write_smoothed_reads(
         # contigs
         fancylog(
             (
-                f"No linear alignments to contig {contig} exist. Ignoring "
-                "this contig: not creating any smoothed or virtual reads."
+                f"No linear alignments to contig {contig} exist in the BAM "
+                "file. Ignoring this contig: not creating any smoothed or "
+                "virtual reads."
             ),
             prefix="",
         )
