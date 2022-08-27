@@ -34,12 +34,12 @@ def test_load_triplet_good(capsys):
     captured = capsys.readouterr()
     assert captured.out == (
         "PREFIX\nMockLog: Loading and checking FASTA, BAM, and BCF files...\n"
-        "MockLog: The FASTA file describes 3 contigs.\n"
-        "MockLog: All FASTA contigs are included in the BAM file (this BAM "
-        "file has 3 references).\n"
-        "MockLog: All FASTA contigs are included in the BCF file (the header "
-        "of this BCF file describes 3 contigs).\n"
-        "MockLog: The lengths of all contigs in the FASTA file match the "
+        "MockLog: The FASTA file describes 3 contig(s).\n"
+        "MockLog: All FASTA contig(s) are included in the BAM file (this BAM "
+        "file has 3 reference(s)).\n"
+        "MockLog: All FASTA contig(s) are included in the BCF file (the header "
+        "of this BCF file describes 3 contig(s)).\n"
+        "MockLog: The lengths of all contig(s) in the FASTA file match the "
         "corresponding lengths in the BAM and BCF files.\n"
         "MockLog: So far, these files seem good.\n"
     )
@@ -102,5 +102,6 @@ def test_load_triplet_fasta_not_in_bam_all():
     with pytest.raises(ParameterError) as ei:
         pu.load_triplet(StringIO(">missing_contig\nACGT"), BAM, BCF, mock_log)
     assert str(ei.value) == (
-        "All contigs in the FASTA file must also be contained in the BAM file."
+        "All contigs in the FASTA file must also be contained in the BAM "
+        "file."
     )
