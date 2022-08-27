@@ -1185,7 +1185,10 @@ def run_assemble(
 
     fancylog(f"Assembling each *.fasta.gz file in {reads_dir}...")
     at_least_one_fastagz_found = False
-    for fp in os.listdir(reads_dir):
+    # Let's sort the list so that we process it in order of contig name. This
+    # isn't really necessary, but it makes the tests easier (and also probably
+    # matches what the user expects).
+    for fp in sorted(os.listdir(reads_dir)):
         if fp.lower().endswith(".fasta.gz"):
             at_least_one_fastagz_found = True
             contig = fp[:-9]
@@ -1203,17 +1206,23 @@ def run_assemble(
                     f"{out_asm_fp} already exists as a file."
                 )
 
+            # "fp" will just be the name of a file in reads_dir; this isn't
+            # sufficient when passing it to LJA, because LJA will be like
+            # "where is c1.fasta.gz???" We have to construct the absolute path
+            # to this file, then pass this to LJA.
+            abs_reads_fp = os.path.join(reads_dir, fp)
             cmd = (
-                f"{lja_bin_loc} --reads {fp} {lja_params} "
+                f"{lja_bin_loc} --reads {abs_reads_fp} {lja_params} "
                 f"--output-dir {out_asm_fp}"
             )
-            verboselog(f"Running command {cmd}...")
+            verboselog(f"Running this command: {cmd}", prefix="")
             subprocess.run(cmd, shell=True, check=True)
+            verboselog(f"Finished running LJA on file {fp}.", prefix="")
         else:
             fancylog(
                 (
                     f"Warning: found non-*.fasta.gz file, {fp}, in "
-                    f"{reads_dir}. Skipping."
+                    f"{reads_dir}. Ignoring this file."
                 ),
                 prefix="",
             )

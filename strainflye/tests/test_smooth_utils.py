@@ -1188,3 +1188,61 @@ def test_run_assemble_reads_dir_is_missing():
             assert str(ei.value) == (
                 f"Doesn't look like {missing_dir_name} exists as a directory."
             )
+
+
+def test_run_assemble_reads_dir_empty():
+    # Test the case where --reads-dir is just empty
+    with get_fake_lja_bin() as fake_lja_bin_loc:
+        with tempfile.TemporaryDirectory() as reads_dir:
+            with tempfile.TemporaryDirectory() as output_dir:
+                with pytest.raises(ParameterError) as ei:
+                    su.run_assemble(
+                        reads_dir,
+                        DEFAULT_LJA_PARAMS,
+                        fake_lja_bin_loc,
+                        output_dir,
+                        True,
+                        mock_log,
+                    )
+                assert str(ei.value) == (
+                    f"Didn't find any *.fasta.gz files in {reads_dir}."
+                )
+
+
+def test_run_assemble_good(capsys):
+    with get_fake_lja_bin() as fake_lja_bin_loc:
+        with tempfile.TemporaryDirectory() as reads_dir:
+
+            fgz_fp = os.path.join(reads_dir, "c1.fasta.gz")
+            with gzip.open(fgz_fp, "wt") as fgz_fh:
+                fgz_fh.write(">r1\nACGTACGT\n>r2\nTACGTGGGG\n")
+
+            non_fgz_fp = os.path.join(reads_dir, "lol.butt")
+            with open(non_fgz_fp, "w") as non_fgz_fh:
+                non_fgz_fh.write("blease dont asembl me im too smol :(")
+
+            with tempfile.TemporaryDirectory() as output_dir:
+                su.run_assemble(
+                    reads_dir,
+                    DEFAULT_LJA_PARAMS,
+                    fake_lja_bin_loc,
+                    output_dir,
+                    True,
+                    mock_log,
+                )
+
+                c1_out = os.path.join(output_dir, "c1")
+
+                assert capsys.readouterr().out == (
+                    "PREFIX\nMockLog: Assembling each *.fasta.gz file in "
+                    f"{reads_dir}...\n"
+                    f"MockLog: Found file c1.fasta.gz, presumably for contig "
+                    "c1. Assembling.\n"
+                    f"MockLog: Running this command: {fake_lja_bin_loc} "
+                    f"--reads {fgz_fp} {DEFAULT_LJA_PARAMS} --output-dir "
+                    f"{c1_out}\n"
+                    "MockLog: Finished running LJA on file c1.fasta.gz.\n"
+                    "MockLog: Warning: found non-*.fasta.gz file, lol.butt, "
+                    f"in {reads_dir}. Ignoring this file.\n"
+                    "MockLog: Done.\n"
+                )
