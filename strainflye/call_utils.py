@@ -348,6 +348,7 @@ def run(
     # Set up the header for the diversity index TSV file
     di_header = "Contig\tAverageCoverage\tLength"
 
+
     # ... And the header for the mutation calls' VCF file, at the same time.
     # The filter_header is important, since we will parse its ID later on to
     # determine what the minimum p or r value was. I'm not sure if there's
@@ -364,7 +365,8 @@ def run(
         min_suff_coverages = get_min_sufficient_coverages_p(
             div_index_p_list, min_read_number=min_read_number
         )
-        for p, msc in zip(div_index_p_list, min_suff_coverages):
+        di_list = div_index_p_list
+        for p, msc in zip(di_list, min_suff_coverages):
             di_header += f"\t{config.DI_PREF}(p={p},minSuffCov={msc})"
 
     else:
@@ -377,7 +379,8 @@ def run(
         min_suff_coverages = get_min_sufficient_coverages_r(
             div_index_r_list, min_cov_factor=min_cov_factor
         )
-        for r, msc in zip(div_index_r_list, min_suff_coverages):
+        di_list = div_index_r_list
+        for r, msc in zip(di_list, min_suff_coverages):
             di_header += f"\t{config.DI_PREF}(r={r},minSuffCov={msc})"
 
     # Write out DI file header
@@ -473,13 +476,9 @@ def run(
                     ),
                     prefix="",
                 )
+
+            # Write out a line in the div idx file.
             di_line = f"{seq}\t0\t{contig_len}"
-            # Write out a line in the div idx file. This code was copied from
-            # down below in this function, which is a little gross, sorry.
-            if using_p:
-                di_list = div_index_p_list
-            else:
-                di_list = div_index_r_list
             for di in range(len(di_list)):
                 di_line += "\tNA"
             with open(output_diversity_indices, "a") as di_file:
@@ -627,10 +626,6 @@ def run(
         # for this contig? If so, compute and report this diversity index.
         num_defined_di = 0
         half_contig_len = contig_len / 2
-        if using_p:
-            di_list = div_index_p_list
-        else:
-            di_list = div_index_r_list
         for di in range(len(di_list)):
             if msc_pos_ct[di] >= half_contig_len:
                 # Note that we don't apply any formatting to this ratio -- we
