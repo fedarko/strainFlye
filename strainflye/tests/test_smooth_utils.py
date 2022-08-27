@@ -723,7 +723,7 @@ def test_write_smoothed_reads_c1_one_mutation_no_pos2srcov(capsys):
 def test_write_smoothed_reads_bad_length():
     with tempfile.NamedTemporaryFile() as fh:
         with pytest.raises(WeirdError) as ei:
-            pos2srcov, contig_seq = su.write_smoothed_reads(
+            su.write_smoothed_reads(
                 "c1",
                 FASTA,
                 24,
@@ -766,3 +766,25 @@ def test_write_smoothed_reads_c1_one_mutation_all_alns_ignored(capsys):
         )
         # Nothing shoulda gotten written out
         verify_gz_file_empty(fh.name)
+
+
+def test_write_smoothed_reads_found_secondary_aln():
+    with tempfile.NamedTemporaryFile() as fh:
+        with pytest.raises(ParameterError) as ei:
+            su.write_smoothed_reads(
+                "c1",
+                FASTA,
+                23,
+                {10: ("G", "A")},
+                pysam.AlignmentFile(
+                    os.path.join(IN_DIR, "c4-and-secondary.bam")
+                ),
+                False,
+                fh.name,
+                mock_log_2,
+                mock_log,
+            )
+        assert str(ei.value) == (
+            "Found a secondary alignment to contig c1 (from a read named "
+            "r11). The BAM file should not contain secondary alignments."
+        )
