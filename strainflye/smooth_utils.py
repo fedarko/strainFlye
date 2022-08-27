@@ -481,10 +481,14 @@ def write_smoothed_reads(
                     pos2srcov[pos_in_sr] += 1
 
     if num_alns_total == 0:
-        verboselog(
+        # Independent of verbose, since this is weird -- these sorts of cases
+        # imply weird stuff with the input mutations and/or alignment, since
+        # strainFlye's caller should not call any mutations for zero-alignment
+        # contigs
+        fancylog(
             (
-                f"No linear alignments to contig {contig} exist. Not creating "
-                "any smoothed or virtual reads."
+                f"No linear alignments to contig {contig} exist. Ignoring "
+                "this contig: not creating any smoothed or virtual reads."
             ),
             prefix="",
         )
@@ -513,13 +517,13 @@ def write_smoothed_reads(
         )
 
     if num_sr_generated == 0:
-        # This we don't lock behind fancy, because this is weird and the
+        # This we don't lock behind verbose, because this is weird and the
         # user should know about it
         fancylog(
             (
                 f"Ignored all {num_alns_total:,} linear alignments to contig "
-                f"{contig}: couldn't generate any smoothed reads. Ignoring "
-                "this contig."
+                f"{contig} during the read smoothing process. Ignoring this "
+                "contig: not creating any smoothed or virtual reads."
             ),
             prefix="",
         )
@@ -1100,11 +1104,12 @@ def run_create(
             verboselog,
         )
 
-        # If pos2srcov is None, it means that write_smoothed_reads() failed to
-        # create any smoothed reads (maybe a contig had zero linear alignments,
-        # or maybe all of the alignments the contig had were "ignored"). We
-        # only create virtual reads if we also created smoothed reads, so we
-        # check both (virtual_reads) and (pos2srcov is not None) here.
+        # If virtual_reads is True but pos2srcov is None, it means that
+        # write_smoothed_reads() failed to create any smoothed reads (maybe
+        # a contig had zero linear alignments, or maybe all of the alignments
+        # the contig had were "ignored"). We only create virtual reads if we
+        # also created smoothed reads, so we check both (virtual_reads) and
+        # (pos2srcov is not None) here.
         if virtual_reads and pos2srcov is not None:
             write_virtual_reads(
                 contig,

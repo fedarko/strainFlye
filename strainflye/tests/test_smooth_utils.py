@@ -761,8 +761,9 @@ def test_write_smoothed_reads_c1_one_mutation_all_alns_ignored(capsys):
         # warning, because this is super weird and should hopefully be uncommon
         assert capsys.readouterr().out == (
             "MockLog: Contig c1 has 1 mutated position(s).\n"
-            "MockLog2: Ignored all 12 linear alignments to contig c1: "
-            "couldn't generate any smoothed reads. Ignoring this contig.\n"
+            "MockLog2: Ignored all 12 linear alignments to contig c1 during "
+            "the read smoothing process. Ignoring this contig: not creating "
+            "any smoothed or virtual reads.\n"
         )
         # Nothing shoulda gotten written out
         verify_gz_file_empty(fh.name)
@@ -788,3 +789,30 @@ def test_write_smoothed_reads_found_secondary_aln():
             "Found a secondary alignment to contig c1 (from a read named "
             "r11). The BAM file should not contain secondary alignments."
         )
+
+
+def test_write_smoothed_reads_no_alns_to_contig(capsys):
+    # This probably won't happen in practice -- if a contig has zero alignments
+    # to it, then it shouldn't have any mutations called at it. But let's check
+    # anyway...
+    with tempfile.NamedTemporaryFile() as fh:
+        pos2srcov, contig_seq = su.write_smoothed_reads(
+            "c4",
+            FASTA,
+            100,
+            {10: ("C", "T")},
+            pysam.AlignmentFile(os.path.join(IN_DIR, "c4-and-secondary.bam")),
+            False,
+            fh.name,
+            mock_log_2,
+            mock_log,
+        )
+        assert pos2srcov is None
+        assert contig_seq is None
+        assert capsys.readouterr().out == (
+            "MockLog: Contig c4 has 1 mutated position(s).\n"
+            "MockLog2: No linear alignments to contig c4 exist. Ignoring this "
+            "contig: not creating any smoothed or virtual reads.\n"
+        )
+        # Nothing shoulda gotten written out
+        verify_gz_file_empty(fh.name)
