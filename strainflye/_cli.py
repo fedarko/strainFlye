@@ -10,6 +10,7 @@ from . import (
     fdr_utils,
     spot_utils,
     smooth_utils,
+    config,
 )
 from . import param_descriptions as desc
 
@@ -1119,7 +1120,7 @@ def create(
     "-p",
     "--lja-params",
     required=False,
-    default="--simpleec --Cov-threshold 10",
+    default=config.DEFAULT_LJA_PARAMS,
     show_default=True,
     type=click.STRING,
     help=(

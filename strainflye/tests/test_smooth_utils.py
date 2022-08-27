@@ -2,12 +2,13 @@ import os
 import stat
 import gzip
 import tempfile
+import contextlib
 import pytest
 import pysam
 import skbio
 import strainflye.smooth_utils as su
 from io import StringIO
-from strainflye.config import DI_PREF
+from strainflye.config import DI_PREF, DEFAULT_LJA_PARAMS
 from strainflye.errors import ParameterError, WeirdError
 from strainflye.tests.utils_for_testing import mock_log, mock_log_2
 
@@ -63,7 +64,8 @@ def test_find_lja_bin_pathsearch_notfound(capsys):
     )
 
 
-def test_find_lja_bin_pathsearch_found(capsys):
+@contextlib.contextmanager
+def get_fake_lja_bin():
     # Rather than actually install LJA, we just make a fake LJA binary file and
     # modify $PATH to point to the location of this file.
     with tempfile.TemporaryDirectory() as fake_lja_dir:
@@ -100,7 +102,11 @@ def test_find_lja_bin_pathsearch_found(capsys):
 
         # Note that this change shouldn't persist after these changes,
         # thankfully; see https://stackoverflow.com/a/66390638.
+        yield fake_lja_bin_loc
 
+
+def test_find_lja_bin_pathsearch_found(capsys):
+    with get_fake_lja_bin() as fake_lja_bin_loc:
         assert su.find_lja_bin(None, mock_log) == fake_lja_bin_loc
         assert capsys.readouterr().out == (
             "PREFIX\nMockLog: Since --lja-bin wasn't specified, looking in "
@@ -1141,3 +1147,44 @@ def test_run_create_no_di_passed_vr_verbose(capsys):
         + "MockLog: Done.\n"
     )
     assert capsys.readouterr().out == exp_out
+
+
+def test_run_assemble_reads_dir_is_file():
+    # Test the case where --reads-dir points to a file (fh), not a directory
+    with get_fake_lja_bin() as fake_lja_bin_loc:
+        with tempfile.NamedTemporaryFile(mode="w+") as fh:
+            fh.write("LOL I'M A PROBLEM")
+            with tempfile.TemporaryDirectory() as output_dir:
+                with pytest.raises(NotADirectoryError) as ei:
+                    su.run_assemble(
+                        fh.name,
+                        DEFAULT_LJA_PARAMS,
+                        fake_lja_bin_loc,
+                        output_dir,
+                        True,
+                        mock_log,
+                    )
+                assert str(ei.value) == (
+                    f"Doesn't look like {fh.name} exists as a directory."
+                )
+
+
+def test_run_assemble_reads_dir_is_missing():
+    # Test the case where --reads-dir is completely missing
+    with get_fake_lja_bin() as fake_lja_bin_loc:
+        with tempfile.TemporaryDirectory() as output_dir:
+            # i swear to god if this already exists in the strainflye
+            # repository for some reason i'm dropping out of grad school
+            missing_dir_name = "directory-that-doesnt-exist-hopefully"
+            with pytest.raises(NotADirectoryError) as ei:
+                su.run_assemble(
+                    missing_dir_name,
+                    DEFAULT_LJA_PARAMS,
+                    fake_lja_bin_loc,
+                    output_dir,
+                    True,
+                    mock_log,
+                )
+            assert str(ei.value) == (
+                f"Doesn't look like {missing_dir_name} exists as a directory."
+            )

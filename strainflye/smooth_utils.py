@@ -1184,8 +1184,10 @@ def run_assemble(
         )
 
     fancylog(f"Assembling each *.fasta.gz file in {reads_dir}...")
+    at_least_one_fastagz_found = False
     for fp in os.listdir(reads_dir):
         if fp.lower().endswith(".fasta.gz"):
+            at_least_one_fastagz_found = True
             contig = fp[:-9]
             verboselog(
                 (
@@ -1215,4 +1217,8 @@ def run_assemble(
                 ),
                 prefix="",
             )
+    if not at_least_one_fastagz_found:
+        raise ParameterError(
+            f"Didn't find any *.fasta.gz files in {reads_dir}."
+        )
     fancylog("Done.", prefix="")
