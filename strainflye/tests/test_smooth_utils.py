@@ -1246,3 +1246,45 @@ def test_run_assemble_good(capsys):
                     f"in {reads_dir}. Ignoring this file.\n"
                     "MockLog: Done.\n"
                 )
+
+
+def test_run_assemble_out_dir_entry_already_exists():
+    with get_fake_lja_bin() as fake_lja_bin_loc:
+        with tempfile.TemporaryDirectory() as reads_dir:
+
+            fgz_fp = os.path.join(reads_dir, "c1.fasta.gz")
+            with gzip.open(fgz_fp, "wt") as fgz_fh:
+                fgz_fh.write(">r1\nACGTACGT\n>r2\nTACGTGGGG\n")
+
+            # Test if the "already-existing" thing is a file
+            with tempfile.TemporaryDirectory() as output_dir:
+                annoying_fp = os.path.join(output_dir, "c1")
+                with open(annoying_fp, "w") as annoying_fh:
+                    annoying_fh.write("i am so evil")
+
+                with pytest.raises(FileExistsError) as ei:
+                    su.run_assemble(
+                        reads_dir,
+                        DEFAULT_LJA_PARAMS,
+                        fake_lja_bin_loc,
+                        output_dir,
+                        True,
+                        mock_log,
+                    )
+                assert str(ei.value) == f"{annoying_fp} already exists."
+
+            # ... or a directory
+            with tempfile.TemporaryDirectory() as output_dir:
+                annoying_fp = os.path.join(output_dir, "c1")
+                os.makedirs(annoying_fp)
+
+                with pytest.raises(FileExistsError) as ei:
+                    su.run_assemble(
+                        reads_dir,
+                        DEFAULT_LJA_PARAMS,
+                        fake_lja_bin_loc,
+                        output_dir,
+                        True,
+                        mock_log,
+                    )
+                assert str(ei.value) == f"{annoying_fp} already exists."

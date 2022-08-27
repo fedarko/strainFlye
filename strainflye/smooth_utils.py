@@ -1201,10 +1201,8 @@ def run_assemble(
             )
 
             out_asm_fp = os.path.join(output_dir, contig)
-            if os.path.isfile(out_asm_fp):
-                raise FileExistsError(
-                    f"{out_asm_fp} already exists as a file."
-                )
+            if os.path.exists(out_asm_fp):
+                raise FileExistsError(f"{out_asm_fp} already exists.")
 
             # "fp" will just be the name of a file in reads_dir; this isn't
             # sufficient when passing it to LJA, because LJA will be like
