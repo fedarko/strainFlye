@@ -237,7 +237,7 @@ def test_compute_average_coverages_verbose(capsys):
     assert capsys.readouterr().out == (
         "PREFIX\nMockLog: Computing average coverages in each contig, for "
         "use with virtual reads...\n"
-        "MockLog: On contig c1 (23 bp) (1 / 1 = 100.00% done).\n"
+        "MockLog: On contig c1 (23 bp) (1 / 1 contig = 100.00%).\n"
         "MockLog: c1 has average coverage 12.00x.\n"
         "MockLog: Done.\n"
     )

@@ -116,10 +116,16 @@ def proglog(
     lenstr = " "
     if contig_len is not None:
         lenstr = f" ({contig_len:,} bp) "
+
+    # i'm fancy
+    contig_noun = "contigs"
+    if num_contigs == 1:
+        contig_noun = "contig"
+
     fancylog(
         (
             f"{prefix}contig {contig}{lenstr}"
-            f"({contig_1idx:,} / {num_contigs:,} = {pct:.2f}% done)."
+            f"({contig_1idx:,} / {num_contigs:,} {contig_noun} = {pct:.2f}%)."
         ),
         prefix="",
     )
