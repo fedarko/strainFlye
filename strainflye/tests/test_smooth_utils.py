@@ -1072,3 +1072,72 @@ def test_run_create_no_di_passed_no_vr_no_verbose(capsys):
         "MockLog: Done.\n"
     )
     assert capsys.readouterr().out == exp_out
+
+
+def test_run_create_no_di_passed_vr_verbose(capsys):
+    # testing some other paths through the code...
+    with tempfile.TemporaryDirectory() as td:
+        su.run_create(FASTA, BAM, BCF, None, True, 50, 1, td, True, mock_log)
+
+        assert set(os.listdir(td)) == set(["c1.fasta.gz", "c3.fasta.gz"])
+        verify_c1_3mut_smoothedreads(os.path.join(td, "c1.fasta.gz"))
+        verify_c3_2mut_smoothedreads(os.path.join(td, "c3.fasta.gz"))
+
+    exp_out = (
+        (
+            "PREFIX\nMockLog: Loading and checking FASTA, BAM, and BCF "
+            "files...\n"
+            "MockLog: The FASTA file describes 3 contig(s).\n"
+            "MockLog: All FASTA contig(s) are included in the BAM file (this "
+            "BAM file has 3 reference(s)).\n"
+            "MockLog: All FASTA contig(s) are included in the BCF file (the "
+            "header of this BCF file describes 3 contig(s)).\n"
+            "MockLog: The lengths of all contig(s) in the FASTA file match "
+            "the corresponding lengths in the BAM and BCF files.\n"
+            "MockLog: So far, these files seem good.\n"
+        )
+        + (
+            "PREFIX\nMockLog: All contigs must be > (2 \u00d7 "
+            "--virtual-read-flank) = 2 bp long. Checking this...\n"
+            "MockLog: All contigs meet this minimum length.\n"
+        )
+        + (
+            "PREFIX\nMockLog: Computing average coverages in each contig, for "
+            "use with virtual reads...\n"
+            "MockLog: On contig c1 (23 bp) (1 / 3 contigs = 33.33%).\n"
+            "MockLog: c1 has average coverage 12.00x.\n"
+            "MockLog: On contig c2 (12 bp) (2 / 3 contigs = 66.67%).\n"
+            "MockLog: c2 has average coverage 10.83x.\n"
+            "MockLog: On contig c3 (16 bp) (3 / 3 contigs = 100.00%).\n"
+            "MockLog: c3 has average coverage 12.31x.\n"
+            "MockLog: Done.\n"
+        )
+        + (
+            "PREFIX\nMockLog: Going through contigs and creating smoothed and "
+            "virtual reads...\n"
+        )
+        + (
+            "MockLog: On contig c1 (23 bp) (1 / 3 contigs = 33.33%).\n"
+            "MockLog: Contig c1 has 3 mutated position(s).\n"
+            "MockLog: From the 12 linear alignment(s) to contig c1: created 9 "
+            "smoothed read(s) and ignored 3 linear alignment(s).\n"
+            "MockLog: Contig c1 (average coverage 12.00x, based on the BAM "
+            "file) has no low-coverage (\u2264 6.00x) positions (based on "
+            "smoothed read coverages). No need to create virtual reads.\n"
+        )
+        + (
+            "MockLog: On contig c2 (12 bp) (2 / 3 contigs = 66.67%).\n"
+            "MockLog: Contig c2 has no mutations; ignoring it.\n"
+        )
+        + (
+            "MockLog: On contig c3 (16 bp) (3 / 3 contigs = 100.00%).\n"
+            "MockLog: Contig c3 has 2 mutated position(s).\n"
+            "MockLog: From the 13 linear alignment(s) to contig c3: created "
+            "13 smoothed read(s) and ignored 0 linear alignment(s).\n"
+            "MockLog: Contig c3 (average coverage 12.31x, based on the BAM "
+            "file) has no low-coverage (\u2264 6.16x) positions (based on "
+            "smoothed read coverages). No need to create virtual reads.\n"
+        )
+        + "MockLog: Done.\n"
+    )
+    assert capsys.readouterr().out == exp_out
