@@ -509,8 +509,8 @@ def write_smoothed_reads(
         # something, because I think Python's garbage collection should
         # automatically handle this. But... IDK
 
+    # Should never happen unless something went horribly wrong
     if num_alns_total != num_sr_generated + num_ignored_alns:
-        # Should never happen unless something went horribly wrong
         raise WeirdError(
             f"Contig {contig}: # total alns = {num_alns_total:,}, but "
             f"# sr = {num_sr_generated:,} and # ignored = "
@@ -644,9 +644,9 @@ def write_virtual_reads(
     WeirdError
         If the contig lengths implied by contig_seq and pos2srcov don't match.
     """
+    # This should never happen during normal usage of this, hence why we raise
+    # a WeirdError and not a ParameterError
     if len(contig_seq) != len(pos2srcov):
-        # This should never happen during normal usage of this, hence why we
-        # raise a WeirdError and not a ParameterError
         raise WeirdError(
             f"len(pos2srcov) == {len(pos2srcov):,} bp, but len(contig_seq) == "
             f"{len(contig_seq):,} bp."
