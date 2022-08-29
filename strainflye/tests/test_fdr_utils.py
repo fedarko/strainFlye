@@ -694,6 +694,7 @@ def test_run_estimate_both_dividx_and_decoy_specified():
             "specified. These options are mutually exclusive."
         )
 
+
 def check_fdr_and_num_dfs_r3_high10(out_fdr_fp, out_num_fp):
     # Test that the FDR estimates look good
     obs_fdr_df = pd.read_csv(out_fdr_fp, sep="\t", index_col=0)
@@ -820,6 +821,6 @@ def test_run_estimate_tiny_chunk_size_good():
                 FDR,
                 NUM,
                 mock_log,
-                chunk_size=cs
+                chunk_size=cs,
             )
             check_fdr_and_num_dfs_r3_high10(FDR, NUM)
