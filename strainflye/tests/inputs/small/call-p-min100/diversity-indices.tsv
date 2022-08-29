@@ -1,0 +1,4 @@
+Contig	AverageCoverage	Length	DivIdx(p=50,minSuffCov=600.0)	DivIdx(p=100,minSuffCov=300.0)	DivIdx(p=200,minSuffCov=150.0)	DivIdx(p=500,minSuffCov=60.0)	DivIdx(p=1000,minSuffCov=30.0)	DivIdx(p=2500,minSuffCov=12.0)	DivIdx(p=5000,minSuffCov=6.0)
+c1	12.0	23	NA	NA	NA	NA	NA	0.13043478260869565	0.0
+c2	10.833333333333334	12	NA	NA	NA	NA	NA	NA	0.0
+c3	12.3125	16	NA	NA	NA	NA	NA	0.06666666666666667	0.0

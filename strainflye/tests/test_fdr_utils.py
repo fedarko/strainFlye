@@ -759,7 +759,7 @@ def test_run_estimate_with_autoselect_and_full_decoy_good(capsys):
             None,
             "Full",
             # high p
-            None,
+            500,
             # high r (note that this is not inclusive; so, our FDR estimates
             # will only go up to r = 9)
             10,
@@ -814,7 +814,7 @@ def test_run_estimate_tiny_chunk_size_good():
                 DI,
                 None,
                 "Full",
-                None,
+                500,
                 10,
                 10,
                 5,
@@ -824,3 +824,56 @@ def test_run_estimate_tiny_chunk_size_good():
                 chunk_size=cs,
             )
             check_fdr_and_num_dfs_r3_high10(FDR, NUM)
+
+
+def test_run_estimate_small_high_thresholds():
+    with tempfile.TemporaryDirectory() as td:
+        FDR = os.path.join(td, "fdr-info.tsv")
+        NUM = os.path.join(td, "num-info.tsv")
+        with pytest.raises(ParameterError) as ei:
+            fu.run_estimate(
+                FASTA,
+                BCF,
+                DI,
+                None,
+                "Full",
+                # high p
+                500,
+                # high r
+                2,
+                10,
+                5,
+                FDR,
+                NUM,
+                mock_log,
+            )
+        assert str(ei.value) == (
+            "--high-r = 2 must be larger than the minimum r used in the BCF "
+            "(3)."
+        )
+        assert not os.path.exists(FDR)
+        assert not os.path.exists(NUM)
+
+        with pytest.raises(ParameterError) as ei:
+            fu.run_estimate(
+                FASTA,
+                os.path.join(IN_DIR, "call-p-min100", "naive-calls.bcf"),
+                os.path.join(IN_DIR, "call-p-min100", "diversity-indices.tsv"),
+                None,
+                "Full",
+                # high p
+                100,
+                # high r
+                10,
+                10,
+                5,
+                FDR,
+                NUM,
+                mock_log,
+            )
+        assert str(ei.value) == (
+            "--high-p = 100 must be larger than the minimum p used in the BCF "
+            "(100)."
+        )
+        assert not os.path.exists(FDR)
+        assert not os.path.exists(NUM)
