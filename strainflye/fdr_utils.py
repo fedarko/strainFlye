@@ -812,7 +812,10 @@ def run_estimate(
     with open(output_fdr_info, "a") as ff, open(output_num_info, "a") as nf:
         fdr_out = ""
         num_out = ""
-        for tc_ct, target_contig in enumerate(target_contigs, 1):
+        # Sort target contigs so that their rows in the FDR / num-per-Mb files
+        # are in lexicographic order. Not really needed, but nice to have and
+        # makes testing easier
+        for tc_ct, target_contig in enumerate(sorted(target_contigs), 1):
             fdr_line, num_line = compute_target_contig_fdr_curve_info(
                 bcf_obj,
                 thresh_type,

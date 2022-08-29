@@ -11,6 +11,12 @@ from strainflye.config import DI_PREF
 from .utils_for_testing import mock_log, write_indexed_bcf
 
 
+IN_DIR = os.path.join("strainflye", "tests", "inputs", "small")
+FASTA = os.path.join(IN_DIR, "contigs.fasta")
+BCF = os.path.join(IN_DIR, "call-r-min3-di12345", "naive-calls.bcf")
+DI = os.path.join(IN_DIR, "call-r-min3-di12345", "diversity-indices.tsv")
+
+
 def test_check_decoy_selection():
     # "Good" cases
     assert fu.check_decoy_selection(None, "contig_name") == "DC"
@@ -662,14 +668,11 @@ def test_run_estimate_both_dividx_and_decoy_specified():
     # Integration test version of a unit test from above
     with tempfile.TemporaryDirectory() as td:
 
-        ti_dir = os.path.join("strainflye", "tests", "inputs", "small")
         with pytest.raises(ParameterError) as ei:
             fu.run_estimate(
-                os.path.join(ti_dir, "contigs.fasta"),
-                os.path.join(ti_dir, "call-r-min3-di12345", "naive-calls.bcf"),
-                os.path.join(
-                    ti_dir, "call-r-min3-di12345", "diversity-indices.tsv"
-                ),
+                FASTA,
+                BCF,
+                DI,
                 "c1",
                 # decoy context
                 "Full",
@@ -690,3 +693,58 @@ def test_run_estimate_both_dividx_and_decoy_specified():
             "Both the diversity indices file and a decoy contig are "
             "specified. These options are mutually exclusive."
         )
+
+
+def test_run_estimate_with_autoselect_and_full_decoy_good(capsys):
+    # Integration test version of a unit test from above
+    with tempfile.TemporaryDirectory() as td:
+        FDR = os.path.join(td, "fdr-info.tsv")
+        NUM = os.path.join(td, "num-info.tsv")
+        fu.run_estimate(
+            FASTA,
+            BCF,
+            DI,
+            None,
+            "Full",
+            # high p
+            None,
+            # high r (note that this is not inclusive; so, our FDR estimates
+            # will only go up to r = 9)
+            10,
+            # decoy min length
+            10,
+            # decoy avg coverage
+            5,
+            FDR,
+            NUM,
+            mock_log,
+        )
+        obs_fdr_df = pd.read_csv(FDR, sep="\t", index_col=0)
+        # Since we let strainFlye auto-select the decoy from this test data,
+        # the contig "c2" will be selected. this contig has zero mutations, so
+        # the FDRs for any of the target contigs will be zero (if this target
+        # contig has at least 1 mutation at this r-threshold) or undefined /
+        # NaN (if this target contig has no mutations at this r-threshold).
+        #
+        # Note that in practice we prooobably won't see decoy contigs with
+        # exactly zero mutations due to the default length and cov thresholds
+        # (knock on wood). this is just a pathological case that is useful for
+        # testing.
+        #
+        # For reference: c1 has three mutated positions (one at r=3, two at
+        # r=5), and c3 has two mutated positions (one at r=3, one at r=6).
+        # So the NaNs start to show up in the FDR estimates after the max of
+        # these r-values for each of these target contigs.
+        exp_fdr_df = pd.DataFrame(
+            {
+                "r3": [0.0, 0.0],
+                "r4": [0.0, 0.0],
+                "r5": [0.0, 0.0],
+                "r6": [np.nan, 0.0],
+                "r7": [np.nan, np.nan],
+                "r8": [np.nan, np.nan],
+                "r9": [np.nan, np.nan],
+            },
+            index=pd.Index(["c1", "c3"], name="Contig"),
+        )
+        pd.testing.assert_frame_equal(obs_fdr_df, exp_fdr_df)
