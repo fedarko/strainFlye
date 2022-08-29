@@ -694,9 +694,60 @@ def test_run_estimate_both_dividx_and_decoy_specified():
             "specified. These options are mutually exclusive."
         )
 
+def check_fdr_and_num_dfs_r3_high10(out_fdr_fp, out_num_fp):
+    # Test that the FDR estimates look good
+    obs_fdr_df = pd.read_csv(out_fdr_fp, sep="\t", index_col=0)
+    # Since we let strainFlye auto-select the decoy from this test data,
+    # the contig "c2" will be selected. this contig has zero mutations, so
+    # the FDRs for any of the target contigs will be zero (if this target
+    # contig has at least 1 mutation at this r-threshold) or undefined /
+    # NaN (if this target contig has no mutations at this r-threshold).
+    #
+    # Note that in practice we prooobably won't see decoy contigs with
+    # exactly zero mutations due to the default length and cov thresholds
+    # (knock on wood). this is just a pathological case that is useful for
+    # testing.
+    #
+    # For reference: c1 has three mutated positions (one at r=3, two at
+    # r=5), and c3 has two mutated positions (one at r=3, one at r=6).
+    # So the NaNs start to show up in the FDR estimates after the max of
+    # these r-values for each of these target contigs.
+    exp_fdr_df = pd.DataFrame(
+        {
+            "r3": [0.0, 0.0],
+            "r4": [0.0, 0.0],
+            "r5": [0.0, 0.0],
+            "r6": [np.nan, 0.0],
+            "r7": [np.nan, np.nan],
+            "r8": [np.nan, np.nan],
+            "r9": [np.nan, np.nan],
+        },
+        index=pd.Index(["c1", "c3"], name="Contig"),
+    )
+    pd.testing.assert_frame_equal(obs_fdr_df, exp_fdr_df)
+
+    # Test that the (# mutations / Mb) values look good
+    # These are really high because these are short contigs, so they have
+    # relatively high mutation rates.
+    obs_num_df = pd.read_csv(out_num_fp, sep="\t", index_col=0)
+    c1_num_coeff = 1e6 / 23
+    c3_num_coeff = 1e6 / 16
+    exp_num_df = pd.DataFrame(
+        {
+            "r3": [c1_num_coeff * 3, c3_num_coeff * 2],
+            "r4": [c1_num_coeff * 2, c3_num_coeff * 1],
+            "r5": [c1_num_coeff * 2, c3_num_coeff * 1],
+            "r6": [0, c3_num_coeff * 1],
+            "r7": [0, 0],
+            "r8": [0, 0],
+            "r9": [0, 0],
+        },
+        index=pd.Index(["c1", "c3"], name="Contig"),
+    )
+    pd.testing.assert_frame_equal(obs_num_df, exp_num_df)
+
 
 def test_run_estimate_with_autoselect_and_full_decoy_good(capsys):
-    # Integration test version of a unit test from above
     with tempfile.TemporaryDirectory() as td:
         FDR = os.path.join(td, "fdr-info.tsv")
         NUM = os.path.join(td, "num-info.tsv")
@@ -719,57 +770,7 @@ def test_run_estimate_with_autoselect_and_full_decoy_good(capsys):
             NUM,
             mock_log,
         )
-
-        # Test that the FDR estimates look good
-        obs_fdr_df = pd.read_csv(FDR, sep="\t", index_col=0)
-        # Since we let strainFlye auto-select the decoy from this test data,
-        # the contig "c2" will be selected. this contig has zero mutations, so
-        # the FDRs for any of the target contigs will be zero (if this target
-        # contig has at least 1 mutation at this r-threshold) or undefined /
-        # NaN (if this target contig has no mutations at this r-threshold).
-        #
-        # Note that in practice we prooobably won't see decoy contigs with
-        # exactly zero mutations due to the default length and cov thresholds
-        # (knock on wood). this is just a pathological case that is useful for
-        # testing.
-        #
-        # For reference: c1 has three mutated positions (one at r=3, two at
-        # r=5), and c3 has two mutated positions (one at r=3, one at r=6).
-        # So the NaNs start to show up in the FDR estimates after the max of
-        # these r-values for each of these target contigs.
-        exp_fdr_df = pd.DataFrame(
-            {
-                "r3": [0.0, 0.0],
-                "r4": [0.0, 0.0],
-                "r5": [0.0, 0.0],
-                "r6": [np.nan, 0.0],
-                "r7": [np.nan, np.nan],
-                "r8": [np.nan, np.nan],
-                "r9": [np.nan, np.nan],
-            },
-            index=pd.Index(["c1", "c3"], name="Contig"),
-        )
-        pd.testing.assert_frame_equal(obs_fdr_df, exp_fdr_df)
-
-        # Test that the (# mutations / Mb) values look good
-        # These are really high because these are short contigs, so they have
-        # relatively high mutation rates.
-        obs_num_df = pd.read_csv(NUM, sep="\t", index_col=0)
-        c1_num_coeff = 1e6 / 23
-        c3_num_coeff = 1e6 / 16
-        exp_num_df = pd.DataFrame(
-            {
-                "r3": [c1_num_coeff * 3, c3_num_coeff * 2],
-                "r4": [c1_num_coeff * 2, c3_num_coeff * 1],
-                "r5": [c1_num_coeff * 2, c3_num_coeff * 1],
-                "r6": [0, c3_num_coeff * 1],
-                "r7": [0, 0],
-                "r8": [0, 0],
-                "r9": [0, 0],
-            },
-            index=pd.Index(["c1", "c3"], name="Contig"),
-        )
-        pd.testing.assert_frame_equal(obs_num_df, exp_num_df)
+        check_fdr_and_num_dfs_r3_high10(FDR, NUM)
 
         # Finally, verify that the logged output looks good
         assert capsys.readouterr().out == (
@@ -797,3 +798,28 @@ def test_run_estimate_with_autoselect_and_full_decoy_good(capsys):
             "the 2 target contig(s)...\n"
             "MockLog: Done.\n"
         )
+
+
+def test_run_estimate_tiny_chunk_size_good():
+    # same as the above test, just with tiny chunk sizes to verify output
+    # remains the same
+    for cs in range(1, 15):
+        with tempfile.TemporaryDirectory() as td:
+            FDR = os.path.join(td, "fdr-info.tsv")
+            NUM = os.path.join(td, "num-info.tsv")
+            fu.run_estimate(
+                FASTA,
+                BCF,
+                DI,
+                None,
+                "Full",
+                None,
+                10,
+                10,
+                5,
+                FDR,
+                NUM,
+                mock_log,
+                chunk_size=cs
+            )
+            check_fdr_and_num_dfs_r3_high10(FDR, NUM)
