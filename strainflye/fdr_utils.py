@@ -728,7 +728,7 @@ def run_estimate(
     # NOTE 2: We do not produce an estimate for the exact high_p (or high_r)
     # value. The maximum threshold is that minus the step value (... which is
     # always 1, at least right now).
-    fancylog(f"Determining range of values of {thresh_type} to consider...")
+    fancylog(f"Determining range of value(s) of {thresh_type} to consider...")
     if thresh_type == "p":
         if high_p <= thresh_min:
             raise ParameterError(
@@ -787,7 +787,7 @@ def run_estimate(
 
     fancylog(
         "Computing mutation rates and FDR estimates for the "
-        f"{len(contig_name2len) - 1:,} target contigs..."
+        f"{len(contig_name2len) - 1:,} target contig(s)..."
     )
 
     # Create the header for the TSV files

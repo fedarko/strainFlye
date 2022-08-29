@@ -770,3 +770,30 @@ def test_run_estimate_with_autoselect_and_full_decoy_good(capsys):
             index=pd.Index(["c1", "c3"], name="Contig"),
         )
         pd.testing.assert_frame_equal(obs_num_df, exp_num_df)
+
+        # Finally, verify that the logged output looks good
+        assert capsys.readouterr().out == (
+            "PREFIX\nMockLog: Loading and checking FASTA and BCF files...\n"
+            "MockLog: The FASTA and BCF files describe the same 3 contigs.\n"
+            "MockLog: Also, the input BCF file contains r-mutations (minimum "
+            "r = 3).\n"
+            "PREFIX\nMockLog: Selecting a decoy contig based on the diversity "
+            "indices...\n"
+            "MockLog: Selected c2 as the decoy contig.\n"
+            "MockLog: Verified that this decoy contig is present in the BCF "
+            "and FASTA files.\n"
+            "MockLog: (Sorry for doubting you.)\n"
+            "PREFIX\nMockLog: Determining range of value(s) of r to "
+            "consider...\n"
+            "MockLog: We'll consider 7 value(s) of r: from 3 to 9.\n"
+            "MockLog: r-mutations for r \u2265 10 will be considered "
+            '"indisputable."\n'
+            'MockLog: These "indisputable" mutations won\'t be included in '
+            "the FDR estimation results.\n"
+            "PREFIX\nMockLog: Computing mutation rates for c2 at these "
+            "threshold values...\n"
+            "MockLog: Done.\n"
+            "PREFIX\nMockLog: Computing mutation rates and FDR estimates for "
+            "the 2 target contig(s)...\n"
+            "MockLog: Done.\n"
+        )
