@@ -826,6 +826,58 @@ def test_run_estimate_tiny_chunk_size_good():
             check_fdr_and_num_dfs_r3_high10(FDR, NUM)
 
 
+def test_run_estimate_with_preselected_full_decoy_good(capsys):
+    # same pre-selected decoy contig (c2) as is given by the above tests
+    with tempfile.TemporaryDirectory() as td:
+        FDR = os.path.join(td, "fdr-info.tsv")
+        NUM = os.path.join(td, "num-info.tsv")
+        fu.run_estimate(
+            FASTA,
+            BCF,
+            None,
+            "c2",
+            "Full",
+            # high p
+            500,
+            # high r
+            10,
+            # decoy min length
+            10,
+            # decoy avg coverage
+            5,
+            FDR,
+            NUM,
+            mock_log,
+        )
+        check_fdr_and_num_dfs_r3_high10(FDR, NUM)
+
+        # logged output is a bit different now due to no longer using
+        # decoy autoselection
+        assert capsys.readouterr().out == (
+            "PREFIX\nMockLog: Loading and checking FASTA and BCF files...\n"
+            "MockLog: The FASTA and BCF files describe the same 3 contigs.\n"
+            "MockLog: Also, the input BCF file contains r-mutations (minimum "
+            "r = 3).\n"
+            "PREFIX\nMockLog: The specified decoy contig is c2.\n"
+            "MockLog: Verified that this decoy contig is present in the BCF "
+            "and FASTA files.\n"
+            "MockLog: (Sorry for doubting you.)\n"
+            "PREFIX\nMockLog: Determining range of value(s) of r to "
+            "consider...\n"
+            "MockLog: We'll consider 7 value(s) of r: from 3 to 9.\n"
+            "MockLog: r-mutations for r \u2265 10 will be considered "
+            '"indisputable."\n'
+            'MockLog: These "indisputable" mutations won\'t be included in '
+            "the FDR estimation results.\n"
+            "PREFIX\nMockLog: Computing mutation rates for c2 at these "
+            "threshold values...\n"
+            "MockLog: Done.\n"
+            "PREFIX\nMockLog: Computing mutation rates and FDR estimates for "
+            "the 2 target contig(s)...\n"
+            "MockLog: Done.\n"
+        )
+
+
 def test_run_estimate_small_high_thresholds():
     with tempfile.TemporaryDirectory() as td:
         FDR = os.path.join(td, "fdr-info.tsv")
