@@ -719,6 +719,8 @@ def test_run_estimate_with_autoselect_and_full_decoy_good(capsys):
             NUM,
             mock_log,
         )
+
+        # Test that the FDR estimates look good
         obs_fdr_df = pd.read_csv(FDR, sep="\t", index_col=0)
         # Since we let strainFlye auto-select the decoy from this test data,
         # the contig "c2" will be selected. this contig has zero mutations, so
@@ -748,3 +750,23 @@ def test_run_estimate_with_autoselect_and_full_decoy_good(capsys):
             index=pd.Index(["c1", "c3"], name="Contig"),
         )
         pd.testing.assert_frame_equal(obs_fdr_df, exp_fdr_df)
+
+        # Test that the (# mutations / Mb) values look good
+        # These are really high because these are short contigs, so they have
+        # relatively high mutation rates.
+        obs_num_df = pd.read_csv(NUM, sep="\t", index_col=0)
+        c1_num_coeff = 1e6 / 23
+        c3_num_coeff = 1e6 / 16
+        exp_num_df = pd.DataFrame(
+            {
+                "r3": [c1_num_coeff * 3, c3_num_coeff * 2],
+                "r4": [c1_num_coeff * 2, c3_num_coeff * 1],
+                "r5": [c1_num_coeff * 2, c3_num_coeff * 1],
+                "r6": [0, c3_num_coeff * 1],
+                "r7": [0, 0],
+                "r8": [0, 0],
+                "r9": [0, 0],
+            },
+            index=pd.Index(["c1", "c3"], name="Contig"),
+        )
+        pd.testing.assert_frame_equal(obs_num_df, exp_num_df)
