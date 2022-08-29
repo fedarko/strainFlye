@@ -929,3 +929,64 @@ def test_run_estimate_small_high_thresholds():
         )
         assert not os.path.exists(FDR)
         assert not os.path.exists(NUM)
+
+
+def test_run_estimate_selected_decoy_not_in_fasta():
+    with tempfile.TemporaryDirectory() as td:
+        FDR = os.path.join(td, "fdr-info.tsv")
+        NUM = os.path.join(td, "num-info.tsv")
+
+        # Case 1: the auto-selected decoy contig isn't in the FASTA
+        # (note that we only check this one contig from the div indices; we
+        # don't make sure the other contigs in the div indices file are in the
+        # FASTA or BCF.)
+        with pytest.raises(ParameterError) as ei:
+            fu.run_estimate(
+                FASTA,
+                BCF,
+                StringIO(
+                    f"Contig\tAverageCoverage\tLength\t{DI_PREF}\t{DI_PREF}\n"
+                    "edge_1\t35.2\t100\t0.5\t0.2\n"
+                    "edge_2\t35.2\t100\t0.8\t0.2\n"
+                ),
+                None,
+                "Full",
+                # high p
+                500,
+                # high r
+                2,
+                10,
+                5,
+                FDR,
+                NUM,
+                mock_log,
+            )
+        assert str(ei.value) == (
+            f"Selected decoy contig edge_1 is not present in {FASTA}."
+        )
+        assert not os.path.exists(FDR)
+        assert not os.path.exists(NUM)
+
+        # Case 2: the pre-selected decoy contig isn't in the FASTA
+        with pytest.raises(ParameterError) as ei:
+            fu.run_estimate(
+                FASTA,
+                BCF,
+                None,
+                "c4",
+                "Full",
+                # high p
+                500,
+                # high r
+                2,
+                10,
+                5,
+                FDR,
+                NUM,
+                mock_log,
+            )
+        assert str(ei.value) == (
+            f"Selected decoy contig c4 is not present in {FASTA}."
+        )
+        assert not os.path.exists(FDR)
+        assert not os.path.exists(NUM)
