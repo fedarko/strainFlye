@@ -158,13 +158,14 @@ def verify_bcf_simple(bcf_obj, bcf_fp):
     for contig in bcf_obj.header.contigs:
         seen_positions = set()
         for mut in bcf_obj.fetch(contig):
-            # If the mutations are given on separate lines of the VCF, then
-            # they seem to show up in the pysam.VariantFile as separate
-            # records (so we gotta use seen_positions to track these); however,
-            # if the mutations are given on a *single* line of the VCF (e.g.
-            # the ALT allele in a line of the VCF looks like "G,T" like the
-            # example shown in the VCF spec), then we get one record with
-            # multiple alts. Grliahsdfoihdsfofd.
+            # In a VCF file, this is represented by an ALT of . (see the
+            # example in section 1.1 of the VCF v4.3 spec). Anyway, we could
+            # just ignore these records, but parts of the code assume that all
+            # records in the BCF file correspond to single-nucleotide mutations
+            # -- so including monomorphic references will mess with the
+            # results, since these are *not* mutations. (If you run into this
+            # error in practice, you just need to filter your BCF file to
+            # remove these records; sorry for the trouble.)
             if mut.alts is None or len(mut.alts) == 0:
                 raise ParameterError(
                     f'BCF file {bcf_fp} has a "monomorphic reference" at '
@@ -172,6 +173,14 @@ def verify_bcf_simple(bcf_obj, bcf_fp):
                     "strainFlye does not currently support BCF "
                     "files containing these sorts of records, sorry."
                 )
+
+            # If the mutations are given on separate lines of the VCF, then
+            # they seem to show up in the pysam.VariantFile as separate
+            # records (so we gotta use seen_positions to track these); however,
+            # if the mutations are given on a *single* line of the VCF (e.g.
+            # the ALT allele in a line of the VCF looks like "G,T" like the
+            # example shown in the VCF spec), then we get one record with
+            # multiple alts. Grliahsdfoihdsfofd.
             if mut.pos in seen_positions or len(mut.alts) > 1:
                 raise ParameterError(
                     f"BCF file {bcf_fp} has multiple mutations at "
