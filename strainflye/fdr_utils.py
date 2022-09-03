@@ -638,6 +638,13 @@ def compute_decoy_contig_mut_rates(
         this function is called from run_estimate(), which should already have
         ensured that this is the case.)
 
+    subprocess.CalledProcessError
+        This might come up if Prodigal has a problem. I imagine the most likely
+        cause would be really short decoy genomes; Prodigal will throw an error
+        if the input sequences has < 20,000 characters, at least as of writing.
+        Shouldn't have to worry about this in practice (... although this might
+        mess with testing, eef).
+
     References
     ----------
     See https://www.mun.ca/biology/scarr/Transitions_vs_Transversions.html for
