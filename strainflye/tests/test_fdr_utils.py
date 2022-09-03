@@ -420,7 +420,8 @@ def test_compute_target_contig_fdr_curve_info():
             range(5, 12),
             "edge_1",
             100,
-            # mostly the same -- just checking that multiple fdr lines get output
+            # mostly the same -- just checking that multiple fdr lines get
+            # output
             {
                 "butt": [0.001, 0.002, 0.003, 0.004, 0.1, 0.006, 0.007],
                 "lol": [0.001, 0.002, 0.003, 0.004, 0.1, 0.5, 7],
@@ -991,15 +992,27 @@ def test_run_estimate_selected_decoy_not_in_fasta():
 
 
 def test_parse_sco_good():
-    df = fu.parse_sco(os.path.join("strainflye", "tests", "inputs", "edge_6104.sco"))
+    df = fu.parse_sco(
+        os.path.join("strainflye", "tests", "inputs", "edge_6104.sco")
+    )
     assert len(df.index) == 1297
     # no need to go crazy testing this i think, let's just check a few genes
     pd.testing.assert_series_equal(
         df.loc[1],
-        pd.Series({"LeftEnd": 266, "RightEnd": 712, "Length": 447, "Strand": "-"}, name=1)
+        pd.Series(
+            {"LeftEnd": 266, "RightEnd": 712, "Length": 447, "Strand": "-"},
+            name=1,
+        ),
     )
     pd.testing.assert_series_equal(
         df.loc[1217],
-        pd.Series({"LeftEnd": 1208927, "RightEnd": 1210075, "Length": 1149,
-            "Strand": "+"}, name=1217)
+        pd.Series(
+            {
+                "LeftEnd": 1208927,
+                "RightEnd": 1210075,
+                "Length": 1149,
+                "Strand": "+",
+            },
+            name=1217,
+        ),
     )

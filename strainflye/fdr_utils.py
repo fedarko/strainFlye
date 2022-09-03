@@ -5,6 +5,7 @@ import os
 import tempfile
 import subprocess
 import pysam
+import skbio
 import numpy as np
 import pandas as pd
 from math import floor
@@ -453,7 +454,8 @@ def compute_target_contig_fdr_curve_info(
     # TODO: Maybe speed this up by first creating a pandas DataFrame of all
     # contigs and their num_muts, then using vectorization or apply() to do
     # this stuff on all contigs at once? But this runs in ~2 minutes on the
-    # entire SheepGut dataset, so it's not a substantial bottleneck.
+    # entire SheepGut dataset (edit: or at least it did before i added
+    # context-dependent stuff back in), so it's not a substantial bottleneck.
 
     for i, n in enumerate(num_muts):
         if n == 0:
@@ -642,7 +644,7 @@ def compute_decoy_contig_mut_rates(
     details on transversions.
     """
     decoy_seq = fasta_utils.get_single_seq(contigs, decoy_contig)
-    decoy_genes = None
+    # decoy_genes = None
 
     if (
         "CP2" in decoy_contexts
@@ -656,7 +658,7 @@ def compute_decoy_contig_mut_rates(
             # (yeah we could pipe it into prodigal but i don't trust myself to
             # do that correctly)
             fasta_fp = os.path.join(td, f"{decoy_contig}.fasta")
-            with open(decoy_fasta_fp, "w") as dffh:
+            with open(fasta_fp, "w") as dffh:
                 skbio.io.write(decoy_seq, format="fasta", into=dffh)
             sco_fp = os.path.join(td, f"{decoy_contig}.sco")
             subprocess.run(
@@ -664,7 +666,8 @@ def compute_decoy_contig_mut_rates(
                 check=True,
             )
             # Read in the predicted genes
-            decoy_genes = parse_sco(sco_fp)
+            # decoy_genes = parse_sco(sco_fp)
+            raise NotImplementedError("oop")
 
     ctx2mr = {}
 
@@ -678,12 +681,38 @@ def compute_decoy_contig_mut_rates(
                 len(decoy_seq),
             )
         elif ctx == "CP2":
+            # First, let's figure out CP2 positions in the decoy...
+            # then find mutations in them, then compute rates
+            # compare with jupyter notebook results
+            # end by updating ctx2mr[ctx], same as above
             raise NotImplementedError("oop")
-            # TODO:
-            # - If decoy_context != "Full",
-            #   - Predict genes in this sequence using prodigal. Save .sco to tempfile.
-            # - Fetch mutations aligned to this contig in the BCF file.
-            # -
+        elif ctx == "Tv":
+            raise NotImplementedError("oop")
+        elif ctx == "Nonsyn":
+            raise NotImplementedError("oop")
+        elif ctx == "Nonsense":
+            raise NotImplementedError("oop")
+        elif ctx == "CP2Tv":
+            # find cp2 positions (abstract to util func), limit to potential
+            # tvs, identify mutations, end
+            raise NotImplementedError("oop")
+        elif ctx == "CP2Nonsyn":
+            raise NotImplementedError("oop")
+        elif ctx == "CP2Nonsense":
+            raise NotImplementedError("oop")
+        elif ctx == "TvNonsyn":
+            raise NotImplementedError("oop")
+        elif ctx == "TvNonsense":
+            raise NotImplementedError("oop")
+        elif ctx == "CP2TvNonsense":
+            raise NotImplementedError("oop")
+        elif ctx == "CP2TvNonsyn":
+            raise NotImplementedError("oop")
+        else:
+            # It shouldn't be possible for the user to sneak this past Click,
+            # but let's catch it anyway
+            raise WeirdError(f"Unrecognized decoy context {ctx}.")
+
     return ctx2mr
 
 
