@@ -480,18 +480,42 @@ strainflye.add_command(fdr)
     "-dctx",
     "--decoy-context",
     required=False,
-    default="CP2",
+    default=["CP2"],
     show_default=True,
+    multiple=True,
     type=click.Choice(
-        ["Full", "CP2", "Nonsyn", "Nonsense", "CP2Nonsyn", "CP2Nonsense"],
+        [
+            # Rationale: this essentially the power set of (CP2, Tv, Nonsyn,
+            # Nonsense), ignoring combinations where Nonsyn and Nonsense are
+            # together (because all nonsense mutations are by definition
+            # nonsynonymous).
+            "Full",
+            "CP2",
+            "Tv",
+            "Nonsyn",
+            "Nonsense",
+            "CP2Tv",
+            "CP2Nonsyn",
+            "CP2Nonsense",
+            "TvNonsyn",
+            "TvNonsense",
+            "CP2TvNonsense",
+            "CP2TvNonsyn",
+        ],
         case_sensitive=False,
     ),
     help=(
-        '"Context-dependent" types of mutations to which the '
-        "computation of mutation rates in the decoy contig will be limited. "
-        'The "Full" option will consider the entire decoy contig, and all '
-        "other options will limit the computation to certain types of "
-        "positions and/or potential mutations."
+        '"Context-dependent" types of positions and/or mutations to which '
+        "the computation of mutation rates in the decoy contig will be "
+        'limited. The "Full" option will consider the entire decoy contig; '
+        "all other options will limit the computation to certain types of "
+        "positions and/or potential mutations. (CP2 will focus on positions "
+        "in the second codon position of genes predicted in the decoy contig "
+        "using Prodigal; Nonsyn will focus on potential nonsynonymous "
+        "mutations in these genes; Nonsense will focus on potential nonsense "
+        "mutations in these genes; and Tv will focus on potential "
+        "transversion mutations.) You can specify this option multiple times "
+        "to generate multiple sets of FDR estimates."
     ),
 )
 @click.option(
@@ -551,27 +575,17 @@ strainflye.add_command(fdr)
     ),
 )
 @click.option(
-    "-of",
-    "--output-fdr-info",
+    "-o",
+    "--output-dir",
     required=True,
-    type=click.Path(dir_okay=False),
+    type=click.Path(dir_okay=True, file_okay=False),
     help=(
-        "Filepath to which an output tab-separated values (TSV) file "
-        "describing estimated FDRs (the ratio of the decoy contig mutation "
-        "rate to the target contig mutation rate, multiplied by 100) will be "
-        "written. Rows correspond to target contigs, and columns correspond "
-        "to p or r values."
-    ),
-)
-@click.option(
-    "-on",
-    "--output-num-info",
-    required=True,
-    type=click.Path(dir_okay=False),
-    help=(
-        "Filepath to which an output tab-separated values (TSV) file "
-        "describing the number of naively called mutations per megabase will "
-        "be written. Has the same dimensions as the output FDR info file."
+        "Directory to which TSV files describing the estimated FDRs and "
+        "numbers of na\u00efvely called mutations per megabase will be "
+        "written. In all TSV files, rows correspond to target contigs and "
+        "columns correspond to p or r values. We will generate one estimated "
+        "FDR TSV file for every time --decoy-context is specified, and just "
+        "one number-of-na\u00efvely-called-mutations-per-megabase file."
     ),
 )
 def estimate(
@@ -579,13 +593,12 @@ def estimate(
     bcf,
     diversity_indices,
     decoy_contig,
-    decoy_context,
+    decoy_contexts,
     high_p,
     high_r,
     decoy_min_length,
     decoy_min_average_coverage,
-    output_fdr_info,
-    output_num_info,
+    output_dir,
 ):
     """Estimate the FDRs of contigs' na\u00efve mutation calls.
 
@@ -609,7 +622,10 @@ def estimate(
             ("BCF file", bcf),
             ("diversity indices file", diversity_indices),
             ("manually-set decoy contig", decoy_contig),
-            ("decoy contig context-dependent mutation type", decoy_context),
+            (
+                "decoy contig context-dependent position / mutation type(s)",
+                decoy_contexts,
+            ),
             (
                 (
                     "high p threshold (only used if the BCF describes "
@@ -639,23 +655,19 @@ def estimate(
                 decoy_min_average_coverage,
             ),
         ),
-        (
-            ("FDR estimate file", output_fdr_info),
-            ("number of mutations per megabase file", output_num_info),
-        ),
+        (("directory", output_dir),),
     )
     fdr_utils.run_estimate(
         contigs,
         bcf,
         diversity_indices,
         decoy_contig,
-        decoy_context,
+        decoy_contexts,
         high_p,
         high_r,
         decoy_min_length,
         decoy_min_average_coverage,
-        output_fdr_info,
-        output_num_info,
+        output_dir,
         fancylog,
     )
     fancylog("Done.")

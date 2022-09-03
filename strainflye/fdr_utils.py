@@ -1,6 +1,7 @@
 # Utilities for strainFlye fdr.
 
 
+import os
 import tempfile
 import subprocess
 import pysam
@@ -11,7 +12,7 @@ from statistics import mean
 from collections import defaultdict
 from strainflye import fasta_utils, call_utils, misc_utils, bcf_utils
 from strainflye.bcf_utils import parse_sf_bcf
-from .errors import ParameterError, SequencingDataError
+from .errors import ParameterError, SequencingDataError, WeirdError
 from .config import DI_PREF
 
 
@@ -275,7 +276,7 @@ def compute_number_of_mutations_in_full_contig(
 
     Returns
     -------
-    num_muts: list
+    num_muts: list of int
         List with the same length as thresh_vals. The i-th value in this list
         describes the number of called mutations for the i-th threshold in
         thresh_vals.
@@ -365,7 +366,7 @@ def compute_full_decoy_contig_mut_rates(
 
     Returns
     -------
-    mut_rates: list
+    mut_rates: list of float
         Mutation rates for each threshold value in thresh_vals.
     """
     num_muts = compute_number_of_mutations_in_full_contig(
@@ -410,25 +411,26 @@ def compute_target_contig_fdr_curve_info(
     target_contig_len: int
         Target contig sequence length.
 
-    decoy_mut_rates: list
-        List of mutation rates (with the same length as thresh_vals) for the
-        decoy contig. The context used to compute these mutation rates (Full,
-        CP2, Nonsyn, ...) doesn't matter. All we care about is these rates.
+    decoy_mut_rates: list of list of float
+        List of lists, where each sub-list describes mutation rates (with the
+        same length as thresh_vals) for the decoy contig. The context used to
+        compute these mutation rates (Full, CP2, Nonsyn, ...) doesn't matter.
+        All we care about is these rates.
 
     Returns
     -------
-    (fdr_line, num_line): (str, str)
-        These are both tab-separated lines (suitable for adding to a TSV file
+    (fdr_lines, num_line): (list of str, str)
+        These are all tab-separated lines (suitable for adding to a TSV file
         where the first column is the target contig name and there are
         len(thresh_vals) additional columns).
 
-        The first entry in fdr_line and num_line is the target contig name.
-        The remaining entries in fdr_line describe the estimated FDR for this
-        target contig at each threshold value (the x-axis on the FDR curves, as
-        we currently draw them). The remaining entries in num_line describe the
-        number of mutations per megabase for this target contig at each
-        threshold value (the y-axis on the FDR curves, as we currently draw
-        them).
+        The first entry in each line in fdr_lines, and the first entry in
+        num_line, is the target contig name. The remaining entries in each
+        line in fdr_lines describe the estimated FDR for this target contig
+        at each threshold value (the x-axis on the FDR curves, as we currently
+        draw them). The remaining entries in num_line describe the number of
+        mutations per megabase for this target contig at each threshold value
+        (the y-axis on the FDR curves, as we currently draw them).
     """
     num_muts = compute_number_of_mutations_in_full_contig(
         bcf_obj, thresh_type, thresh_vals, target_contig
@@ -462,13 +464,68 @@ def compute_target_contig_fdr_curve_info(
     return fdr_line + "\n", num_line + "\n"
 
 
+def parse_sco(sco_fp):
+    """Returns a DataFrame representing a SCO file produced by e.g. Prodigal.
+
+    Parameters
+    ----------
+    sco_fp: str
+        Filepath to a SCO file.
+
+    Returns
+    -------
+    df: pd.DataFrame
+        Describes genes in the SCO file.
+
+    Raises
+    ------
+    WeirdError
+        If a line starts with an unrecognized prefix.
+
+    References
+    ----------
+    This is intended to sort of mimic the way LST files from GeneMark
+    can be parsed with Pandas (...with some effort).
+
+    Also, I stole this from myself in the SheepGut repo:
+    https://github.com/fedarko/sheepgut/blob/main/notebooks/parse_sco.py
+
+    (Dang, I wrote this thing back in like ... 2021, or 2020, or something)
+    """
+    genes = {}
+    with open(filepath, "r") as f:
+        for line in f:
+            if not line.startswith("#"):
+                if line.startswith(">"):
+                    parts = line[1:].strip().split("_")
+                    gene_num = int(parts[0])
+                    left_end = int(parts[1])
+                    rght_end = int(parts[2])
+                    strand = parts[3]
+                    length = rght_end - left_end + 1
+                    genes[gene_num] = [left_end, rght_end, length, strand]
+                else:
+                    # If this line doesn't start with # or > and it isn't just
+                    # a blank line, then something's up. Throw an error.
+                    if len(line.strip()) > 0:
+                        raise WeirdError(
+                            f"Unrecognized line prefix in SCO: line = '{line}'"
+                        )
+    df = pd.DataFrame.from_dict(
+        genes,
+        orient="index",
+        columns=["LeftEnd", "RightEnd", "Length", "Strand"],
+    )
+    return df
+
+
 def compute_decoy_contig_mut_rates(
     contigs,
     bcf_obj,
     thresh_type,
     thresh_vals,
     decoy_contig,
-    decoy_context,
+    decoy_contexts,
 ):
     """Computes mutation rates for a decoy contig at some threshold values.
 
@@ -494,26 +551,49 @@ def compute_decoy_contig_mut_rates(
     decoy_contig: str
         Name of a contig to compute mutation rates for.
 
-    decoy_context: str
+    decoy_contexts: list of str
         Context-dependent mutation settings to apply in computing the mutation
-        rates. One of the following:
+        rates. Each entry should be one of the following:
          - "Full": Compute mutation rates across the entire contig.
+
          - "CP2": Only consider positions that are 1) located in a single
                   predicted protein-coding gene and 2) are located in the
                   second codon position of this gene.
+
+         - "Tv": Compute mutation rates based on treating potential
+                 transversion mutations (A <-> C, G <-> T, A <-> T, C <-> G)
+                 as a decoy.
+
          - "Nonsyn": Compute mutation rates based on treating potential
                      nonsynonymous mutations (for positions located in a single
                      predicted protein-coding gene) as a decoy.
+
          - "Nonsense": Like Nonsyn, but for nonsense mutations.
+
+         - "CP2Tv": Tv, but only for positions in CP2.
          - "CP2Nonsyn": Nonsyn, but only for positions in CP2.
          - "CP2Nonsense": Nonsense, but only for positions in CP2.
+         - "TvNonsyn": Tv + Nonsyn mutations.
+         - "TvNonsense": Tv + Nonsense mutations.
+         - "CP2TvNonsense": Tv + Nonsense, but only for positions in CP2.
+         - "CP2TvNonsyn": Tv + Nonsyn, but only for positions in CP2.
+
+        ... Note that we don't have any options for combining Nonsyn and
+        Nonsense, because this wouldn't do anything (all nonsense mutations are
+        by definition nonsynonymous). Arguably, CP2 + Nonsyn is also *almost*
+        useless, but there is one possible "synonymous" CP2 mutation (TGA <->
+        TAA both code for a stop codon) so we include that.
 
     Returns
     -------
-    decoy_mutation_rates: list
-        Has the same dimensions as thresh_vals. The i-th value of
-        decoy_mutation_rates corresponds to the mutation rate computed for this
-        decoy contig based on naive calling using the i-th threshold value.
+    ctx2mr: dict
+        Maps values in decoy_contexts to a list of mutation rates computed for
+        the decoy genome using this context.
+
+        Each list has the same dimensions as thresh_vals. So, the t-th
+        entry in a list corresponds to the mutation rate computed for the
+        decoy contig (using the current decoy context) based on naive calling
+        using the t-th threshold value.
 
     Raises
     ------
@@ -521,27 +601,56 @@ def compute_decoy_contig_mut_rates(
         If decoy_contig isn't in the contigs. (This should never happen if
         this function is called from run_estimate(), which should already have
         ensured that this is the case.)
+
+    References
+    ----------
+    See https://www.mun.ca/biology/scarr/Transitions_vs_Transversions.html for
+    details on transversions.
     """
     decoy_seq = fasta_utils.get_single_seq(contigs, decoy_contig)
+    decoy_genes = None
 
-    if decoy_context == "Full":
-        return compute_full_decoy_contig_mut_rates(
-            bcf_obj,
-            thresh_type,
-            thresh_vals,
-            decoy_contig,
-            len(decoy_seq),
-        )
-    else:
-        raise NotImplementedError(
-            'Only the "Full" context is implemented now.'
-        )
+    if (
+        "CP2" in decoy_contexts
+        or "Nonsyn" in decoy_contexts
+        or "Nonsense" in decoy_contexts
+    ):
+        # Predict genes in the decoy contig using Prodigal
+        # (This is reliant on the decoy contig being prokaryotic)
+        with tempfile.TemporaryDirectory() as td:
+            # Write out the decoy contig to a file
+            # (yeah we could pipe it into prodigal but i don't trust myself to
+            # do that correctly)
+            fasta_fp = os.path.join(td, f"{decoy_contig}.fasta")
+            with open(decoy_fasta_fp, "w") as dffh:
+                skbio.io.write(decoy_seq, format="fasta", into=dffh)
+            sco_fp = os.path.join(td, f"{decoy_contig}.sco")
+            subprocess.run(
+                ["prodigal", "-i", fasta_fp, "-o", sco_fp, "-f", "sco", "-c"],
+                check=True,
+            )
+            # Read in the predicted genes
+            decoy_genes = parse_sco(sco_fp)
 
-    # TODO:
-    # - If decoy_context != "Full",
-    #   - Predict genes in this sequence using prodigal. Save .sco to tempfile.
-    # - Fetch mutations aligned to this contig in the BCF file.
-    # -
+    ctx2mr = {}
+
+    for ctx in decoy_contexts:
+        if ctx == "Full":
+            ctx2mr[ctx] = compute_full_decoy_contig_mut_rates(
+                bcf_obj,
+                thresh_type,
+                thresh_vals,
+                decoy_contig,
+                len(decoy_seq),
+            )
+        elif ctx == "CP2":
+            raise NotImplementedError("oop")
+            # TODO:
+            # - If decoy_context != "Full",
+            #   - Predict genes in this sequence using prodigal. Save .sco to tempfile.
+            # - Fetch mutations aligned to this contig in the BCF file.
+            # -
+    return ctx2mr
 
 
 def run_estimate(
@@ -549,13 +658,12 @@ def run_estimate(
     bcf,
     diversity_indices,
     decoy_contig,
-    decoy_context,
+    decoy_contexts,
     high_p,
     high_r,
     decoy_min_length,
     decoy_min_average_coverage,
-    output_fdr_info,
-    output_num_info,
+    output_dir,
     fancylog,
     chunk_size=500,
 ):
@@ -585,10 +693,11 @@ def run_estimate(
         If a str, this should be the name of a contig described in the
         BCF file. We'll use this as a decoy contig.
 
-    decoy_context: str
+    decoy_contexts: list of str
         Context-dependent mutation settings (e.g. Full, CP2, Nonsyn, ...)
-        Thankfully, we know this will be one of a set of allowed choices,
-        since we use click.Choice() to screen it at the CLI.
+        Thankfully, we know each entry in this list will be one of a set of
+        allowed choices, since we use click.Choice() to screen it at the CLI.
+        We'll generate one TSV file for each of these contexts.
 
     high_p: int
         "Indisputable" threshold for p-mutations (scaled up by 100).
@@ -604,14 +713,7 @@ def run_estimate(
         If automatically selecting decoy contigs, we'll only consider contigs
         with average coverages of at least this.
 
-    output_fdr_info: str
-        Filepath to which we'll write a TSV file describing estimated FDRs
-        for the target contigs. (x-axis values for the FDR curves, at least as
-        plotted in the paper.)
-
-    output_num_info: str
-        Filepath to which we'll write a TSV file describing numbers of
-        mutations per megabase. (y-axis values for the FDR curves.)
+    output_dir: str
 
     fancylog: function
         Logging function.
@@ -770,18 +872,26 @@ def run_estimate(
         prefix="",
     )
 
+    # Click allows the user to specify the same Choice multiple times, which
+    # will literally give us a list with the same thing multiple times. So
+    # let's filter to unique decoy contexts, so that we don't generate the CP2
+    # mutation rates a gazillion times for some weird reason...
+    # (Also, let's sort this list so that there is a consistent order we can
+    # rely on.)
+    unique_ctxs = sorted(set(decoy_contexts))
+
     fancylog(
         f"Computing mutation rates for {used_decoy_contig} at these threshold "
-        "values..."
+        f"values, for each of the {len(unique_ctxs):,} decoy context(s)..."
     )
     # For each value in thresh_vals, compute the decoy genome's mutation rate.
-    decoy_mut_rates = compute_decoy_contig_mut_rates(
+    ctx2mr = compute_decoy_contig_mut_rates(
         contigs,
         bcf_obj,
         thresh_type,
         thresh_vals,
         used_decoy_contig,
-        decoy_context,
+        unique_ctxs,
     )
     fancylog("Done.", prefix="")
 
@@ -795,6 +905,8 @@ def run_estimate(
     for val in thresh_vals:
         tsv_header += f"\t{thresh_type}{val}"
 
+    # TODO TODO TODO make the output directory using misc utils then create
+    # multiple tsvs inside it
     # ... and write it out. The header is the same for the FDR estimate file
     # and for the (# of mutations per megabase) file.
     for tsv_fp in (output_fdr_info, output_num_info):
