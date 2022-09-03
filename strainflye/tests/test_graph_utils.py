@@ -1,3 +1,4 @@
+import os
 import tempfile
 import pytest
 import networkx as nx
@@ -25,13 +26,19 @@ def check_sample1_graph(g):
     assert g.nodes["6"]["length"] == 4
 
 
+def gfafp(basename):
+    # today, on "things that don't matter because i'm never gonna port this to
+    # windows"
+    return os.path.join("strainflye", "tests", "inputs", f"{basename}.gfa")
+
+
 def test_load_gfa():
-    g = gu.load_gfa("strainflye/tests/inputs/sample1.gfa")
+    g = gu.load_gfa(gfafp("sample1"))
     check_sample1_graph(g)
 
 
 def test_load_gfa_noseq():
-    g = gu.load_gfa("strainflye/tests/inputs/sample1-noseq.gfa")
+    g = gu.load_gfa(gfafp("sample1-noseq"))
     check_sample1_graph(g)
 
 
@@ -39,13 +46,13 @@ def test_load_gfa_duplen():
     # based on previous test code I wrote at
     # https://github.com/marbl/MetagenomeScope/blob/master/metagenomescope/tests/assembly_graph_parser/utils.py
     with pytest.raises(GraphParsingError) as errorinfo:
-        gu.load_gfa("strainflye/tests/inputs/sample1-duplen.gfa")
+        gu.load_gfa(gfafp("sample1-duplen"))
     assert "Duplicate length for segment 3" == str(errorinfo.value)
 
 
 def test_load_gfa_nolen():
     with pytest.raises(GraphParsingError) as errorinfo:
-        gu.load_gfa("strainflye/tests/inputs/sample1-nolen.gfa")
+        gu.load_gfa(gfafp("sample1-nolen"))
     assert "No length given for segment 4" == str(errorinfo.value)
 
 
@@ -69,14 +76,14 @@ def test_load_gfa_nonunique_seq():
 
 
 def test_load_gfa_empty():
-    gf = "strainflye/tests/inputs/sample1-empty.gfa"
+    gf = gfafp("sample1-empty")
     with pytest.raises(GraphParsingError) as errorinfo:
         gu.load_gfa(gf)
     assert f"Less than 1 segment(s) are given in {gf}." == str(errorinfo.value)
 
 
 def test_load_gfa_min_num_nodes():
-    gf = "strainflye/tests/inputs/sample1.gfa"
+    gf = gfafp("sample1")
     for mnn in [7, 8, 9, 10, 14, 20, 1000, 10000]:
         with pytest.raises(GraphParsingError) as ei:
             gu.load_gfa(gf, min_num_nodes=mnn)
@@ -104,16 +111,14 @@ def check_sample1_fasta(fasta_text, num_seqs):
 def test_gfa_to_fasta():
     """A 'normal' test case for this."""
     sio = StringIO()
-    num_seqs = gu.gfa_to_fasta("strainflye/tests/inputs/sample1.gfa", sio)
+    num_seqs = gu.gfa_to_fasta(gfafp("sample1"), sio)
     check_sample1_fasta(sio.getvalue(), num_seqs)
 
 
 def test_gfa_to_fasta_smallchunksize():
     """Verifies that using a small chunk size works ok."""
     sio = StringIO()
-    num_seqs = gu.gfa_to_fasta(
-        "strainflye/tests/inputs/sample1.gfa", sio, chunk_size=2
-    )
+    num_seqs = gu.gfa_to_fasta(gfafp("sample1"), sio, chunk_size=2)
     check_sample1_fasta(sio.getvalue(), num_seqs)
 
 
@@ -122,9 +127,7 @@ def test_gfa_to_fasta_badchunksize():
     for cs in (-100, -2, -1, 0):
         sio = StringIO()
         with pytest.raises(WeirdError) as ei:
-            gu.gfa_to_fasta(
-                "strainflye/tests/inputs/sample1.gfa", sio, chunk_size=cs
-            )
+            gu.gfa_to_fasta(gfafp("sample1"), sio, chunk_size=cs)
         assert str(ei.value) == (
             f"chunk_size should be a positive integer, but it's {cs}?"
         )
@@ -133,7 +136,7 @@ def test_gfa_to_fasta_badchunksize():
 def test_gfa_to_fasta_noseq():
     sio = StringIO()
     with pytest.raises(GraphParsingError) as errorinfo:
-        gu.gfa_to_fasta("strainflye/tests/inputs/sample1-noseq.gfa", sio)
+        gu.gfa_to_fasta(gfafp("sample1-noseq"), sio)
 
     # All of the segments in this particular test GFA have no sequences given,
     # so the first one triggering this error should be the one mentioned in the
@@ -151,7 +154,7 @@ def test_gfa_to_fasta_noseq():
 def test_gfa_to_fasta_nosegs():
     sio = StringIO()
     with pytest.raises(GraphParsingError) as errorinfo:
-        gu.gfa_to_fasta("strainflye/tests/inputs/sample1-empty.gfa", sio)
+        gu.gfa_to_fasta(gfafp("sample1-empty"), sio)
 
     assert "Didn't see any segments in the GFA file?" == str(errorinfo.value)
     assert sio.getvalue() == ""
