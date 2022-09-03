@@ -414,17 +414,22 @@ def test_compute_target_contig_fdr_curve_info():
         "edge_1\t90\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
     ) as fh:
         bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
-        fdr_line, num_line = fu.compute_target_contig_fdr_curve_info(
+        ctx2fdr_lines, num_line = fu.compute_target_contig_fdr_curve_info(
             bcf_obj,
             thresh_type,
             range(5, 12),
             "edge_1",
             100,
-            [0.001, 0.002, 0.003, 0.004, 0.1, 0.006, 0.007],
+            # mostly the same -- just checking that multiple fdr lines get output
+            {
+                "butt": [0.001, 0.002, 0.003, 0.004, 0.1, 0.006, 0.007],
+                "lol": [0.001, 0.002, 0.003, 0.004, 0.1, 0.5, 7],
+            },
         )
-        assert (
-            fdr_line == "edge_1\t15.0\t60.0\t90.0\t120.0\t3000.0\t180.0\tNA\n"
-        )
+        assert ctx2fdr_lines == {
+            "butt": "edge_1\t15.0\t60.0\t90.0\t120.0\t3000.0\t180.0\tNA\n",
+            "lol": "edge_1\t15.0\t60.0\t90.0\t120.0\t3000.0\t15000.0\tNA\n",
+        }
         assert num_line == (
             "edge_1\t20000.0\t10000.0\t10000.0\t10000.0\t10000.0\t10000.0\t0\n"
         )
@@ -453,13 +458,13 @@ def test_compute_decoy_contig_mut_rates_full_r_simple():
         bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
         # where we're going, we don't need other nucleotides
         contigs_file = StringIO(f">edge_1\n{'A' * 500}")
-        mut_rates = fu.compute_decoy_contig_mut_rates(
-            contigs_file, bcf_obj, thresh_type, range(5, 13), "edge_1", "Full"
+        ctx2mr = fu.compute_decoy_contig_mut_rates(
+            contigs_file, bcf_obj, thresh_type, range(5, 13), "edge_1", ["Full"]
         )
         denominator = 3 * 500
         # Two r-mutations at r = 5, then only one r-mutation for 6 <= r <= 10,
         # then zero r-mutations from then up.
-        assert mut_rates == [
+        assert ctx2mr == {"Full": [
             2 / denominator,
             1 / denominator,
             1 / denominator,
@@ -468,7 +473,7 @@ def test_compute_decoy_contig_mut_rates_full_r_simple():
             1 / denominator,
             0,
             0,
-        ]
+        ]}
 
 
 def test_load_and_sanity_check_fdr_file_basic_errors():
@@ -674,8 +679,8 @@ def test_run_estimate_both_dividx_and_decoy_specified():
                 BCF,
                 DI,
                 "c1",
-                # decoy context
-                "Full",
+                # decoy contexts
+                ["Full"],
                 # high p
                 500,
                 # high r
@@ -684,8 +689,8 @@ def test_run_estimate_both_dividx_and_decoy_specified():
                 10,
                 # decoy avg coverage
                 5,
-                os.path.join(td, "fdr-info.tsv"),
-                os.path.join(td, "num-info.tsv"),
+                # output dir
+                td,
                 mock_log,
             )
 
@@ -695,7 +700,13 @@ def test_run_estimate_both_dividx_and_decoy_specified():
         )
 
 
-def check_fdr_and_num_dfs_r3_high10(out_fdr_fp, out_num_fp):
+def check_fdr_and_num_dfs_r3_high10(td):
+    out_fdr_fp = os.path.join(td, "fdr-Full.tsv")
+    out_num_fp = os.path.join(td, "num-mutations-per-mb.tsv")
+
+    assert os.path.exists(out_fdr_fp)
+    assert os.path.exists(out_num_fp)
+
     # Test that the FDR estimates look good
     obs_fdr_df = pd.read_csv(out_fdr_fp, sep="\t", index_col=0)
     # Since we let strainFlye auto-select the decoy from this test data,
@@ -750,14 +761,12 @@ def check_fdr_and_num_dfs_r3_high10(out_fdr_fp, out_num_fp):
 
 def test_run_estimate_with_autoselect_and_full_decoy_good(capsys):
     with tempfile.TemporaryDirectory() as td:
-        FDR = os.path.join(td, "fdr-info.tsv")
-        NUM = os.path.join(td, "num-info.tsv")
         fu.run_estimate(
             FASTA,
             BCF,
             DI,
             None,
-            "Full",
+            ["Full"],
             # high p
             500,
             # high r (note that this is not inclusive; so, our FDR estimates
@@ -767,11 +776,11 @@ def test_run_estimate_with_autoselect_and_full_decoy_good(capsys):
             10,
             # decoy avg coverage
             5,
-            FDR,
-            NUM,
+            # output dir
+            td,
             mock_log,
         )
-        check_fdr_and_num_dfs_r3_high10(FDR, NUM)
+        check_fdr_and_num_dfs_r3_high10(td)
 
         # Finally, verify that the logged output looks good
         assert capsys.readouterr().out == (
@@ -793,7 +802,7 @@ def test_run_estimate_with_autoselect_and_full_decoy_good(capsys):
             'MockLog: These "indisputable" mutations won\'t be included in '
             "the FDR estimation results.\n"
             "PREFIX\nMockLog: Computing mutation rates for c2 at these "
-            "threshold values...\n"
+            "threshold values, for each of the 1 decoy context(s)...\n"
             "MockLog: Done.\n"
             "PREFIX\nMockLog: Computing mutation rates and FDR estimates for "
             "the 2 target contig(s)...\n"
@@ -806,37 +815,32 @@ def test_run_estimate_tiny_chunk_size_good():
     # remains the same
     for cs in range(1, 15):
         with tempfile.TemporaryDirectory() as td:
-            FDR = os.path.join(td, "fdr-info.tsv")
-            NUM = os.path.join(td, "num-info.tsv")
             fu.run_estimate(
                 FASTA,
                 BCF,
                 DI,
                 None,
-                "Full",
+                ["Full"],
                 500,
                 10,
                 10,
                 5,
-                FDR,
-                NUM,
+                td,
                 mock_log,
                 chunk_size=cs,
             )
-            check_fdr_and_num_dfs_r3_high10(FDR, NUM)
+            check_fdr_and_num_dfs_r3_high10(td)
 
 
 def test_run_estimate_with_preselected_full_decoy_good(capsys):
     # same pre-selected decoy contig (c2) as is given by the above tests
     with tempfile.TemporaryDirectory() as td:
-        FDR = os.path.join(td, "fdr-info.tsv")
-        NUM = os.path.join(td, "num-info.tsv")
         fu.run_estimate(
             FASTA,
             BCF,
             None,
             "c2",
-            "Full",
+            ["Full"],
             # high p
             500,
             # high r
@@ -845,11 +849,10 @@ def test_run_estimate_with_preselected_full_decoy_good(capsys):
             10,
             # decoy avg coverage
             5,
-            FDR,
-            NUM,
+            td,
             mock_log,
         )
-        check_fdr_and_num_dfs_r3_high10(FDR, NUM)
+        check_fdr_and_num_dfs_r3_high10(td)
 
         # logged output is a bit different now due to no longer using
         # decoy autoselection
@@ -870,7 +873,7 @@ def test_run_estimate_with_preselected_full_decoy_good(capsys):
             'MockLog: These "indisputable" mutations won\'t be included in '
             "the FDR estimation results.\n"
             "PREFIX\nMockLog: Computing mutation rates for c2 at these "
-            "threshold values...\n"
+            "threshold values, for each of the 1 decoy context(s)...\n"
             "MockLog: Done.\n"
             "PREFIX\nMockLog: Computing mutation rates and FDR estimates for "
             "the 2 target contig(s)...\n"
@@ -880,31 +883,27 @@ def test_run_estimate_with_preselected_full_decoy_good(capsys):
 
 def test_run_estimate_small_high_thresholds():
     with tempfile.TemporaryDirectory() as td:
-        FDR = os.path.join(td, "fdr-info.tsv")
-        NUM = os.path.join(td, "num-info.tsv")
         with pytest.raises(ParameterError) as ei:
             fu.run_estimate(
                 FASTA,
                 BCF,
                 DI,
                 None,
-                "Full",
+                ["Full"],
                 # high p
                 500,
                 # high r
                 2,
                 10,
                 5,
-                FDR,
-                NUM,
+                td,
                 mock_log,
             )
         assert str(ei.value) == (
             "--high-r = 2 must be larger than the minimum r used in the BCF "
             "(3)."
         )
-        assert not os.path.exists(FDR)
-        assert not os.path.exists(NUM)
+        assert len(os.listdir(td)) == 0
 
         with pytest.raises(ParameterError) as ei:
             fu.run_estimate(
@@ -912,29 +911,25 @@ def test_run_estimate_small_high_thresholds():
                 os.path.join(IN_DIR, "call-p-min100", "naive-calls.bcf"),
                 os.path.join(IN_DIR, "call-p-min100", "diversity-indices.tsv"),
                 None,
-                "Full",
+                ["Full"],
                 # high p
                 100,
                 # high r
                 10,
                 10,
                 5,
-                FDR,
-                NUM,
+                td,
                 mock_log,
             )
         assert str(ei.value) == (
             "--high-p = 100 must be larger than the minimum p used in the BCF "
             "(100)."
         )
-        assert not os.path.exists(FDR)
-        assert not os.path.exists(NUM)
+        assert len(os.listdir(td)) == 0
 
 
 def test_run_estimate_selected_decoy_not_in_fasta():
     with tempfile.TemporaryDirectory() as td:
-        FDR = os.path.join(td, "fdr-info.tsv")
-        NUM = os.path.join(td, "num-info.tsv")
 
         # Case 1: the auto-selected decoy contig isn't in the FASTA
         # (note that we only check this one contig from the div indices; we
@@ -950,22 +945,20 @@ def test_run_estimate_selected_decoy_not_in_fasta():
                     "edge_2\t35.2\t100\t0.8\t0.2\n"
                 ),
                 None,
-                "Full",
+                ["Full"],
                 # high p
                 500,
                 # high r
                 2,
                 10,
                 5,
-                FDR,
-                NUM,
+                td,
                 mock_log,
             )
         assert str(ei.value) == (
             f"Selected decoy contig edge_1 is not present in {FASTA}."
         )
-        assert not os.path.exists(FDR)
-        assert not os.path.exists(NUM)
+        assert len(os.listdir(td)) == 0
 
         # Case 2: the pre-selected decoy contig isn't in the FASTA
         with pytest.raises(ParameterError) as ei:
@@ -974,19 +967,17 @@ def test_run_estimate_selected_decoy_not_in_fasta():
                 BCF,
                 None,
                 "c4",
-                "Full",
+                ["Full"],
                 # high p
                 500,
                 # high r
                 2,
                 10,
                 5,
-                FDR,
-                NUM,
+                td,
                 mock_log,
             )
         assert str(ei.value) == (
             f"Selected decoy contig c4 is not present in {FASTA}."
         )
-        assert not os.path.exists(FDR)
-        assert not os.path.exists(NUM)
+        assert len(os.listdir(td)) == 0

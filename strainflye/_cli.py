@@ -478,7 +478,7 @@ strainflye.add_command(fdr)
 )
 @click.option(
     "-dctx",
-    "--decoy-context",
+    "--decoy-contexts",
     required=False,
     default=["CP2"],
     show_default=True,

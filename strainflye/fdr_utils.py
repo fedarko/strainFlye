@@ -382,7 +382,7 @@ def compute_target_contig_fdr_curve_info(
     thresh_vals,
     target_contig,
     target_contig_len,
-    decoy_mut_rates,
+    ctx2mr,
 ):
     """Computes FDR curve information for a given target contig.
 
@@ -411,27 +411,29 @@ def compute_target_contig_fdr_curve_info(
     target_contig_len: int
         Target contig sequence length.
 
-    decoy_mut_rates: list of list of float
-        List of lists, where each sub-list describes mutation rates (with the
-        same length as thresh_vals) for the decoy contig. The context used to
-        compute these mutation rates (Full, CP2, Nonsyn, ...) doesn't matter.
-        All we care about is these rates.
+    ctx2mr: dict
+        Maps values in decoy_contexts to a list of mutation rates computed for
+        the decoy contig using this context. See
+        compute_decoy_contig_mut_rates() for details.
 
     Returns
     -------
-    (fdr_lines, num_line): (list of str, str)
-        These are all tab-separated lines (suitable for adding to a TSV file
-        where the first column is the target contig name and there are
-        len(thresh_vals) additional columns).
+    (ctx2fdr_lines, num_line): (dict, str)
+        Each value in ctx2fdr_lines (and num_line itself) are tab-separated
+        lines (suitable for adding to a TSV file where the first column is the
+        target contig name and there are len(thresh_vals) additional columns).
 
-        The first entry in each line in fdr_lines, and the first entry in
+        The first entry in each line in ctx2fdr_lines, and the first entry in
         num_line, is the target contig name. The remaining entries in each
-        line in fdr_lines describe the estimated FDR for this target contig
-        at each threshold value (the x-axis on the FDR curves, as we currently
-        draw them). The remaining entries in num_line describe the number of
-        mutations per megabase for this target contig at each threshold value
-        (the y-axis on the FDR curves, as we currently draw them).
+        line in ctx2fdr_lines describe the estimated FDR for this target contig
+        for the decoy mutation rate at this context at each threshold value
+        (aka the x-axis on a FDR curve, as drawn in the paper). The
+        remaining entries in num_line describe the number of mutations per
+        megabase for this target contig at each threshold value (the y-axis
+        on a FDR curve, as drawn in the paper).
     """
+    # Get the number of mutations in this target contig at each of the
+    # threshold values
     num_muts = compute_number_of_mutations_in_full_contig(
         bcf_obj, thresh_type, thresh_vals, target_contig
     )
@@ -445,23 +447,39 @@ def compute_target_contig_fdr_curve_info(
     # target mutation rate, but that shouldn't happen too often)
     fdr_coeff = 100 * denominator
 
-    fdr_line = target_contig
+    ctx2fdr_lines = {ctx: target_contig for ctx in ctx2mr}
     num_line = target_contig
+
     # TODO: Maybe speed this up by first creating a pandas DataFrame of all
     # contigs and their num_muts, then using vectorization or apply() to do
     # this stuff on all contigs at once? But this runs in ~2 minutes on the
     # entire SheepGut dataset, so it's not a substantial bottleneck.
+
     for i, n in enumerate(num_muts):
         if n == 0:
             # The FDR is undefined if the target's mutation rate is zero
-            fdr_val = "NA"
-            num_val = "0"
+            for ctx in ctx2mr:
+                ctx2fdr_lines[ctx] += "\tNA"
+            # And, of course, there are 0 mutations / Mb
+            num_line += "\t0"
+
         else:
-            fdr_val = str((fdr_coeff * decoy_mut_rates[i]) / n)
-            num_val = str(numpermb_coeff * n)
-        fdr_line += f"\t{fdr_val}"
-        num_line += f"\t{num_val}"
-    return fdr_line + "\n", num_line + "\n"
+            # the (fdr coeff / n) thing is the same for all contexts at this
+            # threshold, so we can pre-compute it and then reuse it for all the
+            # different contexts for this target contig for this threshold
+            # value. might be overkill but whatevs.
+            fdr_cell_coeff = fdr_coeff / n
+            for ctx in ctx2mr:
+                ctx2fdr_lines[ctx] += "\t" + str(fdr_cell_coeff * ctx2mr[ctx][i])
+
+            num_line += f"\t{numpermb_coeff * n}"
+
+    # "cross your t's, dot your i's, and add your newlines" -- hillary clinton
+    for ctx in ctx2fdr_lines:
+        ctx2fdr_lines[ctx] += "\n"
+    num_line += "\n"
+
+    return ctx2fdr_lines, num_line
 
 
 def parse_sco(sco_fp):
@@ -588,7 +606,7 @@ def compute_decoy_contig_mut_rates(
     -------
     ctx2mr: dict
         Maps values in decoy_contexts to a list of mutation rates computed for
-        the decoy genome using this context.
+        the decoy contig using this context.
 
         Each list has the same dimensions as thresh_vals. So, the t-th
         entry in a list corresponds to the mutation rate computed for the
@@ -895,6 +913,10 @@ def run_estimate(
     )
     fancylog("Done.", prefix="")
 
+    # At this point, we've delayed this about as long as we can -- create the
+    # output directory
+    misc_utils.make_output_dir(output_dir)
+
     fancylog(
         "Computing mutation rates and FDR estimates for the "
         f"{len(contig_name2len) - 1:,} target contig(s)..."
@@ -905,11 +927,11 @@ def run_estimate(
     for val in thresh_vals:
         tsv_header += f"\t{thresh_type}{val}"
 
-    # TODO TODO TODO make the output directory using misc utils then create
-    # multiple tsvs inside it
-    # ... and write it out. The header is the same for the FDR estimate file
+    # ... and write it out. The header is the same for the FDR estimate file(s)
     # and for the (# of mutations per megabase) file.
-    for tsv_fp in (output_fdr_info, output_num_info):
+    ctx2fp = {ctx: os.path.join(output_dir, f"fdr-{ctx}.tsv") for ctx in unique_ctxs}
+    num_fp = os.path.join(output_dir, "num-mutations-per-mb.tsv")
+    for tsv_fp in list(ctx2fp.values()) + [num_fp]:
         with open(tsv_fp, "w") as fdr_file:
             fdr_file.write(f"{tsv_header}\n")
 
@@ -918,42 +940,47 @@ def run_estimate(
     # genome comptuation, so we can reuse a lot of code from that.
     target_contigs = bcf_contigs - {used_decoy_contig}
 
-    # Open both files within a single "with" block:
-    # https://stackoverflow.com/a/4617069 (requires Python 3.1, but... we're
-    # already using f-strings [which require Python 3.6] so whatevs lol)
-    with open(output_fdr_info, "a") as ff, open(output_num_info, "a") as nf:
-        fdr_out = ""
-        num_out = ""
-        # Sort target contigs so that their rows in the FDR / num-per-Mb files
-        # are in lexicographic order. Not really needed, but nice to have and
-        # makes testing easier
-        for tc_ct, target_contig in enumerate(sorted(target_contigs), 1):
-            fdr_line, num_line = compute_target_contig_fdr_curve_info(
-                bcf_obj,
-                thresh_type,
-                thresh_vals,
-                target_contig,
-                contig_name2len[target_contig],
-                decoy_mut_rates,
-            )
+    ctx2fdr_out = {ctx: "" for ctx in unique_ctxs}
+    num_out = ""
+    # Sort target contigs so that their rows in the FDR / num-per-Mb files
+    # are in lexicographic order. Not really needed, but nice to have and
+    # makes testing easier
+    for tc_ct, target_contig in enumerate(sorted(target_contigs), 1):
+        ctx2fdr_lines, num_line = compute_target_contig_fdr_curve_info(
+            bcf_obj,
+            thresh_type,
+            thresh_vals,
+            target_contig,
+            contig_name2len[target_contig],
+            ctx2mr,
+        )
 
-            fdr_out += fdr_line
-            num_out += num_line
+        for ctx in ctx2mr:
+            ctx2fdr_out[ctx] += ctx2fdr_lines[ctx]
+        num_out += num_line
 
-            # We'll "chunk" outputs -- we'll only perform a write operation
-            # every (chunk_size) lines. This way, we don't need to perform
-            # |TargetContigs| write operations (which I thought was a
-            # bottleneck here, but after implementing this I don't notice a
-            # speedup... well, whatever, now this code at least looks a bit
-            # nicer).
-            if tc_ct % chunk_size == 0:
-                ff.write(fdr_out)
+        # We'll "chunk" outputs -- we'll only perform a write operation
+        # every (chunk_size) lines. This way, we don't need to perform
+        # write operations after processing every target contig.
+        if tc_ct % chunk_size == 0:
+
+            for ctx in ctx2mr:
+                with open(ctx2fp[ctx], "a") as ff:
+                    ff.write(ctx2fdr_out[ctx])
+                ctx2fdr_out[ctx] = ""
+
+            with open(num_fp, "a") as nf:
                 nf.write(num_out)
-                fdr_out = ""
-                num_out = ""
+            num_out = ""
 
-        if fdr_out != "":
-            ff.write(fdr_out)
+    # Make one last flush if needed (yeah, i know, i know, shouldn't reuse
+    # code but blhufhaosdfu)
+    if num_out != "":
+        for ctx in ctx2mr:
+            with open(ctx2fp[ctx], "a") as ff:
+                ff.write(ctx2fdr_out[ctx])
+
+        with open(num_fp, "a") as nf:
             nf.write(num_out)
 
     fancylog("Done.", prefix="")
@@ -963,7 +990,7 @@ def run_estimate(
     # then we'd estimate the FDR as zero for every target contig. That
     # shouldn't happen most of the time, anyway. Maybe add an option to limit
     # auto-selection to just contigs with mutations? Hm, but that would be
-    # annoying to implement, and users can always manually set a decoy contig.)
+    # annoying to implement, and users can always manually set a decoy contig.
 
 
 def get_optimal_threshold_values(fi, fdr):
