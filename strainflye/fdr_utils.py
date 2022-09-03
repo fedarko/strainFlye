@@ -487,6 +487,11 @@ def compute_target_contig_fdr_curve_info(
 def parse_sco(sco_fp):
     """Returns a DataFrame representing a SCO file produced by e.g. Prodigal.
 
+    This function is mostly intended for internal use at the moment, since I
+    expect most folks will come at strainFlye with GFF3 files. (But if a lot of
+    people have SCO files, then I guess we could modify the hotspot stuff to
+    accept these as well.)
+
     Parameters
     ----------
     sco_fp: str
@@ -495,12 +500,16 @@ def parse_sco(sco_fp):
     Returns
     -------
     df: pd.DataFrame
-        Describes genes in the SCO file.
+        Describes genes in the SCO file. Rows are indexed based on the
+        1-indexed gene number in the SCO file; there are four columns,
+        "LeftEnd", "RightEnd", "Length", and "Strand". LeftEnd and RightEnd
+        are 1-indexed and inclusive.
 
     Raises
     ------
     WeirdError
-        If a line starts with an unrecognized prefix.
+        -If a line starts with an unrecognized prefix.
+        -If any of the genes' lengths are not divisible by 3.
 
     References
     ----------
@@ -513,7 +522,7 @@ def parse_sco(sco_fp):
     (Dang, I wrote this thing back in like ... 2021, or 2020, or something)
     """
     genes = {}
-    with open(filepath, "r") as f:
+    with open(sco_fp, "r") as f:
         for line in f:
             if not line.startswith("#"):
                 if line.startswith(">"):
@@ -523,6 +532,11 @@ def parse_sco(sco_fp):
                     rght_end = int(parts[2])
                     strand = parts[3]
                     length = rght_end - left_end + 1
+                    if length % 3 != 0:
+                        raise WeirdError(
+                            f"Gene {gene_num:,} in SCO is {length:,} bp long "
+                            "(not divisible by 3)?"
+                        )
                     genes[gene_num] = [left_end, rght_end, length, strand]
                 else:
                     # If this line doesn't start with # or > and it isn't just

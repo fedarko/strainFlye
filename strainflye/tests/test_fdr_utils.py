@@ -990,5 +990,16 @@ def test_run_estimate_selected_decoy_not_in_fasta():
         assert len(os.listdir(td)) == 0
 
 
-def test_parse_sco():
-    pass
+def test_parse_sco_good():
+    df = fu.parse_sco(os.path.join("strainflye", "tests", "inputs", "edge_6104.sco"))
+    assert len(df.index) == 1297
+    # no need to go crazy testing this i think, let's just check a few genes
+    pd.testing.assert_series_equal(
+        df.loc[1],
+        pd.Series({"LeftEnd": 266, "RightEnd": 712, "Length": 447, "Strand": "-"}, name=1)
+    )
+    pd.testing.assert_series_equal(
+        df.loc[1217],
+        pd.Series({"LeftEnd": 1208927, "RightEnd": 1210075, "Length": 1149,
+            "Strand": "+"}, name=1217)
+    )
