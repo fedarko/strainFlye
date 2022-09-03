@@ -470,7 +470,9 @@ def compute_target_contig_fdr_curve_info(
             # value. might be overkill but whatevs.
             fdr_cell_coeff = fdr_coeff / n
             for ctx in ctx2mr:
-                ctx2fdr_lines[ctx] += "\t" + str(fdr_cell_coeff * ctx2mr[ctx][i])
+                ctx2fdr_lines[ctx] += "\t" + str(
+                    fdr_cell_coeff * ctx2mr[ctx][i]
+                )
 
             num_line += f"\t{numpermb_coeff * n}"
 
@@ -929,7 +931,9 @@ def run_estimate(
 
     # ... and write it out. The header is the same for the FDR estimate file(s)
     # and for the (# of mutations per megabase) file.
-    ctx2fp = {ctx: os.path.join(output_dir, f"fdr-{ctx}.tsv") for ctx in unique_ctxs}
+    ctx2fp = {
+        ctx: os.path.join(output_dir, f"fdr-{ctx}.tsv") for ctx in unique_ctxs
+    }
     num_fp = os.path.join(output_dir, "num-mutations-per-mb.tsv")
     for tsv_fp in list(ctx2fp.values()) + [num_fp]:
         with open(tsv_fp, "w") as fdr_file:

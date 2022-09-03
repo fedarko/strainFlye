@@ -459,21 +459,28 @@ def test_compute_decoy_contig_mut_rates_full_r_simple():
         # where we're going, we don't need other nucleotides
         contigs_file = StringIO(f">edge_1\n{'A' * 500}")
         ctx2mr = fu.compute_decoy_contig_mut_rates(
-            contigs_file, bcf_obj, thresh_type, range(5, 13), "edge_1", ["Full"]
+            contigs_file,
+            bcf_obj,
+            thresh_type,
+            range(5, 13),
+            "edge_1",
+            ["Full"],
         )
         denominator = 3 * 500
         # Two r-mutations at r = 5, then only one r-mutation for 6 <= r <= 10,
         # then zero r-mutations from then up.
-        assert ctx2mr == {"Full": [
-            2 / denominator,
-            1 / denominator,
-            1 / denominator,
-            1 / denominator,
-            1 / denominator,
-            1 / denominator,
-            0,
-            0,
-        ]}
+        assert ctx2mr == {
+            "Full": [
+                2 / denominator,
+                1 / denominator,
+                1 / denominator,
+                1 / denominator,
+                1 / denominator,
+                1 / denominator,
+                0,
+                0,
+            ]
+        }
 
 
 def test_load_and_sanity_check_fdr_file_basic_errors():
@@ -981,3 +988,7 @@ def test_run_estimate_selected_decoy_not_in_fasta():
             f"Selected decoy contig c4 is not present in {FASTA}."
         )
         assert len(os.listdir(td)) == 0
+
+
+def test_parse_sco():
+    pass
