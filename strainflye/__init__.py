@@ -15,4 +15,6 @@ __version__ = "0.0.1"
 # those starting with _, can be imported when we say "from strainflye import *"
 # See https://stackoverflow.com/a/1057534
 neighbors = os.listdir(os.path.dirname(__file__))
-__all__ = [m[:-3] for m in neighbors if m.endswith(".py") and not m.startswith("_")]
+__all__ = [
+    m[:-3] for m in neighbors if m.endswith(".py") and not m.startswith("_")
+]

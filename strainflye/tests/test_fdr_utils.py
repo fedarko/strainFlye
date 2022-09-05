@@ -6,7 +6,7 @@ import numpy as np
 import strainflye.fdr_utils as fu
 import strainflye.bcf_utils as bu
 from io import StringIO
-from strainflye.errors import ParameterError, SequencingDataError
+from strainflye.errors import ParameterError, SequencingDataError, WeirdError
 from strainflye.config import DI_PREF
 from .utils_for_testing import mock_log, write_indexed_bcf
 
@@ -1016,3 +1016,36 @@ def test_parse_sco_good():
             name=1217,
         ),
     )
+
+
+def test_parse_sco_weird_line_prefix(tmp_path):
+    # Yo apparently you can just have pytest take care of making a temporary
+    # directory for you??? see https://stackoverflow.com/a/4205449 and
+    # https://docs.pytest.org/en/7.1.x/how-to/tmp_path.html
+    #
+    # i've been doing it manually like a chump LOLLLLLLLL
+    fp = os.path.join(tmp_path, "test.sco")
+    with open(fp, "w") as fh:
+        fh.write(">1_266_712_-\n" "2_713_715_+\n")
+    with pytest.raises(WeirdError) as ei:
+        fu.parse_sco(fp)
+    assert str(ei.value) == (
+        'Unrecognized line prefix in SCO: line = "2_713_715_+"'
+    )
+
+
+def test_parse_sco_empty_lines_ok(tmp_path):
+    fp = os.path.join(tmp_path, "test.sco")
+    with open(fp, "w") as fh:
+        fh.write(">1_266_712_-\n" "    \n" ">2_713_715_+\n" "  \t \n")
+    obs_df = fu.parse_sco(fp)
+    exp_df = pd.DataFrame(
+        {
+            "LeftEnd": [266, 713],
+            "RightEnd": [712, 715],
+            "Length": [447, 3],
+            "Strand": ["-", "+"],
+        },
+        index=pd.Index([1, 2]),
+    )
+    pd.testing.assert_frame_equal(obs_df, exp_df)

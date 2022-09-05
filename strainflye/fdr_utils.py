@@ -487,17 +487,17 @@ def compute_target_contig_fdr_curve_info(
 
 
 def parse_sco(sco_fp):
-    """Returns a DataFrame representing a SCO file produced by e.g. Prodigal.
+    """Returns a DataFrame representing a SCO file describing gene predictions.
 
     This function is mostly intended for internal use at the moment, since I
-    expect most folks will come at strainFlye with GFF3 files. (But if a lot of
-    people have SCO files, then I guess we could modify the hotspot stuff to
-    accept these as well.)
+    expect that -- in the case of e.g. the hotspot features stuff -- most
+    people will have GFF3 files. (But if a lot of people have SCO files, then
+    I guess we could modify that side of things to accept these as well.)
 
     Parameters
     ----------
     sco_fp: str
-        Filepath to a SCO file.
+        Filepath to a SCO ("Simple Coordinate Output") file.
 
     Returns
     -------
@@ -510,43 +510,112 @@ def parse_sco(sco_fp):
     Raises
     ------
     WeirdError
-        -If a line starts with an unrecognized prefix.
-        -If any of the genes' lengths are not divisible by 3.
+        If various things look wrong with the SCO file. I raise this instead
+        of a ParameterError, because problems here indicate that (probably)
+        something is up with Prodigal, rather than with how the user is running
+        strainFlye. (Although I guess we could have multiple sources of
+        error...)
+
+    ValueError
+        Implicitly raised if things we expect to be integers in the SCO file
+        (e.g. gene coordinates) are not.
 
     References
     ----------
-    This is intended to sort of mimic the way LST files from GeneMark
-    can be parsed with Pandas (...with some effort).
 
-    Also, I stole this from myself in the SheepGut repo:
+    +---------------------------------+
+    | What does a SCO file look like? |
+    +---------------------------------+
+
+    Prodigal's documentation
+    (https://github.com/hyattpd/Prodigal/wiki/understanding-the-prodigal-output)
+    points to http://tico.gobics.de/ioexamples.jsp regarding details of the SCO
+    file format. As of writing (September 4, 2022), this link is dead.
+    But! We can figure out what it said with the wayback machine:
+    https://web.archive.org/web/20060717224112/http://tico.gobics.de/ioexamples.jsp
+
+    Copying from there:
+
+        The Simple Coord format just gives the coordinates of the predicted
+        ORFs with an id and the orientation. The input may also contain a
+        score and a label as in the Simple Coord output of TiCo.
+
+        >id_left_right_strand[_score][#]
+
+        Example:
+
+        >2_337_2799_+
+        >3_2801_3733_+
+        >5_3734_5020_+
+        >6_5088_5237_+
+        >8_5310_5720_-
+        >10_5683_6459_-
+        >12_6529_7959_-
+        >14_8175_9191_+
+        >15_9303_9893_+
+        >17_9928_10494_-
+        >19_10643_11356_-
+
+    Here, we ignore the presence of a score / label, and just focus on
+    processing the first four fields.
+
+    +--------------------------------------+
+    | ok but like why does this code exist |
+    +--------------------------------------+
+
+    I initially wrote this to mimic the way LST files from GeneMark
+    can be parsed with Pandas (...with some effort). Hence the reuse of
+    "LeftEnd", "RightEnd", etc. I figured it was simpler to adapt this code
+    then it was to re-write stuff to work with GFF3 files.
+
+    Also, the initial version of this code comes from the SheepGut repo:
     https://github.com/fedarko/sheepgut/blob/main/notebooks/parse_sco.py
-
-    (Dang, I wrote this thing back in like ... 2021, or 2020, or something)
     """
     genes = {}
     with open(sco_fp, "r") as f:
         for line in f:
+            # Ignore comments
             if not line.startswith("#"):
                 if line.startswith(">"):
+                    # Ignore any "parts" after the strand -- we don't care
+                    # about scores/labels in SCO files (see refs above)
                     parts = line[1:].strip().split("_")
+
+                    # ValueErrors will be raised if any of these parts don't
+                    # look like a number
                     gene_num = int(parts[0])
                     left_end = int(parts[1])
                     rght_end = int(parts[2])
+
                     strand = parts[3]
+                    if strand != "+" and strand != "-":
+                        raise WeirdError(
+                            f"Unrecognized strand in SCO: {strand}"
+                        )
+
                     length = rght_end - left_end + 1
                     if length % 3 != 0:
                         raise WeirdError(
                             f"Gene {gene_num:,} in SCO is {length:,} bp long "
                             "(not divisible by 3)?"
                         )
+
                     genes[gene_num] = [left_end, rght_end, length, strand]
                 else:
                     # If this line doesn't start with # or > and it isn't just
                     # a blank line, then something's up. Throw an error.
-                    if len(line.strip()) > 0:
+                    stripped_line = line.strip()
+                    if len(stripped_line) > 0:
                         raise WeirdError(
-                            f"Unrecognized line prefix in SCO: line = '{line}'"
+                            "Unrecognized line prefix in SCO: line = "
+                            f'"{stripped_line}"'
                         )
+
+    # shouldn't happen unless something really weird happens with the decoy
+    # genome, but let's account for it anyway
+    if len(genes) < 1:
+        raise WeirdError("No genes were described in the SCO file.")
+
     df = pd.DataFrame.from_dict(
         genes,
         orient="index",
