@@ -1049,3 +1049,44 @@ def test_parse_sco_empty_lines_ok(tmp_path):
         index=pd.Index([1, 2]),
     )
     pd.testing.assert_frame_equal(obs_df, exp_df)
+
+
+def test_parse_sco_non3div_length(tmp_path):
+    fp = os.path.join(tmp_path, "test.sco")
+    with open(fp, "w") as fh:
+        fh.write(">1_266_711_-\n")
+    with pytest.raises(WeirdError) as ei:
+        fu.parse_sco(fp)
+    assert str(ei.value) == (
+        "Gene 1 in SCO is 446 bp long; lengths must be divisible by 3."
+    )
+
+
+def test_parse_sco_left_not_lt_right(tmp_path):
+    fp = os.path.join(tmp_path, "test.sco")
+    with open(fp, "w") as fh:
+        fh.write(">1_711_266_-\n")
+    with pytest.raises(WeirdError) as ei:
+        fu.parse_sco(fp)
+    assert str(ei.value) == (
+        "Gene 1 in SCO has left end of 711, which is not < the right end of "
+        "266."
+    )
+
+
+def test_parse_sco_no_genes(tmp_path):
+    fp = os.path.join(tmp_path, "test.sco")
+    with open(fp, "w") as fh:
+        fh.write("\n")
+    with pytest.raises(WeirdError) as ei:
+        fu.parse_sco(fp)
+    assert str(ei.value) == "No genes described in SCO."
+
+
+def test_parse_sco_bad_strand(tmp_path):
+    fp = os.path.join(tmp_path, "test.sco")
+    with open(fp, "w") as fh:
+        fh.write(">1_266_711_$\n")
+    with pytest.raises(WeirdError) as ei:
+        fu.parse_sco(fp)
+    assert str(ei.value) == "Unrecognized strand in SCO: $"

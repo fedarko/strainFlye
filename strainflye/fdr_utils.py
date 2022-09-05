@@ -593,11 +593,20 @@ def parse_sco(sco_fp):
                             f"Unrecognized strand in SCO: {strand}"
                         )
 
+                    # left end should always be on the left side, regardless of
+                    # strand
+                    if left_end >= rght_end:
+                        raise WeirdError(
+                            f"Gene {gene_num:,} in SCO has left end of "
+                            f"{left_end:,}, which is not < the right end of "
+                            f"{rght_end:,}."
+                        )
+
                     length = rght_end - left_end + 1
                     if length % 3 != 0:
                         raise WeirdError(
-                            f"Gene {gene_num:,} in SCO is {length:,} bp long "
-                            "(not divisible by 3)?"
+                            f"Gene {gene_num:,} in SCO is {length:,} bp long; "
+                            "lengths must be divisible by 3."
                         )
 
                     genes[gene_num] = [left_end, rght_end, length, strand]
@@ -614,7 +623,7 @@ def parse_sco(sco_fp):
     # shouldn't happen unless something really weird happens with the decoy
     # genome, but let's account for it anyway
     if len(genes) < 1:
-        raise WeirdError("No genes were described in the SCO file.")
+        raise WeirdError("No genes described in SCO.")
 
     df = pd.DataFrame.from_dict(
         genes,
