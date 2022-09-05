@@ -393,12 +393,61 @@ def compute_full_decoy_contig_mut_rates(
 
 
 def complain_about_cps(gn, gs, cp):
+    """Raises an error about codon position while iterating through a gene.
+
+    Mostly intended as a fail-safe to catch weird errors. See
+    get_single_gene_cp2_positions() for context on why this function is even
+    useful.
+
+    Parameters
+    ----------
+    gn: int
+        ID number for a gene.
+
+    gs: str
+        Gene strand. Should be "+" or "-", but we don't do any sanity checking
+        here.
+
+    cp: int
+        Codon position. In practice, this function should be called if this
+        gets "off" somehow (i.e. it isn't 1, 2, or 3).
+
+    Raises
+    ------
+    WeirdError
+    """
     raise WeirdError(
         f"Codon position got out of whack: gene {gn:,}, strand {gs}, CP {cp}"
     )
 
 
 def get_single_gene_cp2_positions(genes_df):
+    """Returns a set of all positions located in exactly one gene and in CP2.
+
+    Parameters
+    ----------
+    genes_df: pd.DataFrame
+        Describes predicted genes in a contig. See parse_sco().
+
+    Returns
+    -------
+    single_gene_cp2_positions: set
+        Set of all positions located in exactly one gene, and located in CP2
+        (in the second codon position) of their parent gene.
+
+    Raises
+    ------
+    WeirdError
+        If something goes wrong during iteration; this should never happen, but
+        you never know.
+
+    Notes
+    -----
+    This is pretty inefficient. I doubt it will be a bottleneck, since this
+    should only be called once per run of "fdr estimate", but if you need to
+    speed this up a good first step might be moving from itertuples() to
+    something like .apply() / vectorization.
+    """
     # records all positions in CP2 of at least one gene
     cp2_pos = set()
     # records all positions in at least one gene that we have seen thus far
