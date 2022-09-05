@@ -483,27 +483,7 @@ strainflye.add_command(fdr)
     default=["CP2"],
     show_default=True,
     multiple=True,
-    type=click.Choice(
-        [
-            # Rationale: this essentially the power set of (CP2, Tv, Nonsyn,
-            # Nonsense), ignoring combinations where Nonsyn and Nonsense are
-            # together (because all nonsense mutations are by definition
-            # nonsynonymous).
-            "Full",
-            "CP2",
-            "Tv",
-            "Nonsyn",
-            "Nonsense",
-            "CP2Tv",
-            "CP2Nonsyn",
-            "CP2Nonsense",
-            "TvNonsyn",
-            "TvNonsense",
-            "CP2TvNonsense",
-            "CP2TvNonsyn",
-        ],
-        case_sensitive=False,
-    ),
+    type=click.Choice(config.DECOY_CONTEXTS, case_sensitive=False),
     help=(
         '"Context-dependent" types of positions and/or mutations to which '
         "the computation of mutation rates in the decoy contig will be "

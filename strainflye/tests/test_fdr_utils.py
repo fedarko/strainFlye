@@ -311,7 +311,7 @@ def test_compute_full_decoy_contig_mut_rates_r_simple():
         ]
 
 
-def test_compute_number_of_mutations_in_full_contig_p_with_indisputable():
+def test_compute_number_of_mutations_in_contig_p_with_indisputable():
     with write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220526\n"
@@ -332,7 +332,7 @@ def test_compute_number_of_mutations_in_full_contig_p_with_indisputable():
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=100000;AAD=5000\n"
     ) as fh:
         bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
-        num_muts = fu.compute_number_of_mutations_in_full_contig(
+        num_muts = fu.compute_number_of_mutations_in_contig(
             bcf_obj, thresh_type, range(15, 500), "edge_1"
         )
         assert len(num_muts) == 485
@@ -358,7 +358,7 @@ def test_compute_number_of_mutations_in_full_contig_p_with_indisputable():
             assert num_muts[i] == 2
 
 
-def test_compute_number_of_mutations_in_full_contig_thresh_val_errors():
+def test_compute_number_of_mutations_in_contig_thresh_val_errors():
     with write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220608\n"
@@ -376,22 +376,22 @@ def test_compute_number_of_mutations_in_full_contig_thresh_val_errors():
     ) as fh:
         bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
         with pytest.raises(ParameterError) as ei:
-            fu.compute_number_of_mutations_in_full_contig(
+            fu.compute_number_of_mutations_in_contig(
                 bcf_obj, thresh_type, range(5, 13, 2), "edge_1"
             )
         assert str(ei.value) == "thresh_vals must use a step size of 1."
         with pytest.raises(ParameterError) as ei:
-            fu.compute_number_of_mutations_in_full_contig(
+            fu.compute_number_of_mutations_in_contig(
                 bcf_obj, thresh_type, range(15, 5, -1), "edge_1"
             )
         assert str(ei.value) == "thresh_vals must use a step size of 1."
         with pytest.raises(ParameterError) as ei:
-            fu.compute_number_of_mutations_in_full_contig(
+            fu.compute_number_of_mutations_in_contig(
                 bcf_obj, thresh_type, range(5, 5), "edge_1"
             )
         assert str(ei.value) == "thresh_vals must have a positive length."
         with pytest.raises(ParameterError) as ei:
-            fu.compute_number_of_mutations_in_full_contig(
+            fu.compute_number_of_mutations_in_contig(
                 bcf_obj, thresh_type, range(-9, -1), "edge_1"
             )
         assert str(ei.value) == "thresh_vals' start and stop must be positive."
@@ -440,7 +440,7 @@ def test_compute_decoy_contig_mut_rates_full_r_simple():
     # this is the same as test_compute_full_decoy_contig_mut_rates_r_simple(),
     # but it calls compute_decoy_contig_mutation_rates() (which, in turn, calls
     # compute_full_decoy_contig_mut_rates(), which calls
-    # compute_number_of_mutations_in_full_contig()...)
+    # compute_number_of_mutations_in_contig()...)
     with write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220608\n"
@@ -1090,3 +1090,11 @@ def test_parse_sco_bad_strand(tmp_path):
     with pytest.raises(WeirdError) as ei:
         fu.parse_sco(fp)
     assert str(ei.value) == "Unrecognized strand in SCO: $"
+
+
+def test_complain_about_cps():
+    with pytest.raises(WeirdError) as ei:
+        fu.complain_about_cps(1234, "+", 4)
+    assert str(ei.value) == (
+        "Codon position got out of whack: gene 1,234, strand +, CP 4"
+    )
