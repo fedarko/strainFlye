@@ -331,11 +331,13 @@ def test_run_small_dataset_r(capsys):
         exp_mdp = [12, 12, 12, 13, 13]
         exp_alt = ["T", "A", "A", "T", "C"]
         exp_aad = [3, 5, 5, 6, 3]
+        exp_unreasonable = [False, True, True, True, False]
         for ri, rec in enumerate(bcf_obj.fetch()):
             assert rec.contig == exp_contigs[ri]
             assert rec.pos == exp_pos[ri]
             assert rec.ref == exp_ref[ri]
             assert rec.info.get("MDP") == exp_mdp[ri]
+            assert rec.info.get("UNREASONABLE") == exp_unreasonable[ri]
 
             # Contingent upon the whole only-1-mut-at-a-position thing
             assert len(rec.alts) == 1
@@ -477,6 +479,7 @@ def test_run_small_dataset_p(capsys):
             assert rec.pos == exp_pos[ri]
             assert rec.ref == exp_ref[ri]
             assert rec.info.get("MDP") == exp_mdp[ri]
+            assert rec.info.get("UNREASONABLE")
 
             # Contingent upon the whole only-1-mut-at-a-position thing
             assert len(rec.alts) == 1
@@ -580,6 +583,7 @@ def test_run_small_dataset_p_noverbose_diff_params(capsys):
             assert rec.pos == exp_pos[ri]
             assert rec.ref == exp_ref[ri]
             assert rec.info.get("MDP") == exp_mdp[ri]
+            assert rec.info.get("UNREASONABLE")
             assert len(rec.alts) == 1
             assert rec.alts[0] == exp_alt[ri]
             rec_aad = rec.info.get("AAD")
@@ -668,6 +672,7 @@ def test_run_contig_with_no_alns_verbose_p(capsys):
             assert rec.pos == exp_pos[ri]
             assert rec.ref == exp_ref[ri]
             assert rec.info.get("MDP") == exp_mdp[ri]
+            assert rec.info.get("UNREASONABLE")
             assert len(rec.alts) == 1
             assert rec.alts[0] == exp_alt[ri]
             rec_aad = rec.info.get("AAD")
@@ -778,11 +783,13 @@ def test_run_contig_with_no_alns_nonverbose_r(capsys):
         exp_mdp = [12, 12, 12, 13, 13]
         exp_alt = ["T", "A", "A", "T", "C"]
         exp_aad = [3, 5, 5, 6, 3]
+        exp_unreasonable = [False, True, True, True, False]
         for ri, rec in enumerate(bcf_obj.fetch()):
             assert rec.contig == exp_contigs[ri]
             assert rec.pos == exp_pos[ri]
             assert rec.ref == exp_ref[ri]
             assert rec.info.get("MDP") == exp_mdp[ri]
+            assert rec.info.get("UNREASONABLE") == exp_unreasonable[ri]
             assert len(rec.alts) == 1
             assert rec.alts[0] == exp_alt[ri]
             rec_aad = rec.info.get("AAD")
@@ -851,3 +858,78 @@ def test_run_degen_nts():
             "(1-indexed) position 9. Alignments including degenerate "
             "nucleotides (e.g. N) are not supported."
         )
+
+
+def test_run_tie_in_mut_pos(tmp_path):
+    for third_nt in "ACGT":
+        # since we run this test four times, we'll have to remove existing bcf
+        # files / etc. in between tests
+        for fp in os.listdir(tmp_path):
+            os.remove(tmp_path / fp)
+        # write out a version of contigs.fasta with different nucleotides in
+        # the third position of c3.
+        #
+        # The alignment we will use is "tie.bam". This is a modified alignment
+        # from alignment.sam; here, the pileup at position 1 of c3 (1-indexed)
+        # is 4 T, 4 A, 4 C, 1 G. And the pileup at position 3 of c3 is
+        #    6 T, 6 G, 1 C, 0 A.
+        #
+        # This lets us test what happens when mutated positions have ties.
+        # (also the / notation -- see
+        # https://docs.python.org/3/library/pathlib.html -- creates a PosixPath
+        # that skbio seems to have problems with, so let's just convert it to a
+        # string here...)
+        fasta_fp = str(tmp_path / f"tie-{third_nt}.fasta")
+        with open(fasta_fp, "w") as f:
+            f.write(
+                ">c1\n"
+                "ACTGACACCCAAACCAAACCTAC\n"
+                ">c2\n"
+                "AAAAAAGGGGGG\n"
+                ">c3\n"
+                f"TT{third_nt}TTTTTTTTTTTTT\n"
+            )
+        run(
+            fasta_fp,
+            os.path.join(IN_DIR, "tie.bam"),
+            tmp_path,
+            mock_log,
+            False,
+            min_r=2,
+            div_index_r_list=[1, 2, 3, 4, 5, 6, 7],
+            min_cov_factor=2,
+        )
+
+        bcf_obj, tt, tm = parse_sf_bcf(tmp_path / "naive-calls.bcf")
+        assert tt == "r"
+        assert tm == 2
+        exp_contigs = ["c1", "c1", "c1", "c3", "c3", "c3", "c3"]
+        exp_pos = [4, 11, 13, 1, 3, 7, 8]
+        for ri, rec in enumerate(bcf_obj.fetch()):
+            assert rec.contig == exp_contigs[ri]
+            assert rec.pos == exp_pos[ri]
+            if rec.contig == "c3":
+                if rec.pos == 1:
+                    # three-way tie -- anything without G in the ref/alt is ok
+                    assert rec.ref in "ACT"
+                    assert len(rec.alts) == 1
+                    assert rec.alts[0] != rec.ref
+                    assert rec.alts[0] in "ACT"
+                    assert not rec.info.get("UNREASONABLE")
+
+                elif rec.pos == 3:
+                    # ref/alt should be either T/G or G/T
+                    assert rec.ref in "TG"
+                    assert len(rec.alts) == 1
+                    assert rec.alts[0] != rec.ref
+                    if rec.ref == "T":
+                        assert rec.alts[0] == "G"
+                    else:
+                        assert rec.alts[0] == "T"
+
+                    if third_nt == "C" or third_nt == "A":
+                        assert rec.info.get("UNREASONABLE")
+                    else:
+                        assert not rec.info.get("UNREASONABLE")
+        # not gonna bother testing the diversity indices / etc -- just wanna
+        # verify bcf
