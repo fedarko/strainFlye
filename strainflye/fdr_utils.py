@@ -350,7 +350,7 @@ def compute_number_of_mutations_in_contig(
     return num_muts
 
 
-def compute_all_mutation_decoy_contig_mut_rates(
+def compute_any_mutation_decoy_contig_mut_rates(
     bcf_obj, thresh_type, thresh_vals, contig, pos_to_consider=None
 ):
     """Computes mutation rates for some or all positions in a decoy contig.
@@ -979,7 +979,7 @@ def compute_decoy_contig_mut_rates(
 
     for ctx in decoy_contexts:
         if ctx == "Full":
-            ctx2mr[ctx] = compute_all_mutation_decoy_contig_mut_rates(
+            ctx2mr[ctx] = compute_any_mutation_decoy_contig_mut_rates(
                 bcf_obj,
                 thresh_type,
                 thresh_vals,
@@ -987,7 +987,7 @@ def compute_decoy_contig_mut_rates(
             )
 
         elif ctx == "CP2":
-            ctx2mr[ctx] = compute_all_mutation_decoy_contig_mut_rates(
+            ctx2mr[ctx] = compute_any_mutation_decoy_contig_mut_rates(
                 bcf_obj,
                 thresh_type,
                 thresh_vals,

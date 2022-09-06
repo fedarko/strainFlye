@@ -259,7 +259,7 @@ def test_compute_full_decoy_contig_mut_rates_p_simple():
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=19\n"
     ) as fh:
         bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
-        mut_rates = fu.compute_all_mutation_decoy_contig_mut_rates(
+        mut_rates = fu.compute_any_mutation_decoy_contig_mut_rates(
             bcf_obj, thresh_type, range(15, 21), "edge_1"
         )
         denominator = 3 * 500
@@ -293,7 +293,7 @@ def test_compute_full_decoy_contig_mut_rates_r_simple():
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
     ) as fh:
         bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
-        mut_rates = fu.compute_all_mutation_decoy_contig_mut_rates(
+        mut_rates = fu.compute_any_mutation_decoy_contig_mut_rates(
             bcf_obj, thresh_type, range(5, 13), "edge_1"
         )
         denominator = 3 * 500
@@ -1197,7 +1197,7 @@ def test_compute_cp2_decoy_contig_mut_rates():
             index=pd.Index([1, 2]),
         )
         sg_cp2_pos = fu.get_single_gene_cp2_positions(genes_df)
-        mut_rates = fu.compute_all_mutation_decoy_contig_mut_rates(
+        mut_rates = fu.compute_any_mutation_decoy_contig_mut_rates(
             bcf_obj,
             thresh_type,
             range(5, 13),
