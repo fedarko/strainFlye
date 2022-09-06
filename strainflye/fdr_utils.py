@@ -464,15 +464,20 @@ def compute_specific_mutation_decoy_contig_mut_rates(
     contig,
     pos_to_consider,
     mutation_types,
+    contig_seq,
+    contig_genes_df,
 ):
     """Computes "specific" mutation rates for positions in a contig.
 
     This function should be applicable to (as of writing, at least) all decoy
     contexts besides "Full" and "CP2". Unlike these contexts (see
-    compute_all_mutation_decoy_contig_mut_rates() for reference), we do not
+    compute_any_mutation_decoy_contig_mut_rates() for reference), we do not
     necessarily consider any mutation in the relevant positions in the contig
     towards the decoy -- we only consider specific types of mutations, for
     example just nonsynonymous mutations.
+
+    If you'd like to filter based on positions, as well, then that can be done
+    using pos_to_consider.
 
     Parameters
     ----------
@@ -498,6 +503,17 @@ def compute_specific_mutation_decoy_contig_mut_rates(
         just say "Nonsense". Also, if this is list is empty, that will also
         cause an error.
 
+    contig_seq: skbio.DNA
+        Contig sequence. Unlike compute_any_mutation_decoy_contig_mut_rates(),
+        here we will need to know the assembled "reference" sequence for this
+        contig.
+
+    contig_genes_df: pd.DataFrame or None
+        Describes predicted genes in the contig sequence. There's a chance that
+        this isn't necessary (if mutation_types only contains "Tv", then we
+        won't care about genes) -- so, in that case, it's ok for this to be
+        None.
+
     Returns
     -------
     mut_rates: list of float
@@ -510,7 +526,53 @@ def compute_specific_mutation_decoy_contig_mut_rates(
     """
     tv, nonsyn, nonsense = get_mutation_types(mutation_types)
 
-    raise NotImplementedError("durr")
+    # The number of *possible* mutations of each type, throughout the contig
+    # sequence. This is the same across all threshold values.
+    num_poss_muts = 0
+
+    # If Nonsyn or Nonsense are in effect, we'll consider just positions
+    # located in predicted genes. If this is *not* the case, then we've gotta
+    # consider all positions -- this requires some special-casing, at least as
+    # far as I can tell.
+    if tv and (not nonsyn) and (not nonsense):
+        verify_thresh_vals_good(thresh_vals)
+        num_muts = [0] * len(thresh_vals)
+        high_val = thresh_vals[-1] + 1
+        min_val = thresh_vals[0]
+
+        for mut in bcf_obj.fetch(contig):
+            if pos_to_consider is None or mut.pos in pos_to_consider:
+                # Ignore unreasonable positions
+                if mut.info.get("UNREASONABLE"):
+                    continue
+
+                # Regardless of the reference nucleotide (A/C/G/T), there are
+                # exactly two transversion mutations possible.
+                num_poss_muts += 2
+                ref_nt = mut.ref.upper()
+                alt_nt = mut.alts[0].upper()
+
+                if sorted(ref_nt + alt_nt) not in ("AG", "CT"):
+                    # this is a transversion mutation
+                    alt_pos = mut.info.get("AAD")[0]
+                    cov_pos = mut.info.get("MDP")
+
+                    if thresh_type == "p":
+                        max_passing_val = floor((10000 * alt_pos) / cov_pos)
+                    else:
+                        max_passing_val = alt_pos
+
+                    # Don't count "indisputable" mutations
+                    if max_passing_val >= high_val:
+                        continue
+
+                    num_vals_to_update = max_passing_val - min_val + 1
+                    for i in range(num_vals_to_update):
+                        num_muts[i] += 1
+    else:
+        raise NotImplementedError("Not done yet!")
+
+    return [n / num_poss_muts for n in num_muts]
 
 
 def complain_about_cps(gn, gs, cp):
@@ -1107,7 +1169,11 @@ def compute_decoy_contig_mut_rates(
             ]
 
             ctx2mr[ctx] = compute_specific_mutation_decoy_contig_mut_rates(
-                *params, pos_to_consider, mutation_types
+                *params,
+                pos_to_consider,
+                mutation_types,
+                decoy_seq,
+                decoy_genes_df,
             )
 
     return ctx2mr
