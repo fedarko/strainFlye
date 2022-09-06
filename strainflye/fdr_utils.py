@@ -556,6 +556,12 @@ def compute_cp2_decoy_contig_mut_rates(
     -------
     mut_rates: list of float
         Mutation rates for each threshold value in thresh_vals.
+
+    Raises
+    ------
+    ParameterError
+        If there aren't any single-gene CP2 positions,
+        get_single_gene_cp2_positions() will raise a ParameterError about it.
     """
     single_gene_cp2_pos = get_single_gene_cp2_positions(contig_genes_df)
     num_muts = compute_number_of_mutations_in_contig(
@@ -565,6 +571,9 @@ def compute_cp2_decoy_contig_mut_rates(
         contig,
         pos_to_consider=single_gene_cp2_pos,
     )
+    # We know that this length must be nonzero, since otherwise
+    # get_single_gene_cp2_positions() would've raised an error about it.
+    # So no need to worry about division by zero here.
     denominator = 3 * len(single_gene_cp2_pos)
     return [n / denominator for n in num_muts]
 

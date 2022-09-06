@@ -1165,3 +1165,58 @@ def test_get_single_gene_cp2_positions_nothing_valid():
     assert str(ei.value) == (
         "No single-gene CP2 positions exist (given the predicted genes)."
     )
+
+
+def test_compute_cp2_decoy_contig_mut_rates():
+    # bit of a silly example -- edge_1 has "length" 500, as given in the BCF
+    # text below, but we only define genes on the first few bp in this edge to
+    # make testing easier.
+    with write_indexed_bcf(
+        "##fileformat=VCFv4.3\n"
+        "##fileDate=20220905\n"
+        '##source="strainFlye v0.0.1: r-mutation calling (--min-r = 5)"\n'
+        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        "##contig=<ID=edge_1,length=500>\n"
+        '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
+        '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
+        '##FILTER=<ID=strainflye_minr_5, Description="min r threshold">\n'  # noqa: E501
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "edge_1\t2\t.\tT\tC\t.\t.\tMDP=10000;AAD=8\n"
+        "edge_1\t7\t.\tA\tT\t.\t.\tMDP=10000;AAD=5\n"
+        "edge_1\t8\t.\tA\tT\t.\t.\tMDP=10000;AAD=50\n"
+        "edge_1\t10\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
+    ) as fh:
+        bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
+        genes_df = pd.DataFrame(
+            {
+                "LeftEnd": [1, 6],
+                "RightEnd": [9, 11],
+                "Length": [9, 6],
+                "Strand": ["-", "+"],
+            },
+            index=pd.Index([1, 2]),
+        )
+        mut_rates = fu.compute_cp2_decoy_contig_mut_rates(
+            bcf_obj, thresh_type, range(5, 13), "edge_1", genes_df
+        )
+        # The "denominator" is 3 * length, which in this case is the number of
+        # CP2 single-gene positions considered (here, there are three such
+        # positions: 2, 5, and 10)
+        assert mut_rates == [
+            # Two CP2 single-gene r-mutations for 5 <= r <= 8 (2 and 10)
+            # r = 5
+            2 / 9,
+            # r = 6
+            2 / 9,
+            # r = 7
+            2 / 9,
+            # r = 8
+            2 / 9,
+            # Now, just one valid mutation left for r = 9 and r = 10
+            1 / 9,
+            1 / 9,
+            # "Nothing beside remains" -- Ozymandias, from the hit blockbuster
+            # movie Ozymandias 2: It's Ozymandin' Time
+            0,
+            0,
+        ]
