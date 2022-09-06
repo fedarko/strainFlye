@@ -99,11 +99,9 @@ def test_call_p_mutation():
 
 
 def test_get_pos_info_str():
-    assert get_pos_info_str(5, 1000, False) == "MDP=1000;AAD=5"
-    assert get_pos_info_str(1000, 10000, False) == "MDP=10000;AAD=1000"
-    assert get_pos_info_str(1, 1, False) == "MDP=1;AAD=1"
-    assert get_pos_info_str(1, 1, True) == "MDP=1;AAD=1;UNREASONABLE"
-    assert get_pos_info_str(3, 100000, True) == "MDP=100000;AAD=3;UNREASONABLE"
+    assert get_pos_info_str(5, 1000) == "MDP=1000;AAD=5"
+    assert get_pos_info_str(1000, 10000) == "MDP=10000;AAD=1000"
+    assert get_pos_info_str(1, 1) == "MDP=1;AAD=1"
 
 
 def test_parse_di_list_whitespace_ok():
@@ -331,13 +329,11 @@ def test_run_small_dataset_r(capsys):
         exp_mdp = [12, 12, 12, 13, 13]
         exp_alt = ["T", "A", "A", "T", "C"]
         exp_aad = [3, 5, 5, 6, 3]
-        exp_unreasonable = [False, True, True, True, False]
         for ri, rec in enumerate(bcf_obj.fetch()):
             assert rec.contig == exp_contigs[ri]
             assert rec.pos == exp_pos[ri]
             assert rec.ref == exp_ref[ri]
             assert rec.info.get("MDP") == exp_mdp[ri]
-            assert rec.info.get("UNREASONABLE") == exp_unreasonable[ri]
 
             # Contingent upon the whole only-1-mut-at-a-position thing
             assert len(rec.alts) == 1
@@ -479,7 +475,6 @@ def test_run_small_dataset_p(capsys):
             assert rec.pos == exp_pos[ri]
             assert rec.ref == exp_ref[ri]
             assert rec.info.get("MDP") == exp_mdp[ri]
-            assert rec.info.get("UNREASONABLE")
 
             # Contingent upon the whole only-1-mut-at-a-position thing
             assert len(rec.alts) == 1
@@ -583,7 +578,7 @@ def test_run_small_dataset_p_noverbose_diff_params(capsys):
             assert rec.pos == exp_pos[ri]
             assert rec.ref == exp_ref[ri]
             assert rec.info.get("MDP") == exp_mdp[ri]
-            assert rec.info.get("UNREASONABLE")
+
             assert len(rec.alts) == 1
             assert rec.alts[0] == exp_alt[ri]
             rec_aad = rec.info.get("AAD")
@@ -672,7 +667,7 @@ def test_run_contig_with_no_alns_verbose_p(capsys):
             assert rec.pos == exp_pos[ri]
             assert rec.ref == exp_ref[ri]
             assert rec.info.get("MDP") == exp_mdp[ri]
-            assert rec.info.get("UNREASONABLE")
+
             assert len(rec.alts) == 1
             assert rec.alts[0] == exp_alt[ri]
             rec_aad = rec.info.get("AAD")
@@ -783,13 +778,12 @@ def test_run_contig_with_no_alns_nonverbose_r(capsys):
         exp_mdp = [12, 12, 12, 13, 13]
         exp_alt = ["T", "A", "A", "T", "C"]
         exp_aad = [3, 5, 5, 6, 3]
-        exp_unreasonable = [False, True, True, True, False]
         for ri, rec in enumerate(bcf_obj.fetch()):
             assert rec.contig == exp_contigs[ri]
             assert rec.pos == exp_pos[ri]
             assert rec.ref == exp_ref[ri]
             assert rec.info.get("MDP") == exp_mdp[ri]
-            assert rec.info.get("UNREASONABLE") == exp_unreasonable[ri]
+
             assert len(rec.alts) == 1
             assert rec.alts[0] == exp_alt[ri]
             rec_aad = rec.info.get("AAD")
@@ -915,7 +909,6 @@ def test_run_tie_in_mut_pos(tmp_path):
                     assert len(rec.alts) == 1
                     assert rec.alts[0] != rec.ref
                     assert rec.alts[0] in "ACT"
-                    assert not rec.info.get("UNREASONABLE")
 
                 elif rec.pos == 3:
                     # ref/alt should be either T/G or G/T
@@ -927,9 +920,12 @@ def test_run_tie_in_mut_pos(tmp_path):
                     else:
                         assert rec.alts[0] == "T"
 
-                    if third_nt == "C" or third_nt == "A":
-                        assert rec.info.get("UNREASONABLE")
-                    else:
-                        assert not rec.info.get("UNREASONABLE")
+                    # in the good old days of five minutes ago, back when I was
+                    # encoding UNREASONABLE as a flag in the BCF file, I
+                    # checked that here (w/r/t the third_nt thing) -- but now i
+                    # don't bother doing that any more because we no longer
+                    # store this info in the BCF (see
+                    # https://github.com/fedarko/strainFlye/issues/46)
+
         # not gonna bother testing the diversity indices / etc -- just wanna
         # verify bcf

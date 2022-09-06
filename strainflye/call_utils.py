@@ -3,7 +3,6 @@
 
 import os
 import time
-import skbio
 import pysam
 import pysamstats
 from . import config
@@ -392,8 +391,8 @@ def run(
     # See https://samtools.github.io/hts-specs/VCFv4.3.pdf for details on the
     # VCF file format.
     #
-    # We add three nonstandard info fields, in addition to those discussed in
-    # the VCF docs: MDP, AAD, and UNREASONABLE.
+    # We add two nonstandard info fields, in addition to those discussed in
+    # the VCF docs: MDP and AAD.
     #
     # About these fields
     # ------------------
@@ -403,16 +402,6 @@ def run(
     #
     # - AAD is like AD, but it just applies for the alternate allele. At least
     #   now, we don't need allele counts for the reference allele as well.
-    #
-    # - UNREASONABLE is a flag that indicates whether or not a position is
-    #   "reasonable" (the reference nucleotide in the contig sequence is the
-    #   most commmon nucleotide at this position in the alignment, or is at
-    #   least tied for the most common nucleotide). I include this because of
-    #   the rare, silly case where we call a mutation, but the "consensus" is a
-    #   three-way tie -- in this case, we can't know just from the BCF file and
-    #   FASTA file whether or not a position is unreasonable (checking if the
-    #   reference nt is the "ref" or "alt" at a mutation is not sufficient).
-    #   This lets us avoid busting out the alignment in these cases.
     #
     # About "Number"
     # --------------
@@ -424,16 +413,11 @@ def run(
     #   per alternate allele per position (since for now we just include at
     #   most one alt allele per position, there isn't a difference from "1",
     #   but this could change if we start identifying multiallelic mutations).
-    #
-    # - UNREASONABLE: The 0 indicates that there shouldn't be any numbers
-    #   included (this is apparently needed for flags, per the VCF docs).
     info_header = (
         "##INFO=<ID=MDP,Number=1,Type=Integer,"
         'Description="(Mis)match read depth">\n'
         "##INFO=<ID=AAD,Number=A,Type=Integer,"
         'Description="Alternate allele read depth">\n'
-        "##INFO=<ID=UNREASONABLE,Number=0,Type=Flag,"
-        'Description="Reference allele is not at least tied for consensus">\n'
     )
 
     # Now, create a header for the VCF file listing all contigs -- this is
@@ -472,16 +456,8 @@ def run(
     # mutations, as well as observe coverages / etc.
     fancylog(f"Running {call_str} and computing diversity indices...")
     any_muts_called_across_any_contigs = False
-    # We will need access to the underlying sequences when determining if a
-    # given position is unreasonable or not, so let's iterate through the FASTA
-    # file rather than through name2len. (This is how
-    # fasta_utils.get_name2len() works, anyway.)
-    for si, contig_seq in enumerate(
-        skbio.io.read(contigs, format="fasta", constructor=skbio.DNA),
-        1,
-    ):
-        contig = contig_seq.metadata["id"]
-        contig_len = len(contig_seq)
+    for si, contig in enumerate(contig_name2len, 1):
+        contig_len = contig_name2len[contig]
         if verbose:
             cli_utils.proglog(
                 contig, si, num_fasta_contigs, fancylog, contig_len=contig_len
@@ -580,8 +556,7 @@ def run(
 
             if is_mut:
                 any_muts_called_across_any_contigs = True
-                unreasonable = rec[str(contig_seq[pos - 1])] < ref_freq
-                info = get_pos_info_str(alt_freq, cov, unreasonable)
+                info = get_pos_info_str(alt_freq, cov)
                 # 1. CHROM = contig (aka contig name)
                 #
                 # 2. POS = pos (1-indexed position on this contig)
@@ -705,10 +680,8 @@ def run(
     bcf_utils.compress_vcf(output_vcf, output_bcf, fancylog)
 
 
-def get_pos_info_str(alt_pos, cov, unreasonable):
+def get_pos_info_str(alt_pos, cov):
     info_str = f"MDP={cov};AAD={alt_pos}"
-    if unreasonable:
-        info_str += ";UNREASONABLE"
     return info_str
 
 
