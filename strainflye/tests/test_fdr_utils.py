@@ -1,6 +1,7 @@
 import os
 import tempfile
 import pytest
+import skbio
 import pandas as pd
 import numpy as np
 import strainflye.fdr_utils as fu
@@ -1225,3 +1226,41 @@ def test_compute_cp2_decoy_contig_mut_rates():
             0,
             0,
         ]
+
+
+def test_compute_tv_decoy_contig_mut_rates():
+    with write_indexed_bcf(
+        "##fileformat=VCFv4.3\n"
+        "##fileDate=20220905\n"
+        '##source="strainFlye v0.0.1: r-mutation calling (--min-r = 5)"\n'
+        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        "##contig=<ID=edge_1,length=500>\n"
+        '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
+        '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
+        '##FILTER=<ID=strainflye_minr_5, Description="min r threshold">\n'  # noqa: E501
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "edge_1\t1\t.\tA\tC\t.\t.\tMDP=10000;AAD=10\n"
+        "edge_1\t2\t.\tA\tG\t.\t.\tMDP=10000;AAD=10\n"
+        "edge_1\t3\t.\tA\tT\t.\t.\tMDP=10000;AAD=10\n"
+        "edge_1\t4\t.\tC\tA\t.\t.\tMDP=10000;AAD=10\n"
+        "edge_1\t5\t.\tC\tG\t.\t.\tMDP=10000;AAD=10\n"
+        "edge_1\t6\t.\tC\tT\t.\t.\tMDP=10000;AAD=10\n"
+        "edge_1\t7\t.\tG\tA\t.\t.\tMDP=10000;AAD=10\n"
+        "edge_1\t8\t.\tG\tC\t.\t.\tMDP=10000;AAD=10\n"
+        "edge_1\t9\t.\tG\tT\t.\t.\tMDP=10000;AAD=10\n"
+        "edge_1\t10\t.\tT\tA\t.\t.\tMDP=10000;AAD=10\n"
+        "edge_1\t11\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
+        "edge_1\t12\t.\tT\tG\t.\t.\tMDP=10000;AAD=10\n"
+    ) as fh:
+        bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
+        mut_rates = fu.compute_specific_mutation_decoy_contig_mut_rates(
+            bcf_obj,
+            thresh_type,
+            range(5, 13),
+            "edge_1",
+            None,
+            ["Tv"],
+            skbio.DNA("A" * 500),
+            None,
+        )
+        assert mut_rates == ([8 / 1000] * 6) + [0, 0]

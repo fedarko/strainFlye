@@ -540,19 +540,22 @@ def compute_specific_mutation_decoy_contig_mut_rates(
         high_val = thresh_vals[-1] + 1
         min_val = thresh_vals[0]
 
+        # TODO: ignore unreasonable positions -- look at alignment
+
+        # Regardless of the reference nucleotide (A/C/G/T), there are exactly
+        # two transversion mutations possible at every position.
+        if pos_to_consider is None:
+            num_poss_muts = len(contig_seq) * 2
+        else:
+            num_poss_muts = len(pos_to_consider) * 2
+
         for mut in bcf_obj.fetch(contig):
             if pos_to_consider is None or mut.pos in pos_to_consider:
-                # Ignore unreasonable positions
-                if mut.info.get("UNREASONABLE"):
-                    continue
-
-                # Regardless of the reference nucleotide (A/C/G/T), there are
-                # exactly two transversion mutations possible.
-                num_poss_muts += 2
                 ref_nt = mut.ref.upper()
                 alt_nt = mut.alts[0].upper()
 
-                if sorted(ref_nt + alt_nt) not in ("AG", "CT"):
+                sorted_ra = "".join(sorted(ref_nt + alt_nt))
+                if sorted_ra not in ("AG", "CT"):
                     # this is a transversion mutation
                     alt_pos = mut.info.get("AAD")[0]
                     cov_pos = mut.info.get("MDP")
