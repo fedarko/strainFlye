@@ -3,6 +3,7 @@
 
 import os
 import time
+import skbio
 import pysam
 import pysamstats
 from . import config
@@ -386,36 +387,59 @@ def run(
     with open(output_diversity_indices, "w") as di_file:
         di_file.write(f"{di_header}\n")
 
-    # Write out VCF file header
-    # See the VCF 4.3 docs for details about the Number meanings:
-    # - The 1 indicates that we only include one version of this Number per
-    #   position (because it doesn't really make sense to, for example,
-    #   compute depth multiple times for a position).
+    # Write out VCF file header.
     #
-    # - The A indicates that we will include one version of this Number per
-    #   alternate allele per position (since for now we just include at most
-    #   one alt allele per position, there isn't a difference from "1", but
-    #   this could change if we start identifying multiallelic mutations).
+    # See https://samtools.github.io/hts-specs/VCFv4.3.pdf for details on the
+    # VCF file format.
     #
-    # Also, note that MDP and AAD are nonstandard info headers -- I made them
-    # up, because I wasn't satisfied with DP and AD in the VCF docs.
+    # We add three nonstandard info fields, in addition to those discussed in
+    # the VCF docs: MDP, AAD, and UNREASONABLE.
     #
+    # About these fields
+    # ------------------
     # - MDP is explicitly *just* (mis)matching reads -- it isn't clear if DP
     #   in the VCF docs includes indels also, and I didn't want to risk
-    #   misleading anyone.
+    #   misleading anyone. So I made this up.
     #
     # - AAD is like AD, but it just applies for the alternate allele. At least
     #   now, we don't need allele counts for the reference allele as well.
+    #
+    # - UNREASONABLE is a flag that indicates whether or not a position is
+    #   "reasonable" (the reference nucleotide in the contig sequence is the
+    #   most commmon nucleotide at this position in the alignment, or is at
+    #   least tied for the most common nucleotide). I include this because of
+    #   the rare, silly case where we call a mutation, but the "consensus" is a
+    #   three-way tie -- in this case, we can't know just from the BCF file and
+    #   FASTA file whether or not a position is unreasonable (checking if the
+    #   reference nt is the "ref" or "alt" at a mutation is not sufficient).
+    #   This lets us avoid busting out the alignment in these cases.
+    #
+    # About "Number"
+    # --------------
+    # - MDP: The 1 indicates that we only include one version of this Number
+    #   per position (because it doesn't really make sense to, for example,
+    #   compute depth multiple times for a position).
+    #
+    # - AAD: The A indicates that we will include one version of this Number
+    #   per alternate allele per position (since for now we just include at
+    #   most one alt allele per position, there isn't a difference from "1",
+    #   but this could change if we start identifying multiallelic mutations).
+    #
+    # - UNREASONABLE: The 0 indicates that there shouldn't be any numbers
+    #   included (this is apparently needed for flags, per the VCF docs).
     info_header = (
         "##INFO=<ID=MDP,Number=1,Type=Integer,"
         'Description="(Mis)match read depth">\n'
         "##INFO=<ID=AAD,Number=A,Type=Integer,"
         'Description="Alternate allele read depth">\n'
+        "##INFO=<ID=UNREASONABLE,Number=0,Type=Flag,"
+        'Description="Reference allele is not at least tied for consensus">\n'
     )
 
     # Now, create a header for the VCF file listing all contigs -- this is
     # technically optional, but 1) it's recommended practice and 2) it'll help
-    # a lot with parsing this VCF downstream
+    # a lot with parsing this VCF downstream and 3) it's needed for BCF files
+    # anyway
     contig_header = ""
     for c in contig_name2len:
         contig_header += f"##contig=<ID={c},length={contig_name2len[c]}>\n"
@@ -448,20 +472,28 @@ def run(
     # mutations, as well as observe coverages / etc.
     fancylog(f"Running {call_str} and computing diversity indices...")
     any_muts_called_across_any_contigs = False
-    for si, seq in enumerate(contig_name2len, 1):
-        contig_len = contig_name2len[seq]
+    # We will need access to the underlying sequences when determining if a
+    # given position is unreasonable or not, so let's iterate through the FASTA
+    # file rather than through name2len. (This is how
+    # fasta_utils.get_name2len() works, anyway.)
+    for si, contig_seq in enumerate(
+        skbio.io.read(contigs, format="fasta", constructor=skbio.DNA),
+        1,
+    ):
+        contig = contig_seq.metadata["id"]
+        contig_len = len(contig_seq)
         if verbose:
             cli_utils.proglog(
-                seq, si, num_fasta_contigs, fancylog, contig_len=contig_len
+                contig, si, num_fasta_contigs, fancylog, contig_len=contig_len
             )
 
         # Bail out early if this contig has no linear alignments. Speeds things
         # up a bit, and lets us be clear about this to the user.
-        at_least_one_aln_to_this_seq = False
-        for aln in bf.fetch(seq):
-            at_least_one_aln_to_this_seq = True
+        at_least_one_aln_to_this_contig = False
+        for aln in bf.fetch(contig):
+            at_least_one_aln_to_this_contig = True
             break
-        if not at_least_one_aln_to_this_seq:
+        if not at_least_one_aln_to_this_contig:
             # We lock this behind verbose because a fair amount of contigs in,
             # for example, SheepGut are completely uncovered -- this can happen
             # if contigs are shorter than read length (weird alignment
@@ -469,15 +501,15 @@ def run(
             if verbose:
                 fancylog(
                     (
-                        f"No linear alignments to contig {seq} exist in the "
-                        "BAM file. Not performing mutation calling within "
+                        f"No linear alignments to contig {contig} exist in "
+                        "the BAM file. Not performing mutation calling within "
                         "this contig."
                     ),
                     prefix="",
                 )
 
             # Write out a line in the div idx file.
-            di_line = f"{seq}\t0\t{contig_len}"
+            di_line = f"{contig}\t0\t{contig_len}"
             for di in range(len(di_list)):
                 di_line += "\tNA"
             with open(output_diversity_indices, "a") as di_file:
@@ -510,10 +542,12 @@ def run(
         msc_mut_ct = [0] * len(min_suff_coverages)
 
         # pad=True forces us to observe uncovered positions, also
+        # Note that we treat positions here as 1-indexed; this matches how
+        # VCF/BCF files handle positions
         for pos, rec in enumerate(
             pysamstats.stat_variation(
                 bf,
-                chrom=seq,
+                chrom=contig,
                 fafile=contigs,
                 pad=True,
                 max_depth=config.MAX_DEPTH_PYSAM,
@@ -524,7 +558,7 @@ def run(
             if rec["N"] > 0:
                 raise SequencingDataError(
                     "Found a degenerate nucleotide aligned to contig "
-                    f"{seq} at (1-indexed) position {pos:,}. Alignments "
+                    f"{contig} at (1-indexed) position {pos:,}. Alignments "
                     "including degenerate nucleotides (e.g. N) are not "
                     "supported."
                 )
@@ -546,10 +580,11 @@ def run(
 
             if is_mut:
                 any_muts_called_across_any_contigs = True
-                info = get_pos_info_str(alt_freq, cov)
-                # 1. CHROM = seq (aka contig name)
+                unreasonable = rec[str(contig_seq[pos - 1])] < ref_freq
+                info = get_pos_info_str(alt_freq, cov, unreasonable)
+                # 1. CHROM = contig (aka contig name)
                 #
-                # 2. POS = pos (position on this contig)
+                # 2. POS = pos (1-indexed position on this contig)
                 #
                 # 3. ID = . (this can be a unique identifier for this variant,
                 #            but... we don't have that sort of information)
@@ -578,10 +613,11 @@ def run(
                 #               or r. So no need to encode discrete "filter"
                 #               info for higher values of p or r.)
                 #
-                # 8. INFO = info (Information about coverage and alt(pos):
-                #                useful when plotting FDR curves, etc.)
+                # 8. INFO = info (Information about coverage, alt(pos), etc.:
+                #                useful when plotting FDR curves and doing
+                #                other downstream analyses)
                 vcf_text += (
-                    f"{seq}\t{pos}\t.\t{ref_nt}\t{alt_nt}\t.\t.\t{info}\n"
+                    f"{contig}\t{pos}\t.\t{ref_nt}\t{alt_nt}\t.\t.\t{info}\n"
                 )
                 num_any_muts += 1
 
@@ -609,7 +645,7 @@ def run(
         # Now that we've examined all positions in this contig...
         if pos != contig_len:
             raise WeirdError(
-                f"For contig {seq}, the final position = {pos:,}, but the "
+                f"For contig {contig}, the final position = {pos:,}, but the "
                 f"contig length = {contig_len:,}. Something went really wrong."
             )
 
@@ -620,7 +656,7 @@ def run(
 
         # Output diversity index info
         avg_cov = coverage_sum / contig_len
-        di_line = f"{seq}\t{avg_cov}\t{contig_len}"
+        di_line = f"{contig}\t{avg_cov}\t{contig_len}"
 
         # For each threshold value, did we observe enough sufficiently-covered
         # positions in order to compute the diversity index for this threshold
@@ -645,14 +681,14 @@ def run(
             fancylog(
                 (
                     f"Called {num_any_muts:,} {param_name}-mutation(s) "
-                    f"(using {min_str}) in contig {seq}."
+                    f"(using {min_str}) in contig {contig}."
                 ),
                 prefix="",
             )
             fancylog(
                 (
                     f"{num_defined_di:,} / {len(di_list):,} diversity "
-                    f"indices were defined for contig {seq}."
+                    f"indices were defined for contig {contig}."
                 ),
                 prefix="",
             )
@@ -669,8 +705,11 @@ def run(
     bcf_utils.compress_vcf(output_vcf, output_bcf, fancylog)
 
 
-def get_pos_info_str(alt_pos, cov):
-    return f"MDP={cov};AAD={alt_pos}"
+def get_pos_info_str(alt_pos, cov, unreasonable):
+    info_str = f"MDP={cov};AAD={alt_pos}"
+    if unreasonable:
+        info_str += ";UNREASONABLE"
+    return info_str
 
 
 def call_p_mutation(alt_pos, cov, p, min_alt_pos):

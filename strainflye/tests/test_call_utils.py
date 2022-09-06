@@ -99,9 +99,11 @@ def test_call_p_mutation():
 
 
 def test_get_pos_info_str():
-    assert get_pos_info_str(5, 1000) == "MDP=1000;AAD=5"
-    assert get_pos_info_str(1000, 10000) == "MDP=10000;AAD=1000"
-    assert get_pos_info_str(1, 1) == "MDP=1;AAD=1"
+    assert get_pos_info_str(5, 1000, False) == "MDP=1000;AAD=5"
+    assert get_pos_info_str(1000, 10000, False) == "MDP=10000;AAD=1000"
+    assert get_pos_info_str(1, 1, False) == "MDP=1;AAD=1"
+    assert get_pos_info_str(1, 1, True) == "MDP=1;AAD=1;UNREASONABLE"
+    assert get_pos_info_str(3, 100000, True) == "MDP=100000;AAD=3;UNREASONABLE"
 
 
 def test_parse_di_list_whitespace_ok():
