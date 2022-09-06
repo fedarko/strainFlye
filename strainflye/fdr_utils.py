@@ -353,7 +353,7 @@ def compute_number_of_mutations_in_contig(
 def compute_any_mutation_decoy_contig_mut_rates(
     bcf_obj, thresh_type, thresh_vals, contig, pos_to_consider=None
 ):
-    """Computes mutation rates for some or all positions in a decoy contig.
+    """Computes mutation rates (any type) for positions in a contig.
 
     This is designed for the "Full" option, in which we consider every position
     in the contig as part of the decoy; or the "CP2" option, in which we just
@@ -410,6 +410,107 @@ def compute_any_mutation_decoy_contig_mut_rates(
 
     denominator = 3 * pos_len
     return [n / denominator for n in num_muts]
+
+
+def get_mutation_types(mutation_types):
+    """Parses and checks a list of mutation types.
+
+    Parameters
+    ----------
+    mutation_types: list of str
+        Types of mutation we will specifically count towards a decoy contig.
+
+    Returns
+    -------
+    tv, nonsyn, nonsense: bool, bool, bool
+        These bools represent whether or not we limit our focus to each type of
+        mutation: transversions, nonsynonymous, and nonsense mutations,
+        respectively.
+
+    Raises
+    ------
+    ParameterError
+        - If mutation_types is empty
+        - If any of the entries in mutation_types are unrecognized
+        - If both Nonsyn and Nonsense are specified in mutation_types
+    """
+    if len(mutation_types) == 0:
+        raise ParameterError("mutation_types must be nonempty.")
+
+    nonsyn = False
+    nonsense = False
+    tv = False
+    for mt in mutation_types:
+        if mt == "Nonsyn":
+            nonsyn = True
+        elif mt == "Nonsense":
+            nonsense = True
+        elif mt == "Tv":
+            tv = True
+        else:
+            raise ParameterError(f"Unrecognized mutation type: {mt}")
+
+    if nonsyn and nonsense:
+        raise ParameterError(
+            "Specifying both Nonsyn and Nonsense doesn't make sense."
+        )
+    return tv, nonsyn, nonsense
+
+
+def compute_specific_mutation_decoy_contig_mut_rates(
+    bcf_obj,
+    thresh_type,
+    thresh_vals,
+    contig,
+    pos_to_consider,
+    mutation_types,
+):
+    """Computes "specific" mutation rates for positions in a contig.
+
+    This function should be applicable to (as of writing, at least) all decoy
+    contexts besides "Full" and "CP2". Unlike these contexts (see
+    compute_all_mutation_decoy_contig_mut_rates() for reference), we do not
+    necessarily consider any mutation in the relevant positions in the contig
+    towards the decoy -- we only consider specific types of mutations, for
+    example just nonsynonymous mutations.
+
+    Parameters
+    ----------
+    bcf_obj: pysam.VariantFile
+    thresh_type: str
+    thresh_vals: range
+    contig: str
+    pos_to_consider: set or None
+        Same as for compute_any_mutation_decoy_contig_mut_rates(). See the docs
+        for that function. (... This file is chunky enough already, I'm not
+        copy-and-pasting that stuff.)
+
+    mutation_types: list of str
+        Types of mutation we will specifically count towards our decoy. Each
+        entry should be one of "Nonsyn", "Nonsense", or "Tv". These are applied
+        in an "AND filter" -- if you pass "Nonsyn" and "Tv", then we'll only
+        count nonsynonymous transversion mutations towards our decoy (mutations
+        that are just nonsynonymous but not transversions, or vice versa, won't
+        be counted).
+
+        Note that including both "Nonsyn" and "Nonsense" in this list will
+        cause an error -- all nonsense mutations are nonsynonymous, so you can
+        just say "Nonsense". Also, if this is list is empty, that will also
+        cause an error.
+
+    Returns
+    -------
+    mut_rates: list of float
+        Mutation rates for each threshold value in thresh_vals.
+
+    Raises
+    ------
+    ParameterError
+        See get_mutation_types().
+    """
+    tv, nonsyn, nonsense = get_mutation_types(mutation_types)
+
+    raise NotImplementedError("durr")
 
 
 def complain_about_cps(gn, gs, cp):
@@ -943,8 +1044,12 @@ def compute_decoy_contig_mut_rates(
     See https://www.mun.ca/biology/scarr/Transitions_vs_Transversions.html for
     details on transversions.
     """
+    # NOTE: technically we don't need to load the decoy sequence for all of the
+    # decoy contexts, but let's do it anyway -- has the nice side effect of
+    # triggering an error if the decoy contig isn't in the FASTA.
+    decoy_seq = fasta_utils.get_single_seq(contigs, decoy_contig)
+
     # Figure out if we gotta run Prodigal on the decoy contig
-    decoy_seq = None
     decoy_genes_df = None
     has_genic_decoy_context = False
 
@@ -966,7 +1071,7 @@ def compute_decoy_contig_mut_rates(
 
     # Ok we gotta run Prodigal
     if has_genic_decoy_context:
-        decoy_seq = fasta_utils.get_single_seq(contigs, decoy_contig)
+        # will raise a SequencingDataError if decoy_contig isn't in this FASTA
         decoy_genes_df = get_prodigal_genes(decoy_seq, decoy_contig)
 
         # ... and we gotta identify single-gene CP2 positions
@@ -975,52 +1080,35 @@ def compute_decoy_contig_mut_rates(
                 decoy_genes_df
             )
 
+    # this'll be the main output
     ctx2mr = {}
 
+    # save some repeated typing...
+    params = [bcf_obj, thresh_type, thresh_vals, decoy_contig]
+
     for ctx in decoy_contexts:
+
         if ctx == "Full":
-            ctx2mr[ctx] = compute_any_mutation_decoy_contig_mut_rates(
-                bcf_obj,
-                thresh_type,
-                thresh_vals,
-                decoy_contig,
-            )
+            ctx2mr[ctx] = compute_any_mutation_decoy_contig_mut_rates(*params)
 
         elif ctx == "CP2":
             ctx2mr[ctx] = compute_any_mutation_decoy_contig_mut_rates(
-                bcf_obj,
-                thresh_type,
-                thresh_vals,
-                decoy_contig,
+                *params,
                 pos_to_consider=decoy_single_gene_cp2_pos,
             )
 
-        elif ctx == "Tv":
-            raise NotImplementedError("oop")
-        elif ctx == "Nonsyn":
-            raise NotImplementedError("oop")
-        elif ctx == "Nonsense":
-            raise NotImplementedError("oop")
-        elif ctx == "CP2Tv":
-            # find cp2 positions (abstract to util func), limit to potential
-            # tvs, identify mutations, end
-            raise NotImplementedError("oop")
-        elif ctx == "CP2Nonsyn":
-            raise NotImplementedError("oop")
-        elif ctx == "CP2Nonsense":
-            raise NotImplementedError("oop")
-        elif ctx == "TvNonsyn":
-            raise NotImplementedError("oop")
-        elif ctx == "TvNonsense":
-            raise NotImplementedError("oop")
-        elif ctx == "CP2TvNonsense":
-            raise NotImplementedError("oop")
-        elif ctx == "CP2TvNonsyn":
-            raise NotImplementedError("oop")
         else:
-            # It shouldn't be possible for the user to sneak this past Click,
-            # but let's catch it anyway
-            raise WeirdError(f"Unrecognized decoy context {ctx}.")
+            pos_to_consider = None
+            if "CP2" in ctx:
+                pos_to_consider = decoy_single_gene_cp2_pos
+
+            mutation_types = [
+                mt for mt in ["Nonsyn", "Nonsense", "Tv"] if mt in ctx
+            ]
+
+            ctx2mr[ctx] = compute_specific_mutation_decoy_contig_mut_rates(
+                *params, pos_to_consider, mutation_types
+            )
 
     return ctx2mr
 
