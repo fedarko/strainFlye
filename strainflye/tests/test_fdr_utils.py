@@ -259,8 +259,8 @@ def test_compute_full_decoy_contig_mut_rates_p_simple():
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=19\n"
     ) as fh:
         bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
-        mut_rates = fu.compute_full_decoy_contig_mut_rates(
-            bcf_obj, thresh_type, range(15, 21), "edge_1", 500
+        mut_rates = fu.compute_all_mutation_decoy_contig_mut_rates(
+            bcf_obj, thresh_type, range(15, 21), "edge_1"
         )
         denominator = 3 * 500
         # There are two p-mutations at p = 0.15% and p = 0.16%;
@@ -293,8 +293,8 @@ def test_compute_full_decoy_contig_mut_rates_r_simple():
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
     ) as fh:
         bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
-        mut_rates = fu.compute_full_decoy_contig_mut_rates(
-            bcf_obj, thresh_type, range(5, 13), "edge_1", 500
+        mut_rates = fu.compute_all_mutation_decoy_contig_mut_rates(
+            bcf_obj, thresh_type, range(5, 13), "edge_1"
         )
         denominator = 3 * 500
         # Two r-mutations at r = 5, then only one r-mutation for 6 <= r <= 10,
@@ -1196,8 +1196,13 @@ def test_compute_cp2_decoy_contig_mut_rates():
             },
             index=pd.Index([1, 2]),
         )
-        mut_rates = fu.compute_cp2_decoy_contig_mut_rates(
-            bcf_obj, thresh_type, range(5, 13), "edge_1", genes_df
+        sg_cp2_pos = fu.get_single_gene_cp2_positions(genes_df)
+        mut_rates = fu.compute_all_mutation_decoy_contig_mut_rates(
+            bcf_obj,
+            thresh_type,
+            range(5, 13),
+            "edge_1",
+            pos_to_consider=sg_cp2_pos,
         )
         # The "denominator" is 3 * length, which in this case is the number of
         # CP2 single-gene positions considered (here, there are three such

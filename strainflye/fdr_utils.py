@@ -350,13 +350,18 @@ def compute_number_of_mutations_in_contig(
     return num_muts
 
 
-def compute_full_decoy_contig_mut_rates(
-    bcf_obj, thresh_type, thresh_vals, contig, contig_len
+def compute_all_mutation_decoy_contig_mut_rates(
+    bcf_obj, thresh_type, thresh_vals, contig, pos_to_consider=None
 ):
-    """Computes mutation rates for the entirety of a decoy contig.
+    """Computes mutation rates for some or all positions in a decoy contig.
 
     This is designed for the "Full" option, in which we consider every position
-    in the contig as part of the decoy.
+    in the contig as part of the decoy; or the "CP2" option, in which we just
+    consider single-gene CP2 positions in the contig as part of the decoy.
+
+    In either case, we consider *any* mutation at these positions to count
+    towards the decoy -- we don't impose restrictions on these mutations (see:
+    the nonsense, nonsyn, transversion stuff).
 
     Parameters
     ----------
@@ -377,8 +382,13 @@ def compute_full_decoy_contig_mut_rates(
     contig: str
         Decoy contig name.
 
-    contig_len: int
-        Decoy contig sequence length.
+    pos_to_consider: set or None
+        If this is None, then consider mutations at *all* positions in the
+        contig.
+
+        If this is a set, then we assume that this set describes 1-indexed
+        positions in this contig; we will then only count mutations occurring
+        in positions given in this set.
 
     Returns
     -------
@@ -386,9 +396,19 @@ def compute_full_decoy_contig_mut_rates(
         Mutation rates for each threshold value in thresh_vals.
     """
     num_muts = compute_number_of_mutations_in_contig(
-        bcf_obj, thresh_type, thresh_vals, contig
+        bcf_obj,
+        thresh_type,
+        thresh_vals,
+        contig,
+        pos_to_consider=pos_to_consider,
     )
-    denominator = 3 * contig_len
+
+    if pos_to_consider is None:
+        pos_len = bcf_obj.header.contigs[contig].length
+    else:
+        pos_len = len(pos_to_consider)
+
+    denominator = 3 * pos_len
     return [n / denominator for n in num_muts]
 
 
@@ -520,62 +540,6 @@ def get_single_gene_cp2_positions(genes_df):
         )
 
     return single_gene_cp2_pos
-
-
-def compute_cp2_decoy_contig_mut_rates(
-    bcf_obj, thresh_type, thresh_vals, contig, contig_genes_df
-):
-    """Computes mutation rates for just CP2 positions in a decoy contig.
-
-    This is designed for the "CP2" option, in which we consider each position
-    in the second codon position of a gene (ignoring positions located in
-    multiple genes) as part of the decoy.
-
-    Parameters
-    ----------
-    bcf_obj: pysam.VariantFile
-        Object describing a BCF file produced by strainFlye's naive calling.
-
-    thresh_type: str
-        Either "p" or "r", depending on bcf_obj.
-
-    thresh_vals: range
-        Range of values of p or r (depending on thresh_type) at which to
-        compute mutation rates for this contig. Must use a step size of 1.
-        If a mutation is a mutation for a value of p or r larger than the
-        maximum p or r value here (i.e. it's "indisputable"), it will not be
-        included in the mutation rate computation.
-
-    contig: str
-        Decoy contig name.
-
-    contig_genes_df: pd.DataFrame
-        Describes predicted genes in the contig; see parse_sco() for details.
-
-    Returns
-    -------
-    mut_rates: list of float
-        Mutation rates for each threshold value in thresh_vals.
-
-    Raises
-    ------
-    ParameterError
-        If there aren't any single-gene CP2 positions,
-        get_single_gene_cp2_positions() will raise a ParameterError about it.
-    """
-    single_gene_cp2_pos = get_single_gene_cp2_positions(contig_genes_df)
-    num_muts = compute_number_of_mutations_in_contig(
-        bcf_obj,
-        thresh_type,
-        thresh_vals,
-        contig,
-        pos_to_consider=single_gene_cp2_pos,
-    )
-    # We know that this length must be nonzero, since otherwise
-    # get_single_gene_cp2_positions() would've raised an error about it.
-    # So no need to worry about division by zero here.
-    denominator = 3 * len(single_gene_cp2_pos)
-    return [n / denominator for n in num_muts]
 
 
 def compute_target_contig_fdr_curve_info(
@@ -979,43 +943,56 @@ def compute_decoy_contig_mut_rates(
     See https://www.mun.ca/biology/scarr/Transitions_vs_Transversions.html for
     details on transversions.
     """
-    decoy_seq = fasta_utils.get_single_seq(contigs, decoy_contig)
-
     # Figure out if we gotta run Prodigal on the decoy contig
+    decoy_seq = None
     decoy_genes_df = None
     has_genic_decoy_context = False
+
+    # Also, if we do need to run Prodigal, figure out if we need to identify
+    # single-gene CP2 positions
+    decoy_single_gene_cp2_pos = None
+    has_cp2_decoy_context = False
+
     for ctx in decoy_contexts:
-        if "CP2" in ctx or "Nonsyn" in ctx or "Nonsense" in ctx:
+        if "CP2" in ctx:
+            has_cp2_decoy_context = True
             has_genic_decoy_context = True
+            # we only check for these two things, so no need to continue
+            # looping through the decoy contexts
             break
+
+        elif "Nonsyn" in ctx or "Nonsense" in ctx:
+            has_genic_decoy_context = True
 
     # Ok we gotta run Prodigal
     if has_genic_decoy_context:
+        decoy_seq = fasta_utils.get_single_seq(contigs, decoy_contig)
         decoy_genes_df = get_prodigal_genes(decoy_seq, decoy_contig)
+
+        # ... and we gotta identify single-gene CP2 positions
+        if has_cp2_decoy_context:
+            decoy_single_gene_cp2_pos = get_single_gene_cp2_positions(
+                decoy_genes_df
+            )
 
     ctx2mr = {}
 
     for ctx in decoy_contexts:
         if ctx == "Full":
-            # PERF: In theory we could avoid calling get_single_seq() if we
-            # JUST have "Full" as the decoy context, since we should already
-            # know the length of this sequence from run_estimate() -- but eh
-            # not a big deal probs
-            ctx2mr[ctx] = compute_full_decoy_contig_mut_rates(
+            ctx2mr[ctx] = compute_all_mutation_decoy_contig_mut_rates(
                 bcf_obj,
                 thresh_type,
                 thresh_vals,
                 decoy_contig,
-                len(decoy_seq),
             )
 
         elif ctx == "CP2":
-            ctx2mr[ctx] = compute_cp2_decoy_contig_mut_rates(
+            ctx2mr[ctx] = compute_all_mutation_decoy_contig_mut_rates(
                 bcf_obj,
                 thresh_type,
                 thresh_vals,
                 decoy_contig,
-                decoy_genes_df,
+                pos_to_consider=decoy_single_gene_cp2_pos,
             )
 
         elif ctx == "Tv":
