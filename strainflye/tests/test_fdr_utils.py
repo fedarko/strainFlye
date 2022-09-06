@@ -1098,3 +1098,70 @@ def test_complain_about_cps():
     assert str(ei.value) == (
         "Codon position got out of whack: gene 1,234, strand +, CP 4"
     )
+
+
+def test_get_single_gene_cp2_positions_overlapping_genes():
+    # looks like
+    #
+    #   *     *     *
+    # ----- ----- -----
+    # 1 2 3 4 5 6 7 8 9
+    #           6 7 8 9 A B
+    #           ----- -----
+    #             *     *
+    #
+    # ... with codons marked with a -----, CP2 positions marked with a *,
+    # and 10 and 11 replaced with A and B for the sake of keeping widths
+    # consistent in my insane ascii art that no one will read.
+    #
+    # ANYWAY 8 and 7 should get ignored since they're in multiple genes
+    df = pd.DataFrame(
+        {
+            "LeftEnd": [1, 6],
+            "RightEnd": [9, 11],
+            "Length": [9, 6],
+            "Strand": ["+", "-"],
+        },
+        index=pd.Index([1234, 56789]),
+    )
+    assert fu.get_single_gene_cp2_positions(df) == {2, 5, 10}
+
+
+def test_get_single_gene_cp2_positions_one_gene():
+    #   *     *     *
+    # ----- ----- -----
+    # 1 2 3 4 5 6 7 8 9
+    df = pd.DataFrame(
+        {
+            "LeftEnd": [1],
+            "RightEnd": [9],
+            "Length": [9],
+            "Strand": ["-"],
+        },
+        index=pd.Index([1]),
+    )
+    assert fu.get_single_gene_cp2_positions(df) == {2, 5, 8}
+
+
+def test_get_single_gene_cp2_positions_nothing_valid():
+    #   *     *     *
+    # ----- ----- -----
+    # 1 2 3 4 5 6 7 8 9
+    # 1 2 3 4 5 6 7 8 9
+    # ----- ----- -----
+    #   *     *     *
+    df = pd.DataFrame(
+        {
+            "LeftEnd": [1, 1],
+            "RightEnd": [9, 9],
+            "Length": [9, 9],
+            "Strand": ["-", "+"],
+        },
+        index=pd.Index([1, 2]),
+    )
+    with pytest.raises(ParameterError) as ei:
+        fu.get_single_gene_cp2_positions(df)
+
+    assert str(ei.value) == (
+        "No single-gene CP2 positions exist (given the predicted genes)."
+    )

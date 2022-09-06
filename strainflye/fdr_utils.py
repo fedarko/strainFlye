@@ -431,7 +431,7 @@ def get_single_gene_cp2_positions(genes_df):
 
     Returns
     -------
-    single_gene_cp2_positions: set
+    single_gene_cp2_pos: set
         Set of all positions located in exactly one gene, and located in CP2
         (in the second codon position) of their parent gene.
 
@@ -440,6 +440,10 @@ def get_single_gene_cp2_positions(genes_df):
     WeirdError
         If something goes wrong during iteration; this should never happen, but
         you never know.
+
+    ParameterError
+        If no positions meet these criteria. This one could actually happen, I
+        guess, if the genes predicted overlap almost completely.
 
     Notes
     -----
@@ -482,6 +486,12 @@ def get_single_gene_cp2_positions(genes_df):
             # There's probably a more elegant way to do this, but this seems
             # like the clearest (and least prone to off by one errors) way.
             #
+            # I guess it's worth noting that we don't really *need* to split
+            # this up by strand, since (for an arbitrary gene) the CP2
+            # positions will be the same regardless of strand. but, oh well,
+            # this is how i initially wrote the code, and no sense
+            # intentionally making it more confusing.
+            #
             # ...BREAKING NEWS: local grad student "too stupid to use
             # basic modulo arithmetic"; bystanders SHOCKED at this SUSSY
             # IMPOSTOR BEHAVIOR; more at 11
@@ -502,7 +512,14 @@ def get_single_gene_cp2_positions(genes_df):
                 else:
                     complain_about_cps(gene.Index, gene.Strand, cp)
 
-    return cp2_pos - multi_gene_pos
+    single_gene_cp2_pos = cp2_pos - multi_gene_pos
+
+    if len(single_gene_cp2_pos) == 0:
+        raise ParameterError(
+            "No single-gene CP2 positions exist (given the predicted genes)."
+        )
+
+    return single_gene_cp2_pos
 
 
 def compute_cp2_decoy_contig_mut_rates(
