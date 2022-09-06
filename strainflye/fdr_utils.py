@@ -253,6 +253,32 @@ def verify_thresh_vals_good(thresh_vals):
         raise ParameterError("thresh_vals' start and stop must be positive.")
 
 
+def update_number_of_mutations_at_thresholds(
+    num_muts, thresh_type, min_val, high_val, mut
+):
+    # AAD is technically a tuple since it's defined once for every alt
+    # allele, but r/n strainflye call only produces max one alt allele
+    # per mutation. So it's a tuple with 1 element (at least for now).
+    alt_pos = mut.info.get("AAD")[0]
+    cov_pos = mut.info.get("MDP")
+
+    if thresh_type == "p":
+        max_passing_val = floor((10000 * alt_pos) / cov_pos)
+    else:
+        max_passing_val = alt_pos
+
+    # Don't count "indisputable" mutations towards mutation rates
+    if max_passing_val < high_val:
+        # NOTE: This is already more optimized than the analysis
+        # notebooks, but I think it could still be made faster. Maybe just
+        # increment a single value (corresponding to the max passing p/r),
+        # and then do everything at the end after seeing all mutations in
+        # one pass? Doesn't seem like a huge bottleneck tho.
+        num_vals_to_update = max_passing_val - min_val + 1
+        for i in range(num_vals_to_update):
+            num_muts[i] += 1
+
+
 def compute_number_of_mutations_in_contig(
     bcf_obj, thresh_type, thresh_vals, contig, pos_to_consider=None
 ):
@@ -324,29 +350,9 @@ def compute_number_of_mutations_in_contig(
         # (2) we are only considering some positions and this is one of them.
         # (this abuses short circuiting)
         if pos_to_consider is None or mut.pos in pos_to_consider:
-            # AAD is technically a tuple since it's defined once for every alt
-            # allele, but r/n strainflye call only produces max one alt allele
-            # per mutation. So it's a tuple with 1 element (at least for now).
-            alt_pos = mut.info.get("AAD")[0]
-            cov_pos = mut.info.get("MDP")
-
-            if thresh_type == "p":
-                max_passing_val = floor((10000 * alt_pos) / cov_pos)
-            else:
-                max_passing_val = alt_pos
-
-            # Don't count "indisputable" mutations towards mutation rates
-            if max_passing_val >= high_val:
-                continue
-
-            # NOTE: This is already more optimized than the analysis
-            # notebooks, but I think it could still be made faster. Maybe just
-            # increment a single value (corresponding to the max passing p/r),
-            # and then do everything at the end after seeing all mutations in
-            # one pass? Doesn't seem like a huge bottleneck tho.
-            num_vals_to_update = max_passing_val - min_val + 1
-            for i in range(num_vals_to_update):
-                num_muts[i] += 1
+            update_number_of_mutations_at_thresholds(
+                num_muts, thresh_type, min_val, high_val, mut
+            )
     return num_muts
 
 
@@ -540,7 +546,8 @@ def compute_specific_mutation_decoy_contig_mut_rates(
         high_val = thresh_vals[-1] + 1
         min_val = thresh_vals[0]
 
-        # TODO: ignore unreasonable positions -- look at alignment
+        # TODO: ignore unreasonable positions -- look at alignment! pass it as
+        # a parameter to "fdr estimate"
 
         # Regardless of the reference nucleotide (A/C/G/T), there are exactly
         # two transversion mutations possible at every position.
@@ -557,21 +564,9 @@ def compute_specific_mutation_decoy_contig_mut_rates(
                 sorted_ra = "".join(sorted(ref_nt + alt_nt))
                 if sorted_ra not in ("AG", "CT"):
                     # this is a transversion mutation
-                    alt_pos = mut.info.get("AAD")[0]
-                    cov_pos = mut.info.get("MDP")
-
-                    if thresh_type == "p":
-                        max_passing_val = floor((10000 * alt_pos) / cov_pos)
-                    else:
-                        max_passing_val = alt_pos
-
-                    # Don't count "indisputable" mutations
-                    if max_passing_val >= high_val:
-                        continue
-
-                    num_vals_to_update = max_passing_val - min_val + 1
-                    for i in range(num_vals_to_update):
-                        num_muts[i] += 1
+                    update_number_of_mutations_at_thresholds(
+                        num_muts, thresh_type, min_val, high_val, mut
+                    )
     else:
         raise NotImplementedError("Not done yet!")
 
