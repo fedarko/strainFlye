@@ -6,7 +6,7 @@ import numpy as np
 import strainflye.fdr_utils as fu
 import strainflye.bcf_utils as bu
 from io import StringIO
-from strainflye.errors import ParameterError, SequencingDataError
+from strainflye.errors import ParameterError, SequencingDataError, WeirdError
 from strainflye.config import DI_PREF
 from .utils_for_testing import mock_log, write_indexed_bcf
 
@@ -259,8 +259,8 @@ def test_compute_full_decoy_contig_mut_rates_p_simple():
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=19\n"
     ) as fh:
         bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
-        mut_rates = fu.compute_full_decoy_contig_mut_rates(
-            bcf_obj, thresh_type, range(15, 21), "edge_1", 500
+        mut_rates = fu.compute_any_mutation_decoy_contig_mut_rates(
+            bcf_obj, thresh_type, range(15, 21), "edge_1"
         )
         denominator = 3 * 500
         # There are two p-mutations at p = 0.15% and p = 0.16%;
@@ -293,8 +293,8 @@ def test_compute_full_decoy_contig_mut_rates_r_simple():
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
     ) as fh:
         bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
-        mut_rates = fu.compute_full_decoy_contig_mut_rates(
-            bcf_obj, thresh_type, range(5, 13), "edge_1", 500
+        mut_rates = fu.compute_any_mutation_decoy_contig_mut_rates(
+            bcf_obj, thresh_type, range(5, 13), "edge_1"
         )
         denominator = 3 * 500
         # Two r-mutations at r = 5, then only one r-mutation for 6 <= r <= 10,
@@ -311,7 +311,7 @@ def test_compute_full_decoy_contig_mut_rates_r_simple():
         ]
 
 
-def test_compute_number_of_mutations_in_full_contig_p_with_indisputable():
+def test_compute_number_of_mutations_in_contig_p_with_indisputable():
     with write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220526\n"
@@ -332,7 +332,7 @@ def test_compute_number_of_mutations_in_full_contig_p_with_indisputable():
         "edge_1\t387\t.\tT\tC\t.\t.\tMDP=100000;AAD=5000\n"
     ) as fh:
         bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
-        num_muts = fu.compute_number_of_mutations_in_full_contig(
+        num_muts = fu.compute_number_of_mutations_in_contig(
             bcf_obj, thresh_type, range(15, 500), "edge_1"
         )
         assert len(num_muts) == 485
@@ -358,7 +358,7 @@ def test_compute_number_of_mutations_in_full_contig_p_with_indisputable():
             assert num_muts[i] == 2
 
 
-def test_compute_number_of_mutations_in_full_contig_thresh_val_errors():
+def test_compute_number_of_mutations_in_contig_thresh_val_errors():
     with write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220608\n"
@@ -376,22 +376,22 @@ def test_compute_number_of_mutations_in_full_contig_thresh_val_errors():
     ) as fh:
         bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
         with pytest.raises(ParameterError) as ei:
-            fu.compute_number_of_mutations_in_full_contig(
+            fu.compute_number_of_mutations_in_contig(
                 bcf_obj, thresh_type, range(5, 13, 2), "edge_1"
             )
         assert str(ei.value) == "thresh_vals must use a step size of 1."
         with pytest.raises(ParameterError) as ei:
-            fu.compute_number_of_mutations_in_full_contig(
+            fu.compute_number_of_mutations_in_contig(
                 bcf_obj, thresh_type, range(15, 5, -1), "edge_1"
             )
         assert str(ei.value) == "thresh_vals must use a step size of 1."
         with pytest.raises(ParameterError) as ei:
-            fu.compute_number_of_mutations_in_full_contig(
+            fu.compute_number_of_mutations_in_contig(
                 bcf_obj, thresh_type, range(5, 5), "edge_1"
             )
         assert str(ei.value) == "thresh_vals must have a positive length."
         with pytest.raises(ParameterError) as ei:
-            fu.compute_number_of_mutations_in_full_contig(
+            fu.compute_number_of_mutations_in_contig(
                 bcf_obj, thresh_type, range(-9, -1), "edge_1"
             )
         assert str(ei.value) == "thresh_vals' start and stop must be positive."
@@ -414,17 +414,23 @@ def test_compute_target_contig_fdr_curve_info():
         "edge_1\t90\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
     ) as fh:
         bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
-        fdr_line, num_line = fu.compute_target_contig_fdr_curve_info(
+        ctx2fdr_lines, num_line = fu.compute_target_contig_fdr_curve_info(
             bcf_obj,
             thresh_type,
             range(5, 12),
             "edge_1",
             100,
-            [0.001, 0.002, 0.003, 0.004, 0.1, 0.006, 0.007],
+            # mostly the same -- just checking that multiple fdr lines get
+            # output
+            {
+                "butt": [0.001, 0.002, 0.003, 0.004, 0.1, 0.006, 0.007],
+                "lol": [0.001, 0.002, 0.003, 0.004, 0.1, 0.5, 7],
+            },
         )
-        assert (
-            fdr_line == "edge_1\t15.0\t60.0\t90.0\t120.0\t3000.0\t180.0\tNA\n"
-        )
+        assert ctx2fdr_lines == {
+            "butt": "edge_1\t15.0\t60.0\t90.0\t120.0\t3000.0\t180.0\tNA\n",
+            "lol": "edge_1\t15.0\t60.0\t90.0\t120.0\t3000.0\t15000.0\tNA\n",
+        }
         assert num_line == (
             "edge_1\t20000.0\t10000.0\t10000.0\t10000.0\t10000.0\t10000.0\t0\n"
         )
@@ -434,7 +440,7 @@ def test_compute_decoy_contig_mut_rates_full_r_simple():
     # this is the same as test_compute_full_decoy_contig_mut_rates_r_simple(),
     # but it calls compute_decoy_contig_mutation_rates() (which, in turn, calls
     # compute_full_decoy_contig_mut_rates(), which calls
-    # compute_number_of_mutations_in_full_contig()...)
+    # compute_number_of_mutations_in_contig()...)
     with write_indexed_bcf(
         "##fileformat=VCFv4.3\n"
         "##fileDate=20220608\n"
@@ -453,22 +459,29 @@ def test_compute_decoy_contig_mut_rates_full_r_simple():
         bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
         # where we're going, we don't need other nucleotides
         contigs_file = StringIO(f">edge_1\n{'A' * 500}")
-        mut_rates = fu.compute_decoy_contig_mut_rates(
-            contigs_file, bcf_obj, thresh_type, range(5, 13), "edge_1", "Full"
+        ctx2mr = fu.compute_decoy_contig_mut_rates(
+            contigs_file,
+            bcf_obj,
+            thresh_type,
+            range(5, 13),
+            "edge_1",
+            ["Full"],
         )
         denominator = 3 * 500
         # Two r-mutations at r = 5, then only one r-mutation for 6 <= r <= 10,
         # then zero r-mutations from then up.
-        assert mut_rates == [
-            2 / denominator,
-            1 / denominator,
-            1 / denominator,
-            1 / denominator,
-            1 / denominator,
-            1 / denominator,
-            0,
-            0,
-        ]
+        assert ctx2mr == {
+            "Full": [
+                2 / denominator,
+                1 / denominator,
+                1 / denominator,
+                1 / denominator,
+                1 / denominator,
+                1 / denominator,
+                0,
+                0,
+            ]
+        }
 
 
 def test_load_and_sanity_check_fdr_file_basic_errors():
@@ -674,8 +687,8 @@ def test_run_estimate_both_dividx_and_decoy_specified():
                 BCF,
                 DI,
                 "c1",
-                # decoy context
-                "Full",
+                # decoy contexts
+                ["Full"],
                 # high p
                 500,
                 # high r
@@ -684,8 +697,8 @@ def test_run_estimate_both_dividx_and_decoy_specified():
                 10,
                 # decoy avg coverage
                 5,
-                os.path.join(td, "fdr-info.tsv"),
-                os.path.join(td, "num-info.tsv"),
+                # output dir
+                td,
                 mock_log,
             )
 
@@ -695,7 +708,13 @@ def test_run_estimate_both_dividx_and_decoy_specified():
         )
 
 
-def check_fdr_and_num_dfs_r3_high10(out_fdr_fp, out_num_fp):
+def check_fdr_and_num_dfs_r3_high10(td):
+    out_fdr_fp = os.path.join(td, "fdr-Full.tsv")
+    out_num_fp = os.path.join(td, "num-mutations-per-mb.tsv")
+
+    assert os.path.exists(out_fdr_fp)
+    assert os.path.exists(out_num_fp)
+
     # Test that the FDR estimates look good
     obs_fdr_df = pd.read_csv(out_fdr_fp, sep="\t", index_col=0)
     # Since we let strainFlye auto-select the decoy from this test data,
@@ -750,14 +769,12 @@ def check_fdr_and_num_dfs_r3_high10(out_fdr_fp, out_num_fp):
 
 def test_run_estimate_with_autoselect_and_full_decoy_good(capsys):
     with tempfile.TemporaryDirectory() as td:
-        FDR = os.path.join(td, "fdr-info.tsv")
-        NUM = os.path.join(td, "num-info.tsv")
         fu.run_estimate(
             FASTA,
             BCF,
             DI,
             None,
-            "Full",
+            ["Full"],
             # high p
             500,
             # high r (note that this is not inclusive; so, our FDR estimates
@@ -767,11 +784,11 @@ def test_run_estimate_with_autoselect_and_full_decoy_good(capsys):
             10,
             # decoy avg coverage
             5,
-            FDR,
-            NUM,
+            # output dir
+            td,
             mock_log,
         )
-        check_fdr_and_num_dfs_r3_high10(FDR, NUM)
+        check_fdr_and_num_dfs_r3_high10(td)
 
         # Finally, verify that the logged output looks good
         assert capsys.readouterr().out == (
@@ -793,7 +810,7 @@ def test_run_estimate_with_autoselect_and_full_decoy_good(capsys):
             'MockLog: These "indisputable" mutations won\'t be included in '
             "the FDR estimation results.\n"
             "PREFIX\nMockLog: Computing mutation rates for c2 at these "
-            "threshold values...\n"
+            "threshold values, for each of the 1 decoy context(s)...\n"
             "MockLog: Done.\n"
             "PREFIX\nMockLog: Computing mutation rates and FDR estimates for "
             "the 2 target contig(s)...\n"
@@ -806,37 +823,32 @@ def test_run_estimate_tiny_chunk_size_good():
     # remains the same
     for cs in range(1, 15):
         with tempfile.TemporaryDirectory() as td:
-            FDR = os.path.join(td, "fdr-info.tsv")
-            NUM = os.path.join(td, "num-info.tsv")
             fu.run_estimate(
                 FASTA,
                 BCF,
                 DI,
                 None,
-                "Full",
+                ["Full"],
                 500,
                 10,
                 10,
                 5,
-                FDR,
-                NUM,
+                td,
                 mock_log,
                 chunk_size=cs,
             )
-            check_fdr_and_num_dfs_r3_high10(FDR, NUM)
+            check_fdr_and_num_dfs_r3_high10(td)
 
 
 def test_run_estimate_with_preselected_full_decoy_good(capsys):
     # same pre-selected decoy contig (c2) as is given by the above tests
     with tempfile.TemporaryDirectory() as td:
-        FDR = os.path.join(td, "fdr-info.tsv")
-        NUM = os.path.join(td, "num-info.tsv")
         fu.run_estimate(
             FASTA,
             BCF,
             None,
             "c2",
-            "Full",
+            ["Full"],
             # high p
             500,
             # high r
@@ -845,11 +857,10 @@ def test_run_estimate_with_preselected_full_decoy_good(capsys):
             10,
             # decoy avg coverage
             5,
-            FDR,
-            NUM,
+            td,
             mock_log,
         )
-        check_fdr_and_num_dfs_r3_high10(FDR, NUM)
+        check_fdr_and_num_dfs_r3_high10(td)
 
         # logged output is a bit different now due to no longer using
         # decoy autoselection
@@ -870,7 +881,7 @@ def test_run_estimate_with_preselected_full_decoy_good(capsys):
             'MockLog: These "indisputable" mutations won\'t be included in '
             "the FDR estimation results.\n"
             "PREFIX\nMockLog: Computing mutation rates for c2 at these "
-            "threshold values...\n"
+            "threshold values, for each of the 1 decoy context(s)...\n"
             "MockLog: Done.\n"
             "PREFIX\nMockLog: Computing mutation rates and FDR estimates for "
             "the 2 target contig(s)...\n"
@@ -880,31 +891,27 @@ def test_run_estimate_with_preselected_full_decoy_good(capsys):
 
 def test_run_estimate_small_high_thresholds():
     with tempfile.TemporaryDirectory() as td:
-        FDR = os.path.join(td, "fdr-info.tsv")
-        NUM = os.path.join(td, "num-info.tsv")
         with pytest.raises(ParameterError) as ei:
             fu.run_estimate(
                 FASTA,
                 BCF,
                 DI,
                 None,
-                "Full",
+                ["Full"],
                 # high p
                 500,
                 # high r
                 2,
                 10,
                 5,
-                FDR,
-                NUM,
+                td,
                 mock_log,
             )
         assert str(ei.value) == (
             "--high-r = 2 must be larger than the minimum r used in the BCF "
             "(3)."
         )
-        assert not os.path.exists(FDR)
-        assert not os.path.exists(NUM)
+        assert len(os.listdir(td)) == 0
 
         with pytest.raises(ParameterError) as ei:
             fu.run_estimate(
@@ -912,29 +919,25 @@ def test_run_estimate_small_high_thresholds():
                 os.path.join(IN_DIR, "call-p-min100", "naive-calls.bcf"),
                 os.path.join(IN_DIR, "call-p-min100", "diversity-indices.tsv"),
                 None,
-                "Full",
+                ["Full"],
                 # high p
                 100,
                 # high r
                 10,
                 10,
                 5,
-                FDR,
-                NUM,
+                td,
                 mock_log,
             )
         assert str(ei.value) == (
             "--high-p = 100 must be larger than the minimum p used in the BCF "
             "(100)."
         )
-        assert not os.path.exists(FDR)
-        assert not os.path.exists(NUM)
+        assert len(os.listdir(td)) == 0
 
 
 def test_run_estimate_selected_decoy_not_in_fasta():
     with tempfile.TemporaryDirectory() as td:
-        FDR = os.path.join(td, "fdr-info.tsv")
-        NUM = os.path.join(td, "num-info.tsv")
 
         # Case 1: the auto-selected decoy contig isn't in the FASTA
         # (note that we only check this one contig from the div indices; we
@@ -950,22 +953,20 @@ def test_run_estimate_selected_decoy_not_in_fasta():
                     "edge_2\t35.2\t100\t0.8\t0.2\n"
                 ),
                 None,
-                "Full",
+                ["Full"],
                 # high p
                 500,
                 # high r
                 2,
                 10,
                 5,
-                FDR,
-                NUM,
+                td,
                 mock_log,
             )
         assert str(ei.value) == (
             f"Selected decoy contig edge_1 is not present in {FASTA}."
         )
-        assert not os.path.exists(FDR)
-        assert not os.path.exists(NUM)
+        assert len(os.listdir(td)) == 0
 
         # Case 2: the pre-selected decoy contig isn't in the FASTA
         with pytest.raises(ParameterError) as ei:
@@ -974,19 +975,253 @@ def test_run_estimate_selected_decoy_not_in_fasta():
                 BCF,
                 None,
                 "c4",
-                "Full",
+                ["Full"],
                 # high p
                 500,
                 # high r
                 2,
                 10,
                 5,
-                FDR,
-                NUM,
+                td,
                 mock_log,
             )
         assert str(ei.value) == (
             f"Selected decoy contig c4 is not present in {FASTA}."
         )
-        assert not os.path.exists(FDR)
-        assert not os.path.exists(NUM)
+        assert len(os.listdir(td)) == 0
+
+
+def test_parse_sco_good():
+    df = fu.parse_sco(
+        os.path.join("strainflye", "tests", "inputs", "edge_6104.sco")
+    )
+    assert len(df.index) == 1297
+    # no need to go crazy testing this i think, let's just check a few genes
+    pd.testing.assert_series_equal(
+        df.loc[1],
+        pd.Series(
+            {"LeftEnd": 266, "RightEnd": 712, "Length": 447, "Strand": "-"},
+            name=1,
+        ),
+    )
+    pd.testing.assert_series_equal(
+        df.loc[1217],
+        pd.Series(
+            {
+                "LeftEnd": 1208927,
+                "RightEnd": 1210075,
+                "Length": 1149,
+                "Strand": "+",
+            },
+            name=1217,
+        ),
+    )
+
+
+def test_parse_sco_weird_line_prefix(tmp_path):
+    # Yo apparently you can just have pytest take care of making a temporary
+    # directory for you??? see https://stackoverflow.com/a/4205449 and
+    # https://docs.pytest.org/en/7.1.x/how-to/tmp_path.html
+    #
+    # i've been doing it manually like a chump LOLLLLLLLL
+    fp = os.path.join(tmp_path, "test.sco")
+    with open(fp, "w") as fh:
+        fh.write(">1_266_712_-\n" "2_713_715_+\n")
+    with pytest.raises(WeirdError) as ei:
+        fu.parse_sco(fp)
+    assert str(ei.value) == (
+        'Unrecognized line prefix in SCO: line = "2_713_715_+"'
+    )
+
+
+def test_parse_sco_empty_lines_ok(tmp_path):
+    fp = os.path.join(tmp_path, "test.sco")
+    with open(fp, "w") as fh:
+        fh.write(">1_266_712_-\n" "    \n" ">2_713_715_+\n" "  \t \n")
+    obs_df = fu.parse_sco(fp)
+    exp_df = pd.DataFrame(
+        {
+            "LeftEnd": [266, 713],
+            "RightEnd": [712, 715],
+            "Length": [447, 3],
+            "Strand": ["-", "+"],
+        },
+        index=pd.Index([1, 2]),
+    )
+    pd.testing.assert_frame_equal(obs_df, exp_df)
+
+
+def test_parse_sco_non3div_length(tmp_path):
+    fp = os.path.join(tmp_path, "test.sco")
+    with open(fp, "w") as fh:
+        fh.write(">1_266_711_-\n")
+    with pytest.raises(WeirdError) as ei:
+        fu.parse_sco(fp)
+    assert str(ei.value) == (
+        "Gene 1 in SCO is 446 bp long; lengths must be divisible by 3."
+    )
+
+
+def test_parse_sco_left_not_lt_right(tmp_path):
+    fp = os.path.join(tmp_path, "test.sco")
+    with open(fp, "w") as fh:
+        fh.write(">1_711_266_-\n")
+    with pytest.raises(WeirdError) as ei:
+        fu.parse_sco(fp)
+    assert str(ei.value) == (
+        "Gene 1 in SCO has left end of 711, which is not < the right end of "
+        "266."
+    )
+
+
+def test_parse_sco_no_genes(tmp_path):
+    fp = os.path.join(tmp_path, "test.sco")
+    with open(fp, "w") as fh:
+        fh.write("\n")
+    with pytest.raises(WeirdError) as ei:
+        fu.parse_sco(fp)
+    assert str(ei.value) == "No genes described in SCO."
+
+
+def test_parse_sco_bad_strand(tmp_path):
+    fp = os.path.join(tmp_path, "test.sco")
+    with open(fp, "w") as fh:
+        fh.write(">1_266_711_$\n")
+    with pytest.raises(WeirdError) as ei:
+        fu.parse_sco(fp)
+    assert str(ei.value) == "Unrecognized strand in SCO: $"
+
+
+def test_complain_about_cps():
+    with pytest.raises(WeirdError) as ei:
+        fu.complain_about_cps(1234, "+", 4)
+    assert str(ei.value) == (
+        "Codon position got out of whack: gene 1,234, strand +, CP 4"
+    )
+
+
+def test_get_single_gene_cp2_positions_overlapping_genes():
+    # looks like
+    #
+    #   *     *     *
+    # ----- ----- -----
+    # 1 2 3 4 5 6 7 8 9
+    #           6 7 8 9 A B
+    #           ----- -----
+    #             *     *
+    #
+    # ... with codons marked with a -----, CP2 positions marked with a *,
+    # and 10 and 11 replaced with A and B for the sake of keeping widths
+    # consistent in my insane ascii art that no one will read.
+    #
+    # ANYWAY 8 and 7 should get ignored since they're in multiple genes
+    df = pd.DataFrame(
+        {
+            "LeftEnd": [1, 6],
+            "RightEnd": [9, 11],
+            "Length": [9, 6],
+            "Strand": ["+", "-"],
+        },
+        index=pd.Index([1234, 56789]),
+    )
+    assert fu.get_single_gene_cp2_positions(df) == {2, 5, 10}
+
+
+def test_get_single_gene_cp2_positions_one_gene():
+    #   *     *     *
+    # ----- ----- -----
+    # 1 2 3 4 5 6 7 8 9
+    df = pd.DataFrame(
+        {
+            "LeftEnd": [1],
+            "RightEnd": [9],
+            "Length": [9],
+            "Strand": ["-"],
+        },
+        index=pd.Index([1]),
+    )
+    assert fu.get_single_gene_cp2_positions(df) == {2, 5, 8}
+
+
+def test_get_single_gene_cp2_positions_nothing_valid():
+    #   *     *     *
+    # ----- ----- -----
+    # 1 2 3 4 5 6 7 8 9
+    # 1 2 3 4 5 6 7 8 9
+    # ----- ----- -----
+    #   *     *     *
+    df = pd.DataFrame(
+        {
+            "LeftEnd": [1, 1],
+            "RightEnd": [9, 9],
+            "Length": [9, 9],
+            "Strand": ["-", "+"],
+        },
+        index=pd.Index([1, 2]),
+    )
+    with pytest.raises(ParameterError) as ei:
+        fu.get_single_gene_cp2_positions(df)
+
+    assert str(ei.value) == (
+        "No single-gene CP2 positions exist (given the predicted genes)."
+    )
+
+
+def test_compute_cp2_decoy_contig_mut_rates():
+    # bit of a silly example -- edge_1 has "length" 500, as given in the BCF
+    # text below, but we only define genes on the first few bp in this edge to
+    # make testing easier.
+    with write_indexed_bcf(
+        "##fileformat=VCFv4.3\n"
+        "##fileDate=20220905\n"
+        '##source="strainFlye v0.0.1: r-mutation calling (--min-r = 5)"\n'
+        "##reference=/Poppy/mfedarko/sheepgut/main-workflow/output/all_edges.fasta\n"  # noqa: E501
+        "##contig=<ID=edge_1,length=500>\n"
+        '##INFO=<ID=MDP,Number=1,Type=Integer,Description="(Mis)match read depth">\n'  # noqa: E501
+        '##INFO=<ID=AAD,Number=A,Type=Integer,Description="Alternate allele read depth">\n'  # noqa: E501
+        '##FILTER=<ID=strainflye_minr_5, Description="min r threshold">\n'  # noqa: E501
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "edge_1\t2\t.\tT\tC\t.\t.\tMDP=10000;AAD=8\n"
+        "edge_1\t7\t.\tA\tT\t.\t.\tMDP=10000;AAD=5\n"
+        "edge_1\t8\t.\tA\tT\t.\t.\tMDP=10000;AAD=50\n"
+        "edge_1\t10\t.\tT\tC\t.\t.\tMDP=10000;AAD=10\n"
+    ) as fh:
+        bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
+        genes_df = pd.DataFrame(
+            {
+                "LeftEnd": [1, 6],
+                "RightEnd": [9, 11],
+                "Length": [9, 6],
+                "Strand": ["-", "+"],
+            },
+            index=pd.Index([1, 2]),
+        )
+        sg_cp2_pos = fu.get_single_gene_cp2_positions(genes_df)
+        mut_rates = fu.compute_any_mutation_decoy_contig_mut_rates(
+            bcf_obj,
+            thresh_type,
+            range(5, 13),
+            "edge_1",
+            pos_to_consider=sg_cp2_pos,
+        )
+        # The "denominator" is 3 * length, which in this case is the number of
+        # CP2 single-gene positions considered (here, there are three such
+        # positions: 2, 5, and 10)
+        assert mut_rates == [
+            # Two CP2 single-gene r-mutations for 5 <= r <= 8 (2 and 10)
+            # r = 5
+            2 / 9,
+            # r = 6
+            2 / 9,
+            # r = 7
+            2 / 9,
+            # r = 8
+            2 / 9,
+            # Now, just one valid mutation left for r = 9 and r = 10
+            1 / 9,
+            1 / 9,
+            # "Nothing beside remains" -- Ozymandias, from the hit blockbuster
+            # movie Ozymandias 2: It's Ozymandin' Time
+            0,
+            0,
+        ]

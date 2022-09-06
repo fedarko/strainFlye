@@ -1,18 +1,19 @@
 # Utilities for strainFlye fdr.
 
 
+import os
 import tempfile
 import subprocess
 import pysam
+import skbio
 import numpy as np
 import pandas as pd
 from math import floor
 from statistics import mean
 from collections import defaultdict
-from strainflye import fasta_utils, call_utils, misc_utils, bcf_utils
+from strainflye import fasta_utils, call_utils, misc_utils, bcf_utils, config
 from strainflye.bcf_utils import parse_sf_bcf
-from .errors import ParameterError, SequencingDataError
-from .config import DI_PREF
+from .errors import ParameterError, SequencingDataError, WeirdError
 
 
 def check_decoy_selection(diversity_indices, decoy_contig):
@@ -203,7 +204,7 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
     for di_col in passing_di.columns:
 
         # ignore non-diversity-index columns
-        if di_col.startswith(DI_PREF):
+        if di_col.startswith(config.DI_PREF):
             di_vals = passing_di[di_col]
 
             # Ignore diversity index columns where less than two contigs have
@@ -243,8 +244,17 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
     return lowest_score_contig
 
 
-def compute_number_of_mutations_in_full_contig(
-    bcf_obj, thresh_type, thresh_vals, contig
+def verify_thresh_vals_good(thresh_vals):
+    if thresh_vals.step != 1:
+        raise ParameterError("thresh_vals must use a step size of 1.")
+    if len(thresh_vals) <= 0:
+        raise ParameterError("thresh_vals must have a positive length.")
+    if thresh_vals.start <= 0 or thresh_vals.stop <= 0:
+        raise ParameterError("thresh_vals' start and stop must be positive.")
+
+
+def compute_number_of_mutations_in_contig(
+    bcf_obj, thresh_type, thresh_vals, contig, pos_to_consider=None
 ):
     """Counts mutations at certain p or r thresholds in a contig.
 
@@ -273,9 +283,17 @@ def compute_number_of_mutations_in_full_contig(
     contig: str
         Name of a contig for which mutation rates will be computed.
 
+    pos_to_consider: set or None
+        If this is None, then consider mutations at *all* positions in the
+        contig.
+
+        If this is a set, then we assume that this set describes 1-indexed
+        positions in this contig; we will then only count mutations occurring
+        in positions given in this set.
+
     Returns
     -------
-    num_muts: list
+    num_muts: list of int
         List with the same length as thresh_vals. The i-th value in this list
         describes the number of called mutations for the i-th threshold in
         thresh_vals.
@@ -289,12 +307,7 @@ def compute_number_of_mutations_in_full_contig(
 
         (None of these should happen in practice, but you never know...)
     """
-    if thresh_vals.step != 1:
-        raise ParameterError("thresh_vals must use a step size of 1.")
-    if len(thresh_vals) <= 0:
-        raise ParameterError("thresh_vals must have a positive length.")
-    if thresh_vals.start <= 0 or thresh_vals.stop <= 0:
-        raise ParameterError("thresh_vals' start and stop must be positive.")
+    verify_thresh_vals_good(thresh_vals)
 
     # For each threshold value, keep track of how many mutations we've seen at
     # this threshold.
@@ -307,39 +320,48 @@ def compute_number_of_mutations_in_full_contig(
 
     for mut in bcf_obj.fetch(contig):
 
-        # AAD is technically a tuple since it's defined once for every alt
-        # allele, but r/n strainflye call only produces max one alt allele per
-        # mutation. So it's a tuple with 1 element (at least for now).
-        alt_pos = mut.info.get("AAD")[0]
-        cov_pos = mut.info.get("MDP")
+        # only count this mutation if (1) we are considering all positions, or
+        # (2) we are only considering some positions and this is one of them.
+        # (this abuses short circuiting)
+        if pos_to_consider is None or mut.pos in pos_to_consider:
+            # AAD is technically a tuple since it's defined once for every alt
+            # allele, but r/n strainflye call only produces max one alt allele
+            # per mutation. So it's a tuple with 1 element (at least for now).
+            alt_pos = mut.info.get("AAD")[0]
+            cov_pos = mut.info.get("MDP")
 
-        if thresh_type == "p":
-            max_passing_val = floor((10000 * alt_pos) / cov_pos)
-        else:
-            max_passing_val = alt_pos
+            if thresh_type == "p":
+                max_passing_val = floor((10000 * alt_pos) / cov_pos)
+            else:
+                max_passing_val = alt_pos
 
-        # Don't count "indisputable" mutations towards mutation rates
-        if max_passing_val >= high_val:
-            continue
+            # Don't count "indisputable" mutations towards mutation rates
+            if max_passing_val >= high_val:
+                continue
 
-        # NOTE: This is already more optimized than the analysis
-        # notebooks, but I think it could still be made faster. Maybe
-        # just increment a single value (corresponding to the max
-        # passing p/r), and then do everything at the end after seeing
-        # all mutations in one pass? Doesn't seem like a huge bottleneck tho.
-        num_vals_to_update = max_passing_val - min_val + 1
-        for i in range(num_vals_to_update):
-            num_muts[i] += 1
+            # NOTE: This is already more optimized than the analysis
+            # notebooks, but I think it could still be made faster. Maybe just
+            # increment a single value (corresponding to the max passing p/r),
+            # and then do everything at the end after seeing all mutations in
+            # one pass? Doesn't seem like a huge bottleneck tho.
+            num_vals_to_update = max_passing_val - min_val + 1
+            for i in range(num_vals_to_update):
+                num_muts[i] += 1
     return num_muts
 
 
-def compute_full_decoy_contig_mut_rates(
-    bcf_obj, thresh_type, thresh_vals, decoy_contig, decoy_contig_len
+def compute_any_mutation_decoy_contig_mut_rates(
+    bcf_obj, thresh_type, thresh_vals, contig, pos_to_consider=None
 ):
-    """Computes mutation rates for the entirety of a decoy contig.
+    """Computes mutation rates for some or all positions in a decoy contig.
 
     This is designed for the "Full" option, in which we consider every position
-    in the contig as a part of the decoy.
+    in the contig as part of the decoy; or the "CP2" option, in which we just
+    consider single-gene CP2 positions in the contig as part of the decoy.
+
+    In either case, we consider *any* mutation at these positions to count
+    towards the decoy -- we don't impose restrictions on these mutations (see:
+    the nonsense, nonsyn, transversion stuff).
 
     Parameters
     ----------
@@ -357,22 +379,167 @@ def compute_full_decoy_contig_mut_rates(
         maximum p or r value here (i.e. it's "indisputable"), it will not be
         included in the mutation rate computation.
 
-    decoy_contig: str
+    contig: str
         Decoy contig name.
 
-    decoy_contig_len: int
-        Decoy contig sequence length.
+    pos_to_consider: set or None
+        If this is None, then consider mutations at *all* positions in the
+        contig.
+
+        If this is a set, then we assume that this set describes 1-indexed
+        positions in this contig; we will then only count mutations occurring
+        in positions given in this set.
 
     Returns
     -------
-    mut_rates: list
+    mut_rates: list of float
         Mutation rates for each threshold value in thresh_vals.
     """
-    num_muts = compute_number_of_mutations_in_full_contig(
-        bcf_obj, thresh_type, thresh_vals, decoy_contig
+    num_muts = compute_number_of_mutations_in_contig(
+        bcf_obj,
+        thresh_type,
+        thresh_vals,
+        contig,
+        pos_to_consider=pos_to_consider,
     )
-    denominator = 3 * decoy_contig_len
+
+    if pos_to_consider is None:
+        pos_len = bcf_obj.header.contigs[contig].length
+    else:
+        pos_len = len(pos_to_consider)
+
+    denominator = 3 * pos_len
     return [n / denominator for n in num_muts]
+
+
+def complain_about_cps(gn, gs, cp):
+    """Raises an error about codon position while iterating through a gene.
+
+    Mostly intended as a fail-safe to catch weird errors. See
+    get_single_gene_cp2_positions() for context on why this function is even
+    useful.
+
+    Parameters
+    ----------
+    gn: int
+        ID number for a gene.
+
+    gs: str
+        Gene strand. Should be "+" or "-", but we don't do any sanity checking
+        here.
+
+    cp: int
+        Codon position. In practice, this function should be called if this
+        gets "off" somehow (i.e. it isn't 1, 2, or 3).
+
+    Raises
+    ------
+    WeirdError
+    """
+    raise WeirdError(
+        f"Codon position got out of whack: gene {gn:,}, strand {gs}, CP {cp}"
+    )
+
+
+def get_single_gene_cp2_positions(genes_df):
+    """Returns a set of all positions located in exactly one gene and in CP2.
+
+    Parameters
+    ----------
+    genes_df: pd.DataFrame
+        Describes predicted genes in a contig. See parse_sco().
+
+    Returns
+    -------
+    single_gene_cp2_pos: set
+        Set of all positions located in exactly one gene, and located in CP2
+        (in the second codon position) of their parent gene.
+
+    Raises
+    ------
+    WeirdError
+        If something goes wrong during iteration; this should never happen, but
+        you never know.
+
+    ParameterError
+        If no positions meet these criteria. This one could actually happen, I
+        guess, if the genes predicted overlap almost completely.
+
+    Notes
+    -----
+    This is pretty inefficient. I doubt it will be a bottleneck, since this
+    should only be called once per run of "fdr estimate", but if you need to
+    speed this up a good first step might be moving from itertuples() to
+    something like .apply() / vectorization.
+    """
+    # records all positions in CP2 of at least one gene
+    cp2_pos = set()
+    # records all positions in at least one gene that we have seen thus far
+    pos_seen_in_other_genes = set()
+    # records all positions known to be in multiple genes
+    multi_gene_pos = set()
+
+    # PERF: yeah yeah yeah use something faster than itertuples
+    for gene in genes_df.itertuples():
+        if gene.Strand == "+":
+            cp = 1
+        else:
+            cp = 3
+        for pos in range(gene.LeftEnd, gene.RightEnd + 1):
+            # if we've already seen this position in another gene, then this
+            # position is contained in multiple genes. So: we won't include it
+            # as part of the decoy.
+            if pos in pos_seen_in_other_genes:
+                multi_gene_pos.add(pos)
+
+            # Keep track of ALL CP2 positions we see, even those in multiple
+            # genes. (We could try to only do this if the above check is False,
+            # but that wouldn't prevent against the case where we see a
+            # position and then later find out it's in another gene. Simpler to
+            # do things this way; not gonna optimize this too much right now.)
+            if cp == 2:
+                cp2_pos.add(pos)
+
+            # Make it clear that we've seen this position in at least one gene.
+            pos_seen_in_other_genes.add(pos)
+
+            # There's probably a more elegant way to do this, but this seems
+            # like the clearest (and least prone to off by one errors) way.
+            #
+            # I guess it's worth noting that we don't really *need* to split
+            # this up by strand, since (for an arbitrary gene) the CP2
+            # positions will be the same regardless of strand. but, oh well,
+            # this is how i initially wrote the code, and no sense
+            # intentionally making it more confusing.
+            #
+            # ...BREAKING NEWS: local grad student "too stupid to use
+            # basic modulo arithmetic"; bystanders SHOCKED at this SUSSY
+            # IMPOSTOR BEHAVIOR; more at 11
+            if gene.Strand == "+":
+                # 123123123...
+                if cp == 1 or cp == 2:
+                    cp += 1
+                elif cp == 3:
+                    cp = 1
+                else:
+                    complain_about_cps(gene.Index, gene.Strand, cp)
+            else:
+                # 321321321...
+                if cp == 3 or cp == 2:
+                    cp -= 1
+                elif cp == 1:
+                    cp = 3
+                else:
+                    complain_about_cps(gene.Index, gene.Strand, cp)
+
+    single_gene_cp2_pos = cp2_pos - multi_gene_pos
+
+    if len(single_gene_cp2_pos) == 0:
+        raise ParameterError(
+            "No single-gene CP2 positions exist (given the predicted genes)."
+        )
+
+    return single_gene_cp2_pos
 
 
 def compute_target_contig_fdr_curve_info(
@@ -381,7 +548,7 @@ def compute_target_contig_fdr_curve_info(
     thresh_vals,
     target_contig,
     target_contig_len,
-    decoy_mut_rates,
+    ctx2mr,
 ):
     """Computes FDR curve information for a given target contig.
 
@@ -410,27 +577,30 @@ def compute_target_contig_fdr_curve_info(
     target_contig_len: int
         Target contig sequence length.
 
-    decoy_mut_rates: list
-        List of mutation rates (with the same length as thresh_vals) for the
-        decoy contig. The context used to compute these mutation rates (Full,
-        CP2, Nonsyn, ...) doesn't matter. All we care about is these rates.
+    ctx2mr: dict
+        Maps values in decoy_contexts to a list of mutation rates computed for
+        the decoy contig using this context. See
+        compute_decoy_contig_mut_rates() for details.
 
     Returns
     -------
-    (fdr_line, num_line): (str, str)
-        These are both tab-separated lines (suitable for adding to a TSV file
-        where the first column is the target contig name and there are
-        len(thresh_vals) additional columns).
+    (ctx2fdr_lines, num_line): (dict, str)
+        Each value in ctx2fdr_lines (and num_line itself) are tab-separated
+        lines (suitable for adding to a TSV file where the first column is the
+        target contig name and there are len(thresh_vals) additional columns).
 
-        The first entry in fdr_line and num_line is the target contig name.
-        The remaining entries in fdr_line describe the estimated FDR for this
-        target contig at each threshold value (the x-axis on the FDR curves, as
-        we currently draw them). The remaining entries in num_line describe the
-        number of mutations per megabase for this target contig at each
-        threshold value (the y-axis on the FDR curves, as we currently draw
-        them).
+        The first entry in each line in ctx2fdr_lines, and the first entry in
+        num_line, is the target contig name. The remaining entries in each
+        line in ctx2fdr_lines describe the estimated FDR for this target contig
+        for the decoy mutation rate at this context at each threshold value
+        (aka the x-axis on a FDR curve, as drawn in the paper). The
+        remaining entries in num_line describe the number of mutations per
+        megabase for this target contig at each threshold value (the y-axis
+        on a FDR curve, as drawn in the paper).
     """
-    num_muts = compute_number_of_mutations_in_full_contig(
+    # Get the number of mutations in this target contig at each of the
+    # threshold values
+    num_muts = compute_number_of_mutations_in_contig(
         bcf_obj, thresh_type, thresh_vals, target_contig
     )
 
@@ -443,23 +613,240 @@ def compute_target_contig_fdr_curve_info(
     # target mutation rate, but that shouldn't happen too often)
     fdr_coeff = 100 * denominator
 
-    fdr_line = target_contig
+    ctx2fdr_lines = {ctx: target_contig for ctx in ctx2mr}
     num_line = target_contig
+
     # TODO: Maybe speed this up by first creating a pandas DataFrame of all
     # contigs and their num_muts, then using vectorization or apply() to do
     # this stuff on all contigs at once? But this runs in ~2 minutes on the
-    # entire SheepGut dataset, so it's not a substantial bottleneck.
+    # entire SheepGut dataset (edit: or at least it did before i added
+    # context-dependent stuff back in), so it's not a substantial bottleneck.
+
     for i, n in enumerate(num_muts):
         if n == 0:
             # The FDR is undefined if the target's mutation rate is zero
-            fdr_val = "NA"
-            num_val = "0"
+            for ctx in ctx2mr:
+                ctx2fdr_lines[ctx] += "\tNA"
+            # And, of course, there are 0 mutations / Mb
+            num_line += "\t0"
+
         else:
-            fdr_val = str((fdr_coeff * decoy_mut_rates[i]) / n)
-            num_val = str(numpermb_coeff * n)
-        fdr_line += f"\t{fdr_val}"
-        num_line += f"\t{num_val}"
-    return fdr_line + "\n", num_line + "\n"
+            # the (fdr coeff / n) thing is the same for all contexts at this
+            # threshold, so we can pre-compute it and then reuse it for all the
+            # different contexts for this target contig for this threshold
+            # value. might be overkill but whatevs.
+            fdr_cell_coeff = fdr_coeff / n
+            for ctx in ctx2mr:
+                ctx2fdr_lines[ctx] += "\t" + str(
+                    fdr_cell_coeff * ctx2mr[ctx][i]
+                )
+
+            num_line += f"\t{numpermb_coeff * n}"
+
+    # "cross your t's, dot your i's, and add your newlines" -- hillary clinton
+    for ctx in ctx2fdr_lines:
+        ctx2fdr_lines[ctx] += "\n"
+    num_line += "\n"
+
+    return ctx2fdr_lines, num_line
+
+
+def parse_sco(sco_fp):
+    """Returns a DataFrame representing a SCO file describing gene predictions.
+
+    This function is mostly intended for internal use at the moment, since I
+    expect that -- in the case of e.g. the hotspot features stuff -- most
+    people will have GFF3 files. (But if a lot of people have SCO files, then
+    I guess we could modify that side of things to accept these as well.)
+
+    Parameters
+    ----------
+    sco_fp: str
+        Filepath to a SCO ("Simple Coordinate Output") file.
+
+    Returns
+    -------
+    df: pd.DataFrame
+        Describes genes in the SCO file. Rows are indexed based on the
+        1-indexed gene number in the SCO file; there are four columns,
+        "LeftEnd", "RightEnd", "Length", and "Strand". LeftEnd and RightEnd
+        are 1-indexed and inclusive.
+
+    Raises
+    ------
+    WeirdError
+        If various things look wrong with the SCO file. I raise this instead
+        of a ParameterError, because problems here indicate that (probably)
+        something is up with Prodigal, rather than with how the user is running
+        strainFlye. (Although I guess we could have multiple sources of
+        error...)
+
+    ValueError
+        Implicitly raised if things we expect to be integers in the SCO file
+        (e.g. gene coordinates) are not.
+
+    References
+    ----------
+
+    +---------------------------------+
+    | What does a SCO file look like? |
+    +---------------------------------+
+
+    Prodigal's documentation
+    (https://github.com/hyattpd/Prodigal/wiki/understanding-the-prodigal-output)
+    points to http://tico.gobics.de/ioexamples.jsp regarding details of the SCO
+    file format. As of writing (September 4, 2022), this link is dead.
+    But! We can figure out what it said with the wayback machine:
+    https://web.archive.org/web/20060717224112/http://tico.gobics.de/ioexamples.jsp
+
+    Copying from there:
+
+        The Simple Coord format just gives the coordinates of the predicted
+        ORFs with an id and the orientation. The input may also contain a
+        score and a label as in the Simple Coord output of TiCo.
+
+        >id_left_right_strand[_score][#]
+
+        Example:
+
+        >2_337_2799_+
+        >3_2801_3733_+
+        >5_3734_5020_+
+        >6_5088_5237_+
+        >8_5310_5720_-
+        >10_5683_6459_-
+        >12_6529_7959_-
+        >14_8175_9191_+
+        >15_9303_9893_+
+        >17_9928_10494_-
+        >19_10643_11356_-
+
+    Here, we ignore the presence of a score / label, and just focus on
+    processing the first four fields.
+
+    +--------------------------------------+
+    | ok but like why does this code exist |
+    +--------------------------------------+
+
+    I initially wrote this to mimic the way LST files from GeneMark
+    can be parsed with Pandas (...with some effort). Hence the reuse of
+    "LeftEnd", "RightEnd", etc. I figured it was simpler to adapt this code
+    then it was to re-write stuff to work with GFF3 files.
+
+    Also, the initial version of this code comes from the SheepGut repo:
+    https://github.com/fedarko/sheepgut/blob/main/notebooks/parse_sco.py
+    """
+    genes = {}
+    with open(sco_fp, "r") as f:
+        for line in f:
+            # Ignore comments
+            if not line.startswith("#"):
+                if line.startswith(">"):
+                    # Ignore any "parts" after the strand -- we don't care
+                    # about scores/labels in SCO files (see refs above)
+                    parts = line[1:].strip().split("_")
+
+                    # ValueErrors will be raised if any of these parts don't
+                    # look like a number
+                    gene_num = int(parts[0])
+                    left_end = int(parts[1])
+                    rght_end = int(parts[2])
+
+                    strand = parts[3]
+                    if strand != "+" and strand != "-":
+                        raise WeirdError(
+                            f"Unrecognized strand in SCO: {strand}"
+                        )
+
+                    # left end should always be on the left side, regardless of
+                    # strand
+                    if left_end >= rght_end:
+                        raise WeirdError(
+                            f"Gene {gene_num:,} in SCO has left end of "
+                            f"{left_end:,}, which is not < the right end of "
+                            f"{rght_end:,}."
+                        )
+
+                    length = rght_end - left_end + 1
+                    if length % 3 != 0:
+                        raise WeirdError(
+                            f"Gene {gene_num:,} in SCO is {length:,} bp long; "
+                            "lengths must be divisible by 3."
+                        )
+
+                    genes[gene_num] = [left_end, rght_end, length, strand]
+                else:
+                    # If this line doesn't start with # or > and it isn't just
+                    # a blank line, then something's up. Throw an error.
+                    stripped_line = line.strip()
+                    if len(stripped_line) > 0:
+                        raise WeirdError(
+                            "Unrecognized line prefix in SCO: line = "
+                            f'"{stripped_line}"'
+                        )
+
+    # shouldn't happen unless something really weird happens with the decoy
+    # genome, but let's account for it anyway
+    if len(genes) < 1:
+        raise WeirdError("No genes described in SCO.")
+
+    df = pd.DataFrame.from_dict(
+        genes,
+        orient="index",
+        columns=["LeftEnd", "RightEnd", "Length", "Strand"],
+    )
+    return df
+
+
+def get_prodigal_genes(seq, name):
+    """Runs Prodigal on a sequence and returns info about the predicted genes.
+
+    Parameters
+    ----------
+    seq: skbio.DNA
+        Sequence in which we'll predict genes.
+
+    name: str
+        Name of this sequence. Just used for naming the temporary files; this
+        shouldn't matter, but it could be useful for debugging.
+
+    Returns
+    -------
+    df: pd.DataFrame
+        Describes genes predicted in this sequence. See parse_sco()'s docs for
+        details on this. (Importantly, the coordinates are 1-indexed and
+        inclusive.)
+
+    Raises
+    ------
+    subprocess.CalledProcessError
+        If Prodigal has a problem. I imagine the most likely cause would be
+        really short sequences; Prodigal will throw an error if the input
+        sequence has < 20,000 characters, at least as of writing.
+
+    Notes
+    -----
+    This assumes that the sequence is prokaryotic, since Prodigal is only
+    designed for bacterial and archaeal genomes; see
+    https://github.com/hyattpd/Prodigal/wiki/introduction.
+    """
+    with tempfile.TemporaryDirectory() as td:
+        # Write out the sequence to a file
+        # (yeah we could pipe it into prodigal but i don't trust myself to
+        # do that correctly)
+        fasta_fp = os.path.join(td, f"{name}.fasta")
+        with open(fasta_fp, "w") as dffh:
+            skbio.io.write(seq, format="fasta", into=dffh)
+
+        sco_fp = os.path.join(td, f"{name}.sco")
+
+        subprocess.run(
+            ["prodigal", "-i", fasta_fp, "-o", sco_fp, "-f", "sco", "-c"],
+            check=True,
+        )
+
+        # Read in and return the predicted genes
+        return parse_sco(sco_fp)
 
 
 def compute_decoy_contig_mut_rates(
@@ -468,7 +855,7 @@ def compute_decoy_contig_mut_rates(
     thresh_type,
     thresh_vals,
     decoy_contig,
-    decoy_context,
+    decoy_contexts,
 ):
     """Computes mutation rates for a decoy contig at some threshold values.
 
@@ -494,26 +881,51 @@ def compute_decoy_contig_mut_rates(
     decoy_contig: str
         Name of a contig to compute mutation rates for.
 
-    decoy_context: str
+    decoy_contexts: list of str
         Context-dependent mutation settings to apply in computing the mutation
-        rates. One of the following:
+        rates. Each entry should be contained in config.DECOY_CONTEXTS.
+        Details on these contexts' meanings:
+
          - "Full": Compute mutation rates across the entire contig.
+
          - "CP2": Only consider positions that are 1) located in a single
                   predicted protein-coding gene and 2) are located in the
                   second codon position of this gene.
+
+         - "Tv": Compute mutation rates based on treating potential
+                 transversion mutations (A <-> C, G <-> T, A <-> T, C <-> G)
+                 as a decoy.
+
          - "Nonsyn": Compute mutation rates based on treating potential
                      nonsynonymous mutations (for positions located in a single
                      predicted protein-coding gene) as a decoy.
+
          - "Nonsense": Like Nonsyn, but for nonsense mutations.
+
+         - "CP2Tv": Tv, but only for positions in CP2.
          - "CP2Nonsyn": Nonsyn, but only for positions in CP2.
          - "CP2Nonsense": Nonsense, but only for positions in CP2.
+         - "TvNonsyn": Tv + Nonsyn mutations.
+         - "TvNonsense": Tv + Nonsense mutations.
+         - "CP2TvNonsense": Tv + Nonsense, but only for positions in CP2.
+         - "CP2TvNonsyn": Tv + Nonsyn, but only for positions in CP2.
+
+        ... Note that we don't have any options for combining Nonsyn and
+        Nonsense, because this wouldn't do anything (all nonsense mutations are
+        by definition nonsynonymous). Arguably, CP2 + Nonsyn is also *almost*
+        useless, but there is one possible "synonymous" CP2 mutation (TGA <->
+        TAA both code for a stop codon) so we include that.
 
     Returns
     -------
-    decoy_mutation_rates: list
-        Has the same dimensions as thresh_vals. The i-th value of
-        decoy_mutation_rates corresponds to the mutation rate computed for this
-        decoy contig based on naive calling using the i-th threshold value.
+    ctx2mr: dict
+        Maps each entry in decoy_contexts to a list of mutation rates computed
+        for the decoy contig using this context.
+
+        Each list has the same dimensions as thresh_vals. So, the t-th
+        entry in a list corresponds to the mutation rate computed for the
+        decoy contig (using the current decoy context) based on naive calling
+        using the t-th threshold value.
 
     Raises
     ------
@@ -521,27 +933,96 @@ def compute_decoy_contig_mut_rates(
         If decoy_contig isn't in the contigs. (This should never happen if
         this function is called from run_estimate(), which should already have
         ensured that this is the case.)
+
+    subprocess.CalledProcessError
+        Raised if something goes wrong with Prodigal (e.g. the decoy contig is
+        < 20,000 bp long). See get_prodigal_genes().
+
+    References
+    ----------
+    See https://www.mun.ca/biology/scarr/Transitions_vs_Transversions.html for
+    details on transversions.
     """
-    decoy_seq = fasta_utils.get_single_seq(contigs, decoy_contig)
+    # Figure out if we gotta run Prodigal on the decoy contig
+    decoy_seq = None
+    decoy_genes_df = None
+    has_genic_decoy_context = False
 
-    if decoy_context == "Full":
-        return compute_full_decoy_contig_mut_rates(
-            bcf_obj,
-            thresh_type,
-            thresh_vals,
-            decoy_contig,
-            len(decoy_seq),
-        )
-    else:
-        raise NotImplementedError(
-            'Only the "Full" context is implemented now.'
-        )
+    # Also, if we do need to run Prodigal, figure out if we need to identify
+    # single-gene CP2 positions
+    decoy_single_gene_cp2_pos = None
+    has_cp2_decoy_context = False
 
-    # TODO:
-    # - If decoy_context != "Full",
-    #   - Predict genes in this sequence using prodigal. Save .sco to tempfile.
-    # - Fetch mutations aligned to this contig in the BCF file.
-    # -
+    for ctx in decoy_contexts:
+        if "CP2" in ctx:
+            has_cp2_decoy_context = True
+            has_genic_decoy_context = True
+            # we only check for these two things, so no need to continue
+            # looping through the decoy contexts
+            break
+
+        elif "Nonsyn" in ctx or "Nonsense" in ctx:
+            has_genic_decoy_context = True
+
+    # Ok we gotta run Prodigal
+    if has_genic_decoy_context:
+        decoy_seq = fasta_utils.get_single_seq(contigs, decoy_contig)
+        decoy_genes_df = get_prodigal_genes(decoy_seq, decoy_contig)
+
+        # ... and we gotta identify single-gene CP2 positions
+        if has_cp2_decoy_context:
+            decoy_single_gene_cp2_pos = get_single_gene_cp2_positions(
+                decoy_genes_df
+            )
+
+    ctx2mr = {}
+
+    for ctx in decoy_contexts:
+        if ctx == "Full":
+            ctx2mr[ctx] = compute_any_mutation_decoy_contig_mut_rates(
+                bcf_obj,
+                thresh_type,
+                thresh_vals,
+                decoy_contig,
+            )
+
+        elif ctx == "CP2":
+            ctx2mr[ctx] = compute_any_mutation_decoy_contig_mut_rates(
+                bcf_obj,
+                thresh_type,
+                thresh_vals,
+                decoy_contig,
+                pos_to_consider=decoy_single_gene_cp2_pos,
+            )
+
+        elif ctx == "Tv":
+            raise NotImplementedError("oop")
+        elif ctx == "Nonsyn":
+            raise NotImplementedError("oop")
+        elif ctx == "Nonsense":
+            raise NotImplementedError("oop")
+        elif ctx == "CP2Tv":
+            # find cp2 positions (abstract to util func), limit to potential
+            # tvs, identify mutations, end
+            raise NotImplementedError("oop")
+        elif ctx == "CP2Nonsyn":
+            raise NotImplementedError("oop")
+        elif ctx == "CP2Nonsense":
+            raise NotImplementedError("oop")
+        elif ctx == "TvNonsyn":
+            raise NotImplementedError("oop")
+        elif ctx == "TvNonsense":
+            raise NotImplementedError("oop")
+        elif ctx == "CP2TvNonsense":
+            raise NotImplementedError("oop")
+        elif ctx == "CP2TvNonsyn":
+            raise NotImplementedError("oop")
+        else:
+            # It shouldn't be possible for the user to sneak this past Click,
+            # but let's catch it anyway
+            raise WeirdError(f"Unrecognized decoy context {ctx}.")
+
+    return ctx2mr
 
 
 def run_estimate(
@@ -549,13 +1030,12 @@ def run_estimate(
     bcf,
     diversity_indices,
     decoy_contig,
-    decoy_context,
+    decoy_contexts,
     high_p,
     high_r,
     decoy_min_length,
     decoy_min_average_coverage,
-    output_fdr_info,
-    output_num_info,
+    output_dir,
     fancylog,
     chunk_size=500,
 ):
@@ -585,10 +1065,11 @@ def run_estimate(
         If a str, this should be the name of a contig described in the
         BCF file. We'll use this as a decoy contig.
 
-    decoy_context: str
+    decoy_contexts: list of str
         Context-dependent mutation settings (e.g. Full, CP2, Nonsyn, ...)
-        Thankfully, we know this will be one of a set of allowed choices,
-        since we use click.Choice() to screen it at the CLI.
+        Thankfully, we know each entry in this list will be one of a set of
+        allowed choices, since we use click.Choice() to screen it at the CLI.
+        We'll generate one TSV file for each of these contexts.
 
     high_p: int
         "Indisputable" threshold for p-mutations (scaled up by 100).
@@ -604,14 +1085,7 @@ def run_estimate(
         If automatically selecting decoy contigs, we'll only consider contigs
         with average coverages of at least this.
 
-    output_fdr_info: str
-        Filepath to which we'll write a TSV file describing estimated FDRs
-        for the target contigs. (x-axis values for the FDR curves, at least as
-        plotted in the paper.)
-
-    output_num_info: str
-        Filepath to which we'll write a TSV file describing numbers of
-        mutations per megabase. (y-axis values for the FDR curves.)
+    output_dir: str
 
     fancylog: function
         Logging function.
@@ -770,20 +1244,32 @@ def run_estimate(
         prefix="",
     )
 
+    # Click allows the user to specify the same Choice multiple times, which
+    # will literally give us a list with the same thing multiple times. So
+    # let's filter to unique decoy contexts, so that we don't generate the CP2
+    # mutation rates a gazillion times for some weird reason...
+    # (Also, let's sort this list so that there is a consistent order we can
+    # rely on.)
+    unique_ctxs = sorted(set(decoy_contexts))
+
     fancylog(
         f"Computing mutation rates for {used_decoy_contig} at these threshold "
-        "values..."
+        f"values, for each of the {len(unique_ctxs):,} decoy context(s)..."
     )
     # For each value in thresh_vals, compute the decoy genome's mutation rate.
-    decoy_mut_rates = compute_decoy_contig_mut_rates(
+    ctx2mr = compute_decoy_contig_mut_rates(
         contigs,
         bcf_obj,
         thresh_type,
         thresh_vals,
         used_decoy_contig,
-        decoy_context,
+        unique_ctxs,
     )
     fancylog("Done.", prefix="")
+
+    # At this point, we've delayed this about as long as we can -- create the
+    # output directory
+    misc_utils.make_output_dir(output_dir)
 
     fancylog(
         "Computing mutation rates and FDR estimates for the "
@@ -795,9 +1281,13 @@ def run_estimate(
     for val in thresh_vals:
         tsv_header += f"\t{thresh_type}{val}"
 
-    # ... and write it out. The header is the same for the FDR estimate file
+    # ... and write it out. The header is the same for the FDR estimate file(s)
     # and for the (# of mutations per megabase) file.
-    for tsv_fp in (output_fdr_info, output_num_info):
+    ctx2fp = {
+        ctx: os.path.join(output_dir, f"fdr-{ctx}.tsv") for ctx in unique_ctxs
+    }
+    num_fp = os.path.join(output_dir, "num-mutations-per-mb.tsv")
+    for tsv_fp in list(ctx2fp.values()) + [num_fp]:
         with open(tsv_fp, "w") as fdr_file:
             fdr_file.write(f"{tsv_header}\n")
 
@@ -806,42 +1296,47 @@ def run_estimate(
     # genome comptuation, so we can reuse a lot of code from that.
     target_contigs = bcf_contigs - {used_decoy_contig}
 
-    # Open both files within a single "with" block:
-    # https://stackoverflow.com/a/4617069 (requires Python 3.1, but... we're
-    # already using f-strings [which require Python 3.6] so whatevs lol)
-    with open(output_fdr_info, "a") as ff, open(output_num_info, "a") as nf:
-        fdr_out = ""
-        num_out = ""
-        # Sort target contigs so that their rows in the FDR / num-per-Mb files
-        # are in lexicographic order. Not really needed, but nice to have and
-        # makes testing easier
-        for tc_ct, target_contig in enumerate(sorted(target_contigs), 1):
-            fdr_line, num_line = compute_target_contig_fdr_curve_info(
-                bcf_obj,
-                thresh_type,
-                thresh_vals,
-                target_contig,
-                contig_name2len[target_contig],
-                decoy_mut_rates,
-            )
+    ctx2fdr_out = {ctx: "" for ctx in unique_ctxs}
+    num_out = ""
+    # Sort target contigs so that their rows in the FDR / num-per-Mb files
+    # are in lexicographic order. Not really needed, but nice to have and
+    # makes testing easier
+    for tc_ct, target_contig in enumerate(sorted(target_contigs), 1):
+        ctx2fdr_lines, num_line = compute_target_contig_fdr_curve_info(
+            bcf_obj,
+            thresh_type,
+            thresh_vals,
+            target_contig,
+            contig_name2len[target_contig],
+            ctx2mr,
+        )
 
-            fdr_out += fdr_line
-            num_out += num_line
+        for ctx in ctx2mr:
+            ctx2fdr_out[ctx] += ctx2fdr_lines[ctx]
+        num_out += num_line
 
-            # We'll "chunk" outputs -- we'll only perform a write operation
-            # every (chunk_size) lines. This way, we don't need to perform
-            # |TargetContigs| write operations (which I thought was a
-            # bottleneck here, but after implementing this I don't notice a
-            # speedup... well, whatever, now this code at least looks a bit
-            # nicer).
-            if tc_ct % chunk_size == 0:
-                ff.write(fdr_out)
+        # We'll "chunk" outputs -- we'll only perform a write operation
+        # every (chunk_size) lines. This way, we don't need to perform
+        # write operations after processing every target contig.
+        if tc_ct % chunk_size == 0:
+
+            for ctx in ctx2mr:
+                with open(ctx2fp[ctx], "a") as ff:
+                    ff.write(ctx2fdr_out[ctx])
+                ctx2fdr_out[ctx] = ""
+
+            with open(num_fp, "a") as nf:
                 nf.write(num_out)
-                fdr_out = ""
-                num_out = ""
+            num_out = ""
 
-        if fdr_out != "":
-            ff.write(fdr_out)
+    # Make one last flush if needed (yeah, i know, i know, shouldn't reuse
+    # code but blhufhaosdfu)
+    if num_out != "":
+        for ctx in ctx2mr:
+            with open(ctx2fp[ctx], "a") as ff:
+                ff.write(ctx2fdr_out[ctx])
+
+        with open(num_fp, "a") as nf:
             nf.write(num_out)
 
     fancylog("Done.", prefix="")
@@ -851,7 +1346,7 @@ def run_estimate(
     # then we'd estimate the FDR as zero for every target contig. That
     # shouldn't happen most of the time, anyway. Maybe add an option to limit
     # auto-selection to just contigs with mutations? Hm, but that would be
-    # annoying to implement, and users can always manually set a decoy contig.)
+    # annoying to implement, and users can always manually set a decoy contig.
 
 
 def get_optimal_threshold_values(fi, fdr):
