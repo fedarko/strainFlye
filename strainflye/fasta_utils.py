@@ -44,6 +44,11 @@ def get_name2len(fasta_fp, min_num_contigs=1):
         empty and/or just whitespace), then scikit-bio will throw this -- this
         case is explicitly tested, too (see
         test_get_name2len_empty_contig_sequence()).
+
+    ValueError
+        Can be raised by scikit-bio while trying to parse the FASTA file. Will
+        show up if there are invalid characters (including lowercase
+        nucleotides) in a sequence. (This is explicitly tested.)
     """
     name2len = {}
     # Fails nicely with a FileNotFoundError if this file doesn't exist

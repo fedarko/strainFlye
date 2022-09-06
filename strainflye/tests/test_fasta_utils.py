@@ -23,6 +23,14 @@ def test_get_name2len_oneseq():
     assert n2l == {"lonely": 4}
 
 
+def test_get_name2len_lowercase():
+    sio = StringIO(">hatred\nGTAcC\n")
+    with pytest.raises(ValueError) as ei:
+        utils.get_name2len(sio, min_num_contigs=1)
+    # god bless scikit-bio
+    assert "Invalid character in sequence: b'c'" in str(ei.value) 
+
+
 def test_get_name2len_multiline():
     sio = StringIO(">longboi\nGTAC\nCCT\nTA\n>hi\nCAAT")
     n2l = utils.get_name2len(sio)
