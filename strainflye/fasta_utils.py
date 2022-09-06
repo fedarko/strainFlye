@@ -28,7 +28,7 @@ def get_name2len(fasta_fp, min_num_contigs=1):
     Raises
     ------
     FileNotFoundError
-        If the file doesn't exist (skbio handles this).
+        If the file doesn't exist (scikit-bio handles this).
 
     SequencingDataError
         If various things are wrong with the FASTA file, as determined by us:
@@ -37,6 +37,13 @@ def get_name2len(fasta_fp, min_num_contigs=1):
           - Degenerate nucleotides in sequences
           - Gaps in sequences
           - Less than min_num_contigs contigs are described
+
+    FASTAFormatError
+        Can be raised by scikit-bio while trying to parse the FASTA file.
+        Notably, if any of the sequences are empty (i.e. the sequence line is
+        empty and/or just whitespace), then scikit-bio will throw this -- this
+        case is explicitly tested, too (see
+        test_get_name2len_empty_contig_sequence()).
     """
     name2len = {}
     # Fails nicely with a FileNotFoundError if this file doesn't exist

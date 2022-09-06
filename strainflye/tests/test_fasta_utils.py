@@ -111,6 +111,7 @@ def test_get_name2len_empty_contig_sequence():
         ">empty\n",
         ">empty",
         ">empty\n   \t ",
+        ">asdf\n\n>contig2\nACACA\n",
         ">asdf\nACTG\n>empty\n",
     ):
         sio = StringIO(bad_fasta_text)
