@@ -1265,13 +1265,10 @@ def run_estimate(
         - If the selected decoy contig isn't present in the contigs file.
         - If the high p (or high r) threshold is <= the minimum threshold value
           used in the BCF file.
-        - If the BCF file's contigs do not exactly match the FASTA file's
-          contigs.
 
-    - parse_sf_bcf() can also raise various errors if the input BCF is
-      malformed.
-    - fasta_utils.get_name2len() can also raise errors if the input FASTA file
-      of contigs is malformed.
+    We also call misc_utils.load_triplet(), which can cause a pretty large
+    amount of errors to be raised if the input data looks weird -- see that
+    function's docs for details.
     """
     # Check and load the FASTA, BAM, and BCF
     (

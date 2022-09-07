@@ -227,21 +227,47 @@ def load_triplet(
         identical; if False, just ensure that all contigs in the FASTA file are
         in the BAM and BCF files.
 
+    min_num_contigs: int
+        Will be passed to fasta_utils.get_name2len().
+
+    get_sf_bcf_details: bool
+        If True, load the BCF (and the contained threshold type and minimum)
+        using bcf_utils.parse_sf_bcf(); if False, just load the BCF using
+        bcf_utils.parse_arbitrary_bcf().
+
+        This impacts both how the BCF is validated during loading, as well
+        as whether or not the thresh_type and thresh_min return values from
+        this function will be None.
+
     Returns
     -------
-    (contig_name2len, bam_obj, bcf_obj): (dict, pysam.AlignmentFile,
-                                          pysam.VariantFile)
+    (contig_name2len, bam_obj, bcf_obj, tt, tm): (dict, pysam.AlignmentFile,
+                                                  pysam.VariantFile,
+                                                  str or None, int or None)
+
         contig_name2len: dict mapping contig name to length.
+
         bam_obj: Object describing the BAM file.
+
         bcf_obj: Object describing the BCF file.
+
+        tt: If get_sf_bcf_details is True, then this will be the threshold type
+            of the mutations described in the BCF file (either "p" or "r"); if
+            get_sf_bcf_details is False, then this will be None.
+
+        tm: If get_sf_bcf_details is True, then this will be the min threshold
+            of the mutations described in the BCF file (see
+            bcf_utils.parse_sf_bcf() for details); if get_sf_bcf_Details is
+            False, then this will be None.
 
     Raises
     ------
     This function doesn't raise any errors itself, but it calls various
     functions which can raise errors if the input files are invalid in certain
     ways. See fasta_utils.get_name2len(), verify_contig_subset(),
-    verify_contig_lengths(), and bcf_utils.parse_arbitrary_bcf() for
-    more details on the sorts of errors that can get raised here.
+    verify_contig_lengths(), bcf_utils.parse_sf_bcf(), and
+    bcf_utils.parse_arbitrary_bcf() for more details on the sorts of errors
+    that can get raised here.
     """
     fancylog("Loading and checking FASTA, BAM, and BCF files...")
 
