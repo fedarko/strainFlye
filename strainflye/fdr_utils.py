@@ -5,6 +5,7 @@ import os
 import tempfile
 import subprocess
 import pysam
+import pysamstats
 import skbio
 import numpy as np
 import pandas as pd
@@ -1187,7 +1188,7 @@ def compute_decoy_contig_mut_rates(
         for pos, rec in enumerate(
             pysamstats.stat_variation(
                 bam_obj,
-                chrom=contig,
+                chrom=decoy_contig,
                 fafile=contigs,
                 pad=True,
                 max_depth=config.MAX_DEPTH_PYSAM,
@@ -1195,7 +1196,7 @@ def compute_decoy_contig_mut_rates(
             1,
         ):
             max_nt_freq = max([rec[nt] for nt in "ACGT"])
-            if rec[contig_seq[pos - 1]] < max_nt_freq:
+            if rec[decoy_seq[pos - 1]] < max_nt_freq:
                 unreasonable_positions.add(pos)
 
     # this'll be the main output
