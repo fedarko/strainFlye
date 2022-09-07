@@ -12,7 +12,6 @@ from math import floor
 from statistics import mean
 from collections import defaultdict
 from strainflye import fasta_utils, call_utils, misc_utils, bcf_utils, config
-from strainflye.bcf_utils import parse_sf_bcf
 from .errors import ParameterError, SequencingDataError, WeirdError
 
 
@@ -472,6 +471,7 @@ def compute_specific_mutation_decoy_contig_mut_rates(
     mutation_types,
     contig_seq,
     contig_genes_df,
+    bam_obj,
 ):
     """Computes "specific" mutation rates for positions in a contig.
 
@@ -483,18 +483,33 @@ def compute_specific_mutation_decoy_contig_mut_rates(
     example just nonsynonymous mutations.
 
     If you'd like to filter based on positions, as well, then that can be done
-    using pos_to_consider.
+    using pos_to_consider. NOTE that this function won't filter unreasonable
+    positions for you -- you should adjust pos_to_consider to do that.
 
     Parameters
     ----------
     bcf_obj: pysam.VariantFile
+        Object describing a BCF file produced by strainFlye's naive calling.
+
     thresh_type: str
+        Either "p" or "r", depending on which type of mutations were called in
+        bcf_obj.
+
     thresh_vals: range
+        Range of values of p or r (depending on thresh_type) at which to
+        compute mutation rates for this contig. Must use a step size of 1.
+        If a mutation is a mutation for a value of p or r larger than the
+        maximum p or r value here (i.e. it's "indisputable"), it will not be
+        included in the mutation rate computation.
+
     contig: str
-    pos_to_consider: set or None
-        Same as for compute_any_mutation_decoy_contig_mut_rates(). See the docs
-        for that function. (... This file is chunky enough already, I'm not
-        copy-and-pasting that stuff.)
+        Decoy contig name.
+
+    pos_to_consider: set
+        All (1-indexed) positions to consider in this contig. NOTE that, unlike
+        compute_any_mutation_decoy_contig_mut_rates(), this must be a set -- if
+        you want to consider all positions, don't pass in None; instead, pass
+        in something like set(range(1, len(contig_seq) + 1)).
 
     mutation_types: list of str
         Types of mutation we will specifically count towards our decoy. Each
@@ -520,6 +535,9 @@ def compute_specific_mutation_decoy_contig_mut_rates(
         won't care about genes) -- so, in that case, it's ok for this to be
         None.
 
+    bam_obj: pysam.AlignmentFile
+        Object describing a BAM file mapping reads to contigs.
+
     Returns
     -------
     mut_rates: list of float
@@ -529,6 +547,16 @@ def compute_specific_mutation_decoy_contig_mut_rates(
     ------
     ParameterError
         See get_mutation_types().
+
+    Notes
+    -----
+    Sorry the parameters to this function are in such a bizarre order, and that
+    there are so many of them. I can offer no excuse for this; the failure
+    stems, ultimately, from whom I am as a person, and I can only hope that no
+    other soul must be brought to madness by needing to understand this code.
+
+
+    (that's a joke i'm just tired lmao)
     """
     tv, nonsyn, nonsense = get_mutation_types(mutation_types)
 
@@ -546,23 +574,16 @@ def compute_specific_mutation_decoy_contig_mut_rates(
         high_val = thresh_vals[-1] + 1
         min_val = thresh_vals[0]
 
-        # TODO: ignore unreasonable positions -- look at alignment! pass it as
-        # a parameter to "fdr estimate"
-
         # Regardless of the reference nucleotide (A/C/G/T), there are exactly
         # two transversion mutations possible at every position.
-        if pos_to_consider is None:
-            num_poss_muts = len(contig_seq) * 2
-        else:
-            num_poss_muts = len(pos_to_consider) * 2
+        num_poss_muts = len(pos_to_consider) * 2
 
         for mut in bcf_obj.fetch(contig):
-            if pos_to_consider is None or mut.pos in pos_to_consider:
-                ref_nt = mut.ref.upper()
-                alt_nt = mut.alts[0].upper()
-
-                sorted_ra = "".join(sorted(ref_nt + alt_nt))
-                if sorted_ra not in ("AG", "CT"):
+            if mut.pos in pos_to_consider:
+                # Sort this so that G -> A and A -> G are treated equivalently
+                # (same for C -> T and T -> C)
+                sorted_ra = sorted([mut.ref.upper(), mut.alts[0].upper()])
+                if sorted_ra != ["A", "G"] and sorted_ra != ["C", "T"]:
                     # this is a transversion mutation
                     update_number_of_mutations_at_thresholds(
                         num_muts, thresh_type, min_val, high_val, mut
@@ -614,7 +635,8 @@ def get_single_gene_cp2_positions(genes_df):
     -------
     single_gene_cp2_pos: set
         Set of all positions located in exactly one gene, and located in CP2
-        (in the second codon position) of their parent gene.
+        (in the second codon position) of their parent gene. These positions
+        are 1-indexed.
 
     Raises
     ------
@@ -1119,36 +1141,62 @@ def compute_decoy_contig_mut_rates(
     # triggering an error if the decoy contig isn't in the FASTA.
     decoy_seq = fasta_utils.get_single_seq(contigs, decoy_contig)
 
-    # Figure out if we gotta run Prodigal on the decoy contig
+    # Figure out if we gotta run Prodigal on the decoy contig (yes if any of
+    # the contexts include CP2, Nonsyn, or Nonsense)
     decoy_genes_df = None
     has_genic_decoy_context = False
 
     # Also, if we do need to run Prodigal, figure out if we need to identify
-    # single-gene CP2 positions
+    # single-gene CP2 positions (yes if any of the contexts include CP2)
     decoy_single_gene_cp2_pos = None
     has_cp2_decoy_context = False
+
+    # Figure out if we need to determine unreasonable positions (yes if any of
+    # the contexts include Nonsyn, Nonsense, or Tv)
+    unreasonable_positions = None
+    has_specific_mutation_decoy_context = False
 
     for ctx in decoy_contexts:
         if "CP2" in ctx:
             has_cp2_decoy_context = True
             has_genic_decoy_context = True
-            # we only check for these two things, so no need to continue
-            # looping through the decoy contexts
-            break
 
         elif "Nonsyn" in ctx or "Nonsense" in ctx:
             has_genic_decoy_context = True
+            has_specific_mutation_decoy_context = True
+
+        elif "Tv" in ctx:
+            has_specific_mutation_decoy_context = True
 
     # Ok we gotta run Prodigal
     if has_genic_decoy_context:
         # will raise a SequencingDataError if decoy_contig isn't in this FASTA
         decoy_genes_df = get_prodigal_genes(decoy_seq, decoy_contig)
 
-        # ... and we gotta identify single-gene CP2 positions
+        # ... and we gotta identify single-gene CP2 positions (these are
+        # 1-indexed)
         if has_cp2_decoy_context:
             decoy_single_gene_cp2_pos = get_single_gene_cp2_positions(
                 decoy_genes_df
             )
+
+    # Get a set of "unreasonable" positions (1-indexed):
+    # these are positions where the consensus and reference don't match.
+    if has_specific_mutation_decoy_context:
+        unreasonable_positions = set()
+        for pos, rec in enumerate(
+            pysamstats.stat_variation(
+                bam_obj,
+                chrom=contig,
+                fafile=contigs,
+                pad=True,
+                max_depth=config.MAX_DEPTH_PYSAM,
+            ),
+            1,
+        ):
+            max_nt_freq = max([rec[nt] for nt in "ACGT"])
+            if rec[contig_seq[pos - 1]] < max_nt_freq:
+                unreasonable_positions.add(pos)
 
     # this'll be the main output
     ctx2mr = {}
@@ -1168,9 +1216,13 @@ def compute_decoy_contig_mut_rates(
             )
 
         else:
-            pos_to_consider = None
             if "CP2" in ctx:
                 pos_to_consider = decoy_single_gene_cp2_pos
+            else:
+                pos_to_consider = set(range(1, len(decoy_seq) + 1))
+
+            # Ignore unreasonable positions
+            pos_to_consider -= unreasonable_positions
 
             mutation_types = [
                 mt for mt in ["Nonsyn", "Nonsense", "Tv"] if mt in ctx
@@ -1182,6 +1234,7 @@ def compute_decoy_contig_mut_rates(
                 mutation_types,
                 decoy_seq,
                 decoy_genes_df,
+                bam_obj,
             )
 
     return ctx2mr
@@ -1976,13 +2029,13 @@ def run_fix(bcf, fdr_info, fdr, output_bcf, fancylog, verbose):
         - If there is not exactly one contig that is present in the BCF file
           but not in the FDR TSV file.
 
-    - parse_sf_bcf() can also raise various errors if the input BCF is
-      malformed.
+    - bcf_utils.parse_sf_bcf() can also raise various errors if the input BCF
+      is malformed.
     """
     fancylog("Loading and checking BCF and TSV files...")
     # Like in run_estimate(): Load the BCF file and figure out what contigs it
     # describes
-    bcf_obj, thresh_type, thresh_min = parse_sf_bcf(bcf)
+    bcf_obj, thresh_type, thresh_min = bcf_utils.parse_sf_bcf(bcf)
     bcf_contigs = set(bcf_obj.header.contigs)
 
     # Load the estimated FDR file.

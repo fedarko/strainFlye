@@ -1280,14 +1280,32 @@ def test_compute_tv_decoy_contig_mut_rates():
         "edge_1\t12\t.\tT\tG\t.\t.\tMDP=10000;AAD=10\n"
     ) as fh:
         bcf_obj, thresh_type, thresh_min = bu.parse_sf_bcf(fh.name)
+        # Try for all positions
         mut_rates = fu.compute_specific_mutation_decoy_contig_mut_rates(
             bcf_obj,
             thresh_type,
             range(5, 13),
             "edge_1",
-            None,
+            set(range(1, 501)),
             ["Tv"],
             skbio.DNA("A" * 500),
             None,
+            pysam.AlignmentFile(BAM),
         )
         assert mut_rates == ([8 / 1000] * 6) + [0, 0]
+
+        # Now, let's say certain positions are "unreasonable" -- this should
+        # impact pos_to_consider. We'll label positions 1, 6, and 7 as
+        # unreasonable: 1 is a transversion, and 6 and 7 are transitions.
+        mut_rates = fu.compute_specific_mutation_decoy_contig_mut_rates(
+            bcf_obj,
+            thresh_type,
+            range(5, 13),
+            "edge_1",
+            set(range(1, 501)) - {1, 6, 7},
+            ["Tv"],
+            skbio.DNA("A" * 500),
+            None,
+            pysam.AlignmentFile(BAM),
+        )
+        assert mut_rates == ([7 / 994] * 6) + [0, 0]
