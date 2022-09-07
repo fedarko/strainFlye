@@ -8,7 +8,6 @@ import pysamstats
 from collections import defaultdict
 from statistics import mean
 from strainflye import (
-    phasing_utils,
     cli_utils,
     bcf_utils,
     misc_utils,
@@ -1041,7 +1040,7 @@ def run_create(
     independently.
     """
     verboselog = cli_utils.get_verboselog(fancylog, verbose)
-    contig_name2len, bam_obj, bcf_obj = phasing_utils.load_triplet(
+    contig_name2len, bam_obj, bcf_obj = misc_utils.load_triplet(
         contigs, bam, bcf, fancylog
     )
     num_fasta_contigs = len(contig_name2len)

@@ -1,6 +1,7 @@
 import os
+import pysam
 import pandas as pd
-from strainflye import config
+from strainflye import config, fasta_utils, bcf_utils
 from strainflye.errors import ParameterError
 
 
@@ -189,3 +190,115 @@ def load_and_sanity_check_diversity_indices(
             "column(s) of diversity indices."
         )
     return di
+
+
+def load_triplet(contigs, bam, bcf, fancylog, exact=False):
+    """Loads and checks three files: FASTA, BAM, and BCF.
+
+    Mainly, this ensures that the contigs in the FASTA file are all present in
+    the BAM and BCF files. If exact is True, then this will also make sure that
+    there aren't any "extra" contigs in the BAM and BCF files.
+
+    Parameters
+    ----------
+    contigs: str
+        Filepath to a FASTA file containing contigs.
+
+    bam: str
+        Filepath to a (sorted and indexed) BAM file mapping reads to contigs.
+
+    bcf: str
+        Filepath to an (indexed) BCF file describing single-nucleotide
+        mutations in contigs.
+
+    fancylog: function
+        Logging function.
+
+    exact: bool
+        If True, ensure that each of the three sets of contigs in the files are
+        identical; if False, just ensure that all contigs in the FASTA file are
+        in the BAM and BCF files.
+
+    Returns
+    -------
+    (contig_name2len, bam_obj, bcf_obj): (dict, pysam.AlignmentFile,
+                                          pysam.VariantFile)
+        contig_name2len: dict mapping contig name to length.
+        bam_obj: Object describing the BAM file.
+        bcf_obj: Object describing the BCF file.
+
+    Raises
+    ------
+    This function doesn't raise any errors itself, but it calls various
+    functions which can raise errors if the input files are invalid in certain
+    ways. See fasta_utils.get_name2len(), verify_contig_subset(),
+    verify_contig_lengths(), and bcf_utils.parse_arbitrary_bcf() for
+    more details on the sorts of errors that can get raised here.
+    """
+    fancylog("Loading and checking FASTA, BAM, and BCF files...")
+
+    contig_name2len = fasta_utils.get_name2len(contigs)
+    fasta_contigs = set(contig_name2len)
+    fancylog(
+        f"The FASTA file describes {len(fasta_contigs):,} contig(s).",
+        prefix="",
+    )
+
+    bam_obj = pysam.AlignmentFile(bam, "rb")
+    verify_contig_subset(
+        fasta_contigs,
+        set(bam_obj.references),
+        "the FASTA file",
+        "the BAM file",
+        exact=exact,
+    )
+    if not exact:
+        fancylog(
+            (
+                "All FASTA contig(s) are included in "
+                f"the BAM file (this BAM file has {bam_obj.nreferences:,} "
+                "reference(s))."
+            ),
+            prefix="",
+        )
+    else:
+        fancylog(
+            "The FASTA file's contig(s) and BAM file's reference(s) match.",
+            prefix="",
+        )
+
+    bcf_obj = bcf_utils.parse_arbitrary_bcf(bcf)
+    bcf_contigs = set(bcf_obj.header.contigs)
+    verify_contig_subset(
+        fasta_contigs,
+        bcf_contigs,
+        "the FASTA file",
+        "the BCF file",
+        exact=exact,
+    )
+    if not exact:
+        fancylog(
+            (
+                "All FASTA contig(s) are included in "
+                "the BCF file (the header of this BCF file describes "
+                f"{len(bcf_contigs):,} contig(s))."
+            ),
+            prefix="",
+        )
+    else:
+        fancylog(
+            "The FASTA file's contig(s) and BCF file's contig(s) match.",
+            prefix="",
+        )
+
+    verify_contig_lengths(contig_name2len, bam_obj=bam_obj, bcf_obj=bcf_obj)
+    fancylog(
+        (
+            "The lengths of all contig(s) in the FASTA file match the "
+            "corresponding lengths in the BAM and BCF files."
+        ),
+        prefix="",
+    )
+    fancylog("So far, these files seem good.", prefix="")
+    return contig_name2len, bam_obj, bcf_obj
+
