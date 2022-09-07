@@ -14,6 +14,7 @@ from .utils_for_testing import mock_log, write_indexed_bcf
 
 IN_DIR = os.path.join("strainflye", "tests", "inputs", "small")
 FASTA = os.path.join(IN_DIR, "contigs.fasta")
+BAM = os.path.join(IN_DIR, "alignment.bam")
 BCF = os.path.join(IN_DIR, "call-r-min3-di12345", "naive-calls.bcf")
 DI = os.path.join(IN_DIR, "call-r-min3-di12345", "diversity-indices.tsv")
 
@@ -685,6 +686,7 @@ def test_run_estimate_both_dividx_and_decoy_specified():
         with pytest.raises(ParameterError) as ei:
             fu.run_estimate(
                 FASTA,
+                BAM,
                 BCF,
                 DI,
                 "c1",
@@ -772,6 +774,7 @@ def test_run_estimate_with_autoselect_and_full_decoy_good(capsys):
     with tempfile.TemporaryDirectory() as td:
         fu.run_estimate(
             FASTA,
+            BAM,
             BCF,
             DI,
             None,
@@ -793,15 +796,23 @@ def test_run_estimate_with_autoselect_and_full_decoy_good(capsys):
 
         # Finally, verify that the logged output looks good
         assert capsys.readouterr().out == (
-            "PREFIX\nMockLog: Loading and checking FASTA and BCF files...\n"
-            "MockLog: The FASTA and BCF files describe the same 3 contigs.\n"
-            "MockLog: Also, the input BCF file contains r-mutations (minimum "
+            "PREFIX\nMockLog: Loading and checking FASTA, BAM, and BCF "
+            "files...\n"
+            "MockLog: The FASTA file describes 3 contig(s).\n"
+            "MockLog: The FASTA file's contig(s) and BAM file's reference(s) "
+            "match.\n"
+            "MockLog: The FASTA file's contig(s) and BCF file's contig(s) "
+            "match.\n"
+            "MockLog: Also, the input BCF file describes r-mutations (minimum "
             "r = 3).\n"
+            "MockLog: The lengths of all contig(s) in the FASTA file match "
+            "the corresponding lengths in the BAM and BCF files.\n"
+            "MockLog: So far, these files seem good.\n"
             "PREFIX\nMockLog: Selecting a decoy contig based on the diversity "
             "indices...\n"
             "MockLog: Selected c2 as the decoy contig.\n"
-            "MockLog: Verified that this decoy contig is present in the BCF "
-            "and FASTA files.\n"
+            "MockLog: Verified that this decoy contig is present in the "
+            "FASTA, BAM, and BCF files.\n"
             "MockLog: (Sorry for doubting you.)\n"
             "PREFIX\nMockLog: Determining range of value(s) of r to "
             "consider...\n"
@@ -826,6 +837,7 @@ def test_run_estimate_tiny_chunk_size_good():
         with tempfile.TemporaryDirectory() as td:
             fu.run_estimate(
                 FASTA,
+                BAM,
                 BCF,
                 DI,
                 None,
@@ -846,6 +858,7 @@ def test_run_estimate_with_preselected_full_decoy_good(capsys):
     with tempfile.TemporaryDirectory() as td:
         fu.run_estimate(
             FASTA,
+            BAM,
             BCF,
             None,
             "c2",
@@ -866,13 +879,21 @@ def test_run_estimate_with_preselected_full_decoy_good(capsys):
         # logged output is a bit different now due to no longer using
         # decoy autoselection
         assert capsys.readouterr().out == (
-            "PREFIX\nMockLog: Loading and checking FASTA and BCF files...\n"
-            "MockLog: The FASTA and BCF files describe the same 3 contigs.\n"
-            "MockLog: Also, the input BCF file contains r-mutations (minimum "
+            "PREFIX\nMockLog: Loading and checking FASTA, BAM, and BCF "
+            "files...\n"
+            "MockLog: The FASTA file describes 3 contig(s).\n"
+            "MockLog: The FASTA file's contig(s) and BAM file's reference(s) "
+            "match.\n"
+            "MockLog: The FASTA file's contig(s) and BCF file's contig(s) "
+            "match.\n"
+            "MockLog: Also, the input BCF file describes r-mutations (minimum "
             "r = 3).\n"
+            "MockLog: The lengths of all contig(s) in the FASTA file match "
+            "the corresponding lengths in the BAM and BCF files.\n"
+            "MockLog: So far, these files seem good.\n"
             "PREFIX\nMockLog: The specified decoy contig is c2.\n"
-            "MockLog: Verified that this decoy contig is present in the BCF "
-            "and FASTA files.\n"
+            "MockLog: Verified that this decoy contig is present in the "
+            "FASTA, BAM, and BCF files.\n"
             "MockLog: (Sorry for doubting you.)\n"
             "PREFIX\nMockLog: Determining range of value(s) of r to "
             "consider...\n"
@@ -895,6 +916,7 @@ def test_run_estimate_small_high_thresholds():
         with pytest.raises(ParameterError) as ei:
             fu.run_estimate(
                 FASTA,
+                BAM,
                 BCF,
                 DI,
                 None,
@@ -917,6 +939,7 @@ def test_run_estimate_small_high_thresholds():
         with pytest.raises(ParameterError) as ei:
             fu.run_estimate(
                 FASTA,
+                BAM,
                 os.path.join(IN_DIR, "call-p-min100", "naive-calls.bcf"),
                 os.path.join(IN_DIR, "call-p-min100", "diversity-indices.tsv"),
                 None,
@@ -947,6 +970,7 @@ def test_run_estimate_selected_decoy_not_in_fasta():
         with pytest.raises(ParameterError) as ei:
             fu.run_estimate(
                 FASTA,
+                BAM,
                 BCF,
                 StringIO(
                     f"Contig\tAverageCoverage\tLength\t{DI_PREF}\t{DI_PREF}\n"
@@ -973,6 +997,7 @@ def test_run_estimate_selected_decoy_not_in_fasta():
         with pytest.raises(ParameterError) as ei:
             fu.run_estimate(
                 FASTA,
+                BAM,
                 BCF,
                 None,
                 "c4",

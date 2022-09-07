@@ -1040,7 +1040,9 @@ def run_create(
     independently.
     """
     verboselog = cli_utils.get_verboselog(fancylog, verbose)
-    contig_name2len, bam_obj, bcf_obj = misc_utils.load_triplet(
+    # tt and tm will both be None, since we don't care about whether or not
+    # this BCF came from strainFlye (so long as it's only got SNPs, etc)
+    contig_name2len, bam_obj, bcf_obj, tt, tm = misc_utils.load_triplet(
         contigs, bam, bcf, fancylog
     )
     num_fasta_contigs = len(contig_name2len)

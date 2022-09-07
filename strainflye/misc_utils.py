@@ -192,7 +192,15 @@ def load_and_sanity_check_diversity_indices(
     return di
 
 
-def load_triplet(contigs, bam, bcf, fancylog, exact=False):
+def load_triplet(
+    contigs,
+    bam,
+    bcf,
+    fancylog,
+    exact=False,
+    min_num_contigs=1,
+    get_sf_bcf_details=False,
+):
     """Loads and checks three files: FASTA, BAM, and BCF.
 
     Mainly, this ensures that the contigs in the FASTA file are all present in
@@ -237,7 +245,9 @@ def load_triplet(contigs, bam, bcf, fancylog, exact=False):
     """
     fancylog("Loading and checking FASTA, BAM, and BCF files...")
 
-    contig_name2len = fasta_utils.get_name2len(contigs)
+    contig_name2len = fasta_utils.get_name2len(
+        contigs, min_num_contigs=min_num_contigs
+    )
     fasta_contigs = set(contig_name2len)
     fancylog(
         f"The FASTA file describes {len(fasta_contigs):,} contig(s).",
@@ -267,7 +277,13 @@ def load_triplet(contigs, bam, bcf, fancylog, exact=False):
             prefix="",
         )
 
-    bcf_obj = bcf_utils.parse_arbitrary_bcf(bcf)
+    thresh_type = None
+    thresh_min = None
+    if get_sf_bcf_details:
+        bcf_obj, thresh_type, thresh_min = bcf_utils.parse_sf_bcf(bcf)
+    else:
+        bcf_obj = bcf_utils.parse_arbitrary_bcf(bcf)
+
     bcf_contigs = set(bcf_obj.header.contigs)
     verify_contig_subset(
         fasta_contigs,
@@ -291,6 +307,13 @@ def load_triplet(contigs, bam, bcf, fancylog, exact=False):
             prefix="",
         )
 
+    if get_sf_bcf_details:
+        fancylog(
+            f"Also, the input BCF file describes {thresh_type}-mutations "
+            f"(minimum {thresh_type} = {thresh_min:,}).",
+            prefix="",
+        )
+
     verify_contig_lengths(contig_name2len, bam_obj=bam_obj, bcf_obj=bcf_obj)
     fancylog(
         (
@@ -300,5 +323,4 @@ def load_triplet(contigs, bam, bcf, fancylog, exact=False):
         prefix="",
     )
     fancylog("So far, these files seem good.", prefix="")
-    return contig_name2len, bam_obj, bcf_obj
-
+    return contig_name2len, bam_obj, bcf_obj, thresh_type, thresh_min

@@ -213,7 +213,7 @@ def test_load_and_sanity_check_diversity_indices_one_of_each():
 
 
 def test_load_triplet_good(capsys):
-    n2l, bam_obj, bcf_obj = mu.load_triplet(FASTA, BAM, BCF, mock_log)
+    n2l, bam_obj, bcf_obj, tt, tm = mu.load_triplet(FASTA, BAM, BCF, mock_log)
     # The actual fasta / bam / bcf loading done in this file isn't super
     # important to test, since these are either already tested elsewhere (the
     # fasta and bcf loading) or are completely done by an external library (bam
@@ -225,6 +225,9 @@ def test_load_triplet_good(capsys):
     exp_contigs = set(["c1", "c2", "c3"])
     assert set(bam_obj.references) == exp_contigs
     assert set(bcf_obj.header.contigs) == exp_contigs
+
+    assert tt is None
+    assert tm is None
 
     captured = capsys.readouterr()
     assert captured.out == (

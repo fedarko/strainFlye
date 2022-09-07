@@ -441,6 +441,12 @@ strainflye.add_command(fdr)
     help=desc.INPUT_CONTIGS,
 )
 @click.option(
+    "--bam",
+    required=True,
+    type=click.Path(exists=True),
+    help=desc.INPUT_BAM,
+)
+@click.option(
     "-b",
     "--bcf",
     required=True,
@@ -570,6 +576,7 @@ strainflye.add_command(fdr)
 )
 def estimate(
     contigs,
+    bam,
     bcf,
     diversity_indices,
     decoy_contig,
@@ -599,6 +606,7 @@ def estimate(
         "strainFlye fdr estimate",
         (
             ("contig file", contigs),
+            ("BAM file", bam),
             ("BCF file", bcf),
             ("diversity indices file", diversity_indices),
             ("manually-set decoy contig", decoy_contig),
@@ -639,6 +647,7 @@ def estimate(
     )
     fdr_utils.run_estimate(
         contigs,
+        bam,
         bcf,
         diversity_indices,
         decoy_contig,
