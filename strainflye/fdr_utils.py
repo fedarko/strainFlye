@@ -1012,6 +1012,7 @@ def get_prodigal_genes(seq, name):
 
 def compute_decoy_contig_mut_rates(
     contigs,
+    bam_obj,
     bcf_obj,
     thresh_type,
     thresh_vals,
@@ -1027,6 +1028,15 @@ def compute_decoy_contig_mut_rates(
         naively called. We'll only really use this to extract the decoy
         contig's sequence (it's probably easier to load it here then to rely on
         the caller to load it).
+
+    bam_obj: pysam.AlignmentFile
+        Object describing a BAM file mapping reads to contigs. Used to classify
+        positions as "unreasonable" or not (because we need to be able to do
+        this for *all* positions in the decoy contig, not just mutated
+        positions) (seriously, what kind of chump would spend an hour encoding
+        that info in the BCF before realizing it was the wrong way to solve
+        this problem) (i bet his name is "marcus" or something stupid) (god i
+        hate that guy)
 
     bcf_obj: pysam.VariantFile
         Object describing a BCF file produced by strainFlye's naive calling.
@@ -1396,6 +1406,7 @@ def run_estimate(
     # For each value in thresh_vals, compute the decoy genome's mutation rate.
     ctx2mr = compute_decoy_contig_mut_rates(
         contigs,
+        bam_obj,
         bcf_obj,
         thresh_type,
         thresh_vals,

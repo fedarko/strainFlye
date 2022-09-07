@@ -2,6 +2,7 @@ import os
 import tempfile
 import pytest
 import skbio
+import pysam
 import pandas as pd
 import numpy as np
 import strainflye.fdr_utils as fu
@@ -463,6 +464,7 @@ def test_compute_decoy_contig_mut_rates_full_r_simple():
         contigs_file = StringIO(f">edge_1\n{'A' * 500}")
         ctx2mr = fu.compute_decoy_contig_mut_rates(
             contigs_file,
+            pysam.AlignmentFile(BAM),
             bcf_obj,
             thresh_type,
             range(5, 13),
