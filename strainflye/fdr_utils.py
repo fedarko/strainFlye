@@ -512,6 +512,19 @@ def compute_specific_mutation_decoy_contig_mut_rates(
         you want to consider all positions, don't pass in None; instead, pass
         in something like set(range(1, len(contig_seq) + 1)).
 
+        This is more like a "starting point" of positions to consider than a
+        comprehensive list: this is how you'd filter to just single-gene CP2
+        positions, or remove unreasonable positions, for example. But there's
+        no guarantee that we'd consider all positions in this set -- this can
+        have silly side effects. For example, say that you are working with
+        mutation_types == ["Tv"] -- positions_to_consider should just cover
+        all positions in the contig, except maybe for unreasonable positions.
+        But if you then add "Nonsyn" to your mutation_types, then -- even
+        though positions_to_consider might still cover the entire contig --
+        we'll only focus on positions within predicted genes, due to the Nonsyn
+        thing. (This is the expected behavior, I just wanted to clarify it.
+        Writing this is making my head hurt so I'm going to stop now.)
+
     mutation_types: list of str
         Types of mutation we will specifically count towards our decoy. Each
         entry should be one of "Nonsyn", "Nonsense", or "Tv". These are applied
@@ -590,6 +603,7 @@ def compute_specific_mutation_decoy_contig_mut_rates(
                         num_muts, thresh_type, min_val, high_val, mut
                     )
     else:
+        # OK limit to positions in genes
         raise NotImplementedError("Not done yet!")
 
     return [n / num_poss_muts for n in num_muts]
