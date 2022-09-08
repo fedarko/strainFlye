@@ -85,8 +85,19 @@ def strainflye():
     required=True,
     type=click.Path(dir_okay=True, file_okay=False),
     help=(
-        "Directory to which an output BAM file and BAM index file will be "
-        "written. Some temporary files will also be written to this directory."
+        "Directory to which an output BAM file (final.bam) and BAM index file "
+        "will be written. Some temporary files will also be written to this "
+        "directory."
+    ),
+)
+@click.option(
+    "--rm-tmp-bam/--no-rm-tmp-bam",
+    is_flag=True,
+    default=True,
+    show_default=True,
+    help=(
+        "Remove temporary (before filtering, and after just filtering OSAs) "
+        "BAM files, to reduce space requirements."
     ),
 )
 @click.option(
@@ -99,7 +110,7 @@ def strainflye():
 # Regarding the \b marker, see https://stackoverflow.com/a/53302580 -- this is
 # apparently needed to get the formatting to look the way I want (otherwise all
 # of the four steps are smooshed into a paragraph)
-def align(reads, contigs, graph, output_dir, verbose):
+def align(reads, contigs, graph, output_dir, rm_tmp_bam, verbose):
     """Align reads to contigs, and filter the resulting alignment.
 
     Files of reads should be in the FASTA or FASTQ formats; GZIP'd files
@@ -110,8 +121,8 @@ def align(reads, contigs, graph, output_dir, verbose):
     \b
       1) Align reads to contigs (using minimap2) to generate a SAM file
       2) Convert this SAM file to a sorted and indexed BAM file
-      3) Filter overlapping supplementary alignments within this BAM file
-      4) Filter partially-mapped reads within this BAM file
+      3) Filter overlapping supplementary alignments (OSAs) from this BAM file
+      4) Filter partially-mapped reads from this BAM file
 
     Note that we only sort the alignment file once, although we do re-index it
     after the two filtering steps. This decision is motivated by
@@ -133,9 +144,12 @@ def align(reads, contigs, graph, output_dir, verbose):
             ("graph file", graph),
         ),
         (("directory", output_dir),),
-        extra_info=(f"Verbose?: {cli_utils.b2y(verbose)}",),
+        extra_info=(
+            f"Remove temporary BAM files?: {cli_utils.b2y(rm_tmp_bam)}",
+            f"Verbose?: {cli_utils.b2y(verbose)}",
+        ),
     )
-    align_utils.run(reads, contigs, graph, output_dir, fancylog, verbose)
+    align_utils.run(reads, contigs, graph, output_dir, rm_tmp_bam, fancylog, verbose)
     fancylog("Done.")
 
 

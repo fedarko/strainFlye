@@ -719,7 +719,7 @@ def filter_pm_reads(
     fancylog("Done filtering out partially-mapped reads.", prefix="")
 
 
-def run(reads, contigs, graph, output_dir, fancylog, verbose):
+def run(reads, contigs, graph, output_dir, rm_tmp_bam, fancylog, verbose):
     """Runs the entire alignment-and-filtering process.
 
     Parameters
@@ -738,6 +738,9 @@ def run(reads, contigs, graph, output_dir, fancylog, verbose):
 
     output_dir: str
         Output directory path. Will be created if it doesn't already exist.
+
+    rm_tmp_bam: bool
+        Whether or not to remove temporary / "intermediate" BAM files.
 
     fancylog: function
         Logging function
@@ -859,8 +862,9 @@ def run(reads, contigs, graph, output_dir, fancylog, verbose):
     # enough (e.g. upwards of 70 GB for the SheepGut dataset) that keeping all
     # three around at the same time might exceed the space limit on a user's
     # system.
-    os.remove(first_output_bam)
-    os.remove(first_output_bam + ".bai")
+    if rm_tmp_bam:
+        os.remove(first_output_bam)
+        os.remove(first_output_bam + ".bai")
 
     pm_filter_bam = os.path.join(output_dir, "final.bam")
     filter_pm_reads(graph, osa_filter_bam, pm_filter_bam, fancylog, verbose)
@@ -869,5 +873,6 @@ def run(reads, contigs, graph, output_dir, fancylog, verbose):
     # Similarly, we can remove the OSA-filtered (but not PM-filtered) BAM now.
     # The PM-filtered BAM represents the "final" BAM produced by the alignment
     # step, and is the one that should be used in downstream analyses.
-    os.remove(osa_filter_bam)
-    os.remove(osa_filter_bam + ".bai")
+    if rm_tmp_bam:
+        os.remove(osa_filter_bam)
+        os.remove(osa_filter_bam + ".bai")
