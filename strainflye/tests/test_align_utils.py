@@ -70,13 +70,18 @@ def test_check_contigs_in_graph_diff_lengths():
     )
 
 
-def test_filter_osa_reads(tmp_path):
+def test_filter_osa_reads(capsys, tmp_path):
     sam_fp = os.path.join(tmp_path, "aln.sam")
     with open(sam_fp, "w") as fh:
+        # r04 should be filtered out, since it overlaps with itself at position
+        # 5 on the reference. everything else stays. (r12 is the sort of thing
+        # the partially-mapped read filter should remove, and that'd happen
+        # after the OSA filter step.)
         fh.write(
             "@HD	VN:1.6	SO:coordinate\n"
             "@SQ	SN:c1	LN:23\n"
             "@SQ	SN:c2	LN:12\n"
+            "@SQ	SN:c4	LN:100\n"
             "r01	0	c1	1	30	23M	*	0	0	ACTGACACCCAAACCAAACCTAC	*\n"
             "r02	0	c1	1	30	5M	*	0	0	ACTTA	*\n"
             "r04	2048	c1	1	30	3M	*	0	0	ACT	*\n"
@@ -93,16 +98,58 @@ def test_filter_osa_reads(tmp_path):
     )
     # i mean i guess let's incidentally test this also
     au.index_bam(in_bam_fp, "test BAM", mock_log)
+    assert capsys.readouterr().out == (
+        "PREFIX\nMockLog: Indexing the test BAM...\n"
+        "MockLog: Done indexing the test BAM.\n"
+    )
 
     out_bam_fp = os.path.join(tmp_path, "osa-filtered.bam")
+
+    # okay now run the OSA filter
     au.filter_osa_reads(in_bam_fp, out_bam_fp, mock_log, True)
 
-    # Inspect the OSA-filtered BAM -- verify it's correct
+    # verify the logged output looks good (we do this first, before inspecting
+    # the actual output BAM file, because the indexing functions also log
+    # output; it's simplest to just do stuff in this order).
+    assert capsys.readouterr().out == (
+        "PREFIX\nMockLog: Filtering reads with overlapping supplementary "
+        "alignments (OSAs)...\n"
+        "MockLog: "
+        "OSA filter pass 1/2: on contig c1 (1 / 3 contigs = 33.33%).\n"
+        "MockLog: There are 6 linear alignment(s) (from 4 unique read(s)) to "
+        "contig c1.\n"
+        "MockLog: 1 / 4 (25.00%) of these unique read(s) have OSAs.\n"
+        "MockLog: "
+        "OSA filter pass 1/2: on contig c2 (2 / 3 contigs = 66.67%).\n"
+        "MockLog: There are 3 linear alignment(s) (from 3 unique read(s)) to "
+        "contig c2.\n"
+        "MockLog: 0 / 3 (0.00%) of these unique read(s) have OSAs.\n"
+        "MockLog: "
+        "OSA filter pass 1/2: on contig c4 (3 / 3 contigs = 100.00%).\n"
+        "MockLog: Nothing is aligned to contig c4! Ignoring this contig.\n"
+        "MockLog: Done with pass 1 of the OSA filter; moving on to pass 2...\n"
+        "MockLog: "
+        "OSA filter pass 2/2: on contig c1 (1 / 3 contigs = 33.33%).\n"
+        "MockLog: 4 / 6 (66.67%) linear aln(s) retained in contig c1.\n"
+        "MockLog: "
+        "OSA filter pass 2/2: on contig c2 (2 / 3 contigs = 66.67%).\n"
+        "MockLog: 3 / 3 (100.00%) linear aln(s) retained in contig c2.\n"
+        "MockLog: Done filtering reads with overlapping supplementary "
+        "alignments.\n"
+    )
+
+    # Inspect the OSA-filtered BAM -- verify it's actually correct!
+
     # (we have to index it to load it in pysam, tho)
-    au.index_bam(out_bam_fp, "test BAM", mock_log)
+    au.index_bam(out_bam_fp, "OSA-filtered test BAM", mock_log)
+    assert capsys.readouterr().out == (
+        "PREFIX\nMockLog: Indexing the OSA-filtered test BAM...\n"
+        "MockLog: Done indexing the OSA-filtered test BAM.\n"
+    )
+
     bf = pysam.AlignmentFile(out_bam_fp, "rb")
 
-    # (check c1 first)
+    # check c1 first
     exp_read_names = ["r01", "r04", "r12", "r04"]
     exp_qaln_seqs = ["ACTGACACCCAAACCAAACCTAC", "ACT", "TAAAAAGGGGGG", "CCTAC"]
     obs_read_names = []
@@ -115,6 +162,7 @@ def test_filter_osa_reads(tmp_path):
     assert obs_read_names == exp_read_names
     assert obs_qaln_seqs == exp_qaln_seqs
 
+    # check c2
     exp_read_names = ["r12", "r13", "r14"]
     exp_qaln_seqs = ["TAAAAAGGGGGG"] * 3
     obs_read_names = []
@@ -125,3 +173,9 @@ def test_filter_osa_reads(tmp_path):
 
     assert obs_read_names == exp_read_names
     assert obs_qaln_seqs == exp_qaln_seqs
+
+    # check c4
+    obs_read_names = []
+    for linearaln in bf.fetch("c4"):
+        obs_read_names.append(linearaln.query_name)
+    assert obs_read_names == []

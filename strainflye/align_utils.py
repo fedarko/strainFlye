@@ -200,7 +200,8 @@ def filter_osa_reads(in_bam, out_bam, fancylog, verbose):
         if n_reads_in_seq == 0:
             seq2isempty[seq] = True
             verboselog(
-                f"Nothing is aligned to contig {seq}! Ignoring this contig."
+                f"Nothing is aligned to contig {seq}! Ignoring this contig.",
+                prefix="",
             )
             continue
 
@@ -218,7 +219,11 @@ def filter_osa_reads(in_bam, out_bam, fancylog, verbose):
             if len(alns) > 1:
                 # Okay, so this particular read has multiple supplementary
                 # alignments to this sequence. Check if they overlap.
-
+                # I have a feeling that examining all pairs of alignments is
+                # an inefficient way of checking this, in theory -- however, in
+                # practice most reads should probably have at most, like, 4
+                # distinct linear alignments to a sequence, so this shouldn't
+                # be a big bottleneck. Probably.
                 for (a1, a2) in combinations(alns, 2):
                     # Efficiently test for overlap between two ranges:
                     # https://stackoverflow.com/a/3269471
