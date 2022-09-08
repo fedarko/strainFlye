@@ -70,24 +70,38 @@ def test_check_contigs_in_graph_diff_lengths():
     )
 
 
-def test_filter_osa_reads(capsys, tmp_path):
+def test_filter_osa_reads_basic(capsys, tmp_path):
     sam_fp = os.path.join(tmp_path, "aln.sam")
     with open(sam_fp, "w") as fh:
-        # r04 should be filtered out, since it overlaps with itself at position
+        # r02 should be filtered out, since it overlaps with itself at position
         # 5 on the reference. everything else stays. (r12 is the sort of thing
         # the partially-mapped read filter should remove, and that'd happen
         # after the OSA filter step.)
+        #
+        # Diagram on c1, for reference:
+        #
+        #                  11111111112222
+        #         12345678901234567890123
+        # contig: ACTGACACCCAAACCAAACCTAC
+        #    r01: ACTGACACCCAAACCAAACCTAC
+        #    r02: ACTGA
+        #    r02:     ACACCC
+        #    r04: ACT
+        #    r04:                   CCTAC
+        #    r12: TAAAAAGGGGGG
+        #
+        # This illustrates that r02 is the only read with an OSA.
         fh.write(
             "@HD	VN:1.6	SO:coordinate\n"
             "@SQ	SN:c1	LN:23\n"
             "@SQ	SN:c2	LN:12\n"
             "@SQ	SN:c4	LN:100\n"
             "r01	0	c1	1	30	23M	*	0	0	ACTGACACCCAAACCAAACCTAC	*\n"
-            "r02	0	c1	1	30	5M	*	0	0	ACTTA	*\n"
-            "r04	2048	c1	1	30	3M	*	0	0	ACT	*\n"
+            "r02	0	c1	1	30	5M5S	*	0	0	ACTGACACCC	*\n"
+            "r04	2048	c1	1	30	3M5S	*	0	0	ACTCCTAC	*\n"
             "r12	0	c1	1	30	12M	*	0	0	TAAAAAGGGGGG	*\n"
-            "r02	2048	c1	5	30	6M	*	0	0	ACACCC	*\n"
-            "r04	0	c1	18	30	5M	*	0	0	CCTAC	*\n"
+            "r02	2048	c1	5	30	4S6M	*	0	0	ACTGACACCC	*\n"
+            "r04	0	c1	19	30	3S5M	*	0	0	ACTCCTAC	*\n"
             "r12	2048	c2	1	30	12M	*	0	0	TAAAAAGGGGGG	*\n"
             "r13	0	c2	1	30	12M	*	0	0	TAAAAAGGGGGG	*\n"
             "r14	0	c2	1	30	12M	*	0	0	TAAAAAGGGGGG	*\n"
@@ -157,6 +171,7 @@ def test_filter_osa_reads(capsys, tmp_path):
 
     for linearaln in bf.fetch("c1"):
         obs_read_names.append(linearaln.query_name)
+        # sanity check that pysam understands CIGAR strings!
         obs_qaln_seqs.append(linearaln.query_alignment_sequence)
 
     assert obs_read_names == exp_read_names
