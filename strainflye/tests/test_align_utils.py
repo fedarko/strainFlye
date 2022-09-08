@@ -164,6 +164,10 @@ def test_filter_osa_reads_basic(capsys, tmp_path):
     bf = pysam.AlignmentFile(out_bam_fp, "rb")
 
     # check c1 first
+    # (I'm pretty sure this order of iteration through the linear alignments is
+    # guaranteed due to the order staying the same from SAM --> BAM, but don't
+    # quote me on that -- sorry if this test starts breaking 20 years from
+    # now...)
     exp_read_names = ["r01", "r04", "r12", "r04"]
     exp_qaln_seqs = ["ACTGACACCCAAACCAAACCTAC", "ACT", "TAAAAAGGGGGG", "CCTAC"]
     obs_read_names = []
