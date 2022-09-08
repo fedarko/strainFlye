@@ -458,7 +458,7 @@ def get_mutation_types(mutation_types):
 
     if nonsyn and nonsense:
         raise ParameterError(
-            "Specifying both Nonsyn and Nonsense doesn't make sense."
+            "No need to specify both Nonsyn and Nonsense: just say Nonsense."
         )
     return tv, nonsyn, nonsense
 

@@ -1309,3 +1309,39 @@ def test_compute_tv_decoy_contig_mut_rates():
             pysam.AlignmentFile(BAM),
         )
         assert mut_rates == ([7 / 994] * 6) + [0, 0]
+
+
+def test_get_mutation_types_good():
+    assert fu.get_mutation_types(["Tv"]) == (True, False, False)
+    assert fu.get_mutation_types(["Nonsyn"]) == (False, True, False)
+    assert fu.get_mutation_types(["Nonsense"]) == (False, False, True)
+    assert fu.get_mutation_types(["Tv", "Nonsyn"]) == (True, True, False)
+    assert fu.get_mutation_types(["Tv", "Nonsense"]) == (True, False, True)
+
+
+def test_get_mutation_types_bad():
+    with pytest.raises(ParameterError) as ei:
+        fu.get_mutation_types([])
+    assert str(ei.value) == "mutation_types must be nonempty."
+
+    with pytest.raises(ParameterError) as ei:
+        fu.get_mutation_types(["Tv", "hamburgor"])
+    assert str(ei.value) == "Unrecognized mutation type: hamburgor"
+
+    # not case sensitive because these values should be generated internally
+    # so no need to do that
+    with pytest.raises(ParameterError) as ei:
+        fu.get_mutation_types(["Nonsense", "tv"])
+    assert str(ei.value) == "Unrecognized mutation type: tv"
+
+    with pytest.raises(ParameterError) as ei:
+        fu.get_mutation_types(["Tv", "Nonsyn", "Nonsense"])
+    assert str(ei.value) == (
+        "No need to specify both Nonsyn and Nonsense: just say Nonsense."
+    )
+
+    with pytest.raises(ParameterError) as ei:
+        fu.get_mutation_types(["Nonsyn", "Nonsense"])
+    assert str(ei.value) == (
+        "No need to specify both Nonsyn and Nonsense: just say Nonsense."
+    )
