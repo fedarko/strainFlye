@@ -688,7 +688,7 @@ def get_next_cp(cp, gene, ascending=True):
     cp: int
         Either 1, 2, or 3. (Hopefully.)
 
-    gene: pandas.core.frame.Pandas (aka a namedtuple)
+    gene: namedtuple with Index and Strand properties
         Row in a DataFrame (produced by parse_sco()) representing a gene.
         Like, if you say something like "for gene in df.itertuples():",
         then you can just pass "gene" directly to this function.

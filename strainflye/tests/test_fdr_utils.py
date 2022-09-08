@@ -1,5 +1,6 @@
 import os
 import tempfile
+import collections
 import pytest
 import skbio
 import pysam
@@ -1118,6 +1119,34 @@ def test_parse_sco_bad_strand(tmp_path):
     with pytest.raises(WeirdError) as ei:
         fu.parse_sco(fp)
     assert str(ei.value) == "Unrecognized strand in SCO: $"
+
+
+def test_get_next_cp():
+    gene_namedtuple_type = collections.namedtuple("Gene", ["Index", "Strand"])
+
+    test_gene = gene_namedtuple_type(100, "+")
+
+    assert fu.get_next_cp(1, test_gene) == 2
+    assert fu.get_next_cp(2, test_gene) == 3
+    assert fu.get_next_cp(3, test_gene) == 1
+
+    assert fu.get_next_cp(3, test_gene, ascending=False) == 2
+    assert fu.get_next_cp(2, test_gene, ascending=False) == 1
+    assert fu.get_next_cp(1, test_gene, ascending=False) == 3
+
+    for bad_cp in (-3, -2, -1, -0.5, 0, 0.5, 1.5, 100, "very real number"):
+        for strand in ("+", "-"):
+            test_gene = gene_namedtuple_type(1234, strand)
+            if strand == "+":
+                asc = True
+            else:
+                asc = False
+            with pytest.raises(WeirdError) as ei:
+                fu.get_next_cp(bad_cp, test_gene, ascending=asc)
+            assert str(ei.value) == (
+                "Codon position got out of whack: gene 1,234, strand "
+                f"{strand}, CP {bad_cp}"
+            )
 
 
 def test_complain_about_cps():
