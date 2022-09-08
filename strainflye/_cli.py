@@ -149,7 +149,9 @@ def align(reads, contigs, graph, output_dir, rm_tmp_bam, verbose):
             f"Verbose?: {cli_utils.b2y(verbose)}",
         ),
     )
-    align_utils.run(reads, contigs, graph, output_dir, rm_tmp_bam, fancylog, verbose)
+    align_utils.run(
+        reads, contigs, graph, output_dir, rm_tmp_bam, fancylog, verbose
+    )
     fancylog("Done.")
 
 
