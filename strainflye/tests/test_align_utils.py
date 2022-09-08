@@ -1,7 +1,9 @@
 import os
+import subprocess
 import pysam
 import pytest
 import strainflye.align_utils as au
+from strainflye.tests.utils_for_testing import mock_log
 from strainflye.errors import SequencingDataError, GraphParsingError
 
 TI_DIR = os.path.join("strainflye", "tests", "inputs")
@@ -66,3 +68,60 @@ def test_check_contigs_in_graph_diff_lengths():
         "Contig 6 has length 4,000 in the FASTA file, but length 4 in the GFA "
         "file."
     )
+
+
+def test_filter_osa_reads(tmp_path):
+    sam_fp = os.path.join(tmp_path, "aln.sam")
+    with open(sam_fp, "w") as fh:
+        fh.write(
+            "@HD	VN:1.6	SO:coordinate\n"
+            "@SQ	SN:c1	LN:23\n"
+            "@SQ	SN:c2	LN:12\n"
+            "r01	0	c1	1	30	23M	*	0	0	ACTGACACCCAAACCAAACCTAC	*\n"
+            "r02	0	c1	1	30	5M	*	0	0	ACTTA	*\n"
+            "r04	2048	c1	1	30	3M	*	0	0	ACT	*\n"
+            "r12	0	c1	1	30	12M	*	0	0	TAAAAAGGGGGG	*\n"
+            "r02	2048	c1	5	30	6M	*	0	0	ACACCC	*\n"
+            "r04	0	c1	18	30	5M	*	0	0	CCTAC	*\n"
+            "r12	2048	c2	1	30	12M	*	0	0	TAAAAAGGGGGG	*\n"
+            "r13	0	c2	1	30	12M	*	0	0	TAAAAAGGGGGG	*\n"
+            "r14	0	c2	1	30	12M	*	0	0	TAAAAAGGGGGG	*\n"
+        )
+    in_bam_fp = os.path.join(tmp_path, "aln.bam")
+    subprocess.run(
+        ["samtools", "view", "-b", sam_fp, "-o", in_bam_fp], check=True
+    )
+    # i mean i guess let's incidentally test this also
+    au.index_bam(in_bam_fp, "test BAM", mock_log)
+
+    out_bam_fp = os.path.join(tmp_path, "osa-filtered.bam")
+    au.filter_osa_reads(in_bam_fp, out_bam_fp, mock_log, True)
+
+    # Inspect the OSA-filtered BAM -- verify it's correct
+    # (we have to index it to load it in pysam, tho)
+    au.index_bam(out_bam_fp, "test BAM", mock_log)
+    bf = pysam.AlignmentFile(out_bam_fp, "rb")
+
+    # (check c1 first)
+    exp_read_names = ["r01", "r04", "r12", "r04"]
+    exp_qaln_seqs = ["ACTGACACCCAAACCAAACCTAC", "ACT", "TAAAAAGGGGGG", "CCTAC"]
+    obs_read_names = []
+    obs_qaln_seqs = []
+
+    for linearaln in bf.fetch("c1"):
+        obs_read_names.append(linearaln.query_name)
+        obs_qaln_seqs.append(linearaln.query_alignment_sequence)
+
+    assert obs_read_names == exp_read_names
+    assert obs_qaln_seqs == exp_qaln_seqs
+
+    exp_read_names = ["r12", "r13", "r14"]
+    exp_qaln_seqs = ["TAAAAAGGGGGG"] * 3
+    obs_read_names = []
+    obs_qaln_seqs = []
+    for linearaln in bf.fetch("c2"):
+        obs_read_names.append(linearaln.query_name)
+        obs_qaln_seqs.append(linearaln.query_alignment_sequence)
+
+    assert obs_read_names == exp_read_names
+    assert obs_qaln_seqs == exp_qaln_seqs
