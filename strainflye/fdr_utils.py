@@ -472,7 +472,6 @@ def compute_specific_mutation_decoy_contig_mut_rates(
     mutation_types,
     contig_seq,
     contig_genes_df,
-    bam_obj,
 ):
     """Computes "specific" mutation rates for positions in a contig.
 
@@ -542,9 +541,6 @@ def compute_specific_mutation_decoy_contig_mut_rates(
         this isn't necessary (if mutation_types only contains "Tv", then we
         won't care about genes) -- so, in that case, it's ok for this to be
         None.
-
-    bam_obj: pysam.AlignmentFile
-        Object describing a BAM file mapping reads to contigs.
 
     Returns
     -------
@@ -1380,7 +1376,6 @@ def compute_decoy_contig_mut_rates(
                 mutation_types,
                 decoy_seq,
                 decoy_genes_df,
-                bam_obj,
             )
 
     return ctx2mr

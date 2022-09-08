@@ -1351,7 +1351,6 @@ def test_compute_tv_decoy_contig_mut_rates():
             ["Tv"],
             skbio.DNA("A" * 500),
             None,
-            pysam.AlignmentFile(BAM),
         )
         assert mut_rates == ([8 / 1000] * 6) + [0, 0]
 
@@ -1367,7 +1366,6 @@ def test_compute_tv_decoy_contig_mut_rates():
             ["Tv"],
             skbio.DNA("A" * 500),
             None,
-            pysam.AlignmentFile(BAM),
         )
         assert mut_rates == ([7 / 994] * 6) + [0, 0]
 
