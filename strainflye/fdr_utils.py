@@ -485,7 +485,8 @@ def compute_specific_mutation_decoy_contig_mut_rates(
 
     If you'd like to filter based on positions, as well, then that can be done
     using pos_to_consider. NOTE that this function won't filter unreasonable
-    positions for you -- you should adjust pos_to_consider to do that.
+    positions for you, or positions in multiple genes -- you should adjust
+    pos_to_consider to do that.
 
     Parameters
     ----------
@@ -508,22 +509,15 @@ def compute_specific_mutation_decoy_contig_mut_rates(
 
     pos_to_consider: set
         All (1-indexed) positions to consider in this contig. NOTE that, unlike
-        compute_any_mutation_decoy_contig_mut_rates(), this must be a set -- if
-        you want to consider all positions, don't pass in None; instead, pass
-        in something like set(range(1, len(contig_seq) + 1)).
+        compute_any_mutation_decoy_contig_mut_rates(), this must be a set --
+        passing in None to consider all positions in the contig won't work.
 
-        This is more like a "starting point" of positions to consider than a
-        comprehensive list: this is how you'd filter to just single-gene CP2
-        positions, or remove unreasonable positions, for example. But there's
-        no guarantee that we'd consider all positions in this set -- this can
-        have silly side effects. For example, say that you are working with
-        mutation_types == ["Tv"] -- positions_to_consider should just cover
-        all positions in the contig, except maybe for unreasonable positions.
-        But if you then add "Nonsyn" to your mutation_types, then -- even
-        though positions_to_consider might still cover the entire contig --
-        we'll only focus on positions within predicted genes, due to the Nonsyn
-        thing. (This is the expected behavior, I just wanted to clarify it.
-        Writing this is making my head hurt so I'm going to stop now.)
+        You should have already filtered out unreasonable positions in this
+        list, as well as (for contexts involving Nonsyn/Nonsense/CP2) positions
+        in multiple genes. And if your context involves CP2, then
+        pos_to_consider should just be single-gene CP2 positions.
+
+        UHHH hope that makes it clear lol
 
     mutation_types: list of str
         Types of mutation we will specifically count towards our decoy. Each
@@ -583,6 +577,7 @@ def compute_specific_mutation_decoy_contig_mut_rates(
     # consider all positions -- this requires some special-casing, at least as
     # far as I can tell.
     if tv and (not nonsyn) and (not nonsense):
+        # Covers contexts "Tv", "CP2Tv"
         verify_thresh_vals_good(thresh_vals)
         num_muts = [0] * len(thresh_vals)
         high_val = thresh_vals[-1] + 1
@@ -603,18 +598,139 @@ def compute_specific_mutation_decoy_contig_mut_rates(
                         num_muts, thresh_type, min_val, high_val, mut
                     )
     else:
-        # OK limit to positions in genes
-        raise NotImplementedError("Not done yet!")
+        # Covers contexts "Nonsyn", "Nonsense", "CP2Nonsyn", "CP2Nonsense",
+        # "TvNonsyn", "TvNonsense", "CP2TvNonsyn", "CP2TvNonsense"
+        #
+        # If we're here, we know that either Nonsyn or Nonsense is given:
+        # so we will implicitly limit ourselves to positions in genes.
+        # (Note that multi-gene positions should've already been removed from
+        # pos_to_consider before this function, so we don't bother checking for
+        # that here).
+        for gene in contig_genes_df.itertuples():
+
+            # Adjust the order with which we iterate through the gene's
+            # positions: it's simpler, I think, to go from Left --> Right
+            # for "+" Strand genes and from Left <-- Right for "-" Strand
+            # genes. This way, the current codon position always goes 123123...
+            # Note that "gene_positions" includes 1-indexed positions and is
+            # inclusive on both ends
+            if gene.Strand == "+":
+                gene_positions = range(gene.LeftEnd, gene.RightEnd + 1)
+            else:
+                gene_positions = range(gene.RightEnd, gene.LeftEnd - 1, -1)
+
+            # Should never happen (tm) (c) ... but let's catch it if it does.
+            if len(gene_positions) % 3 == 0:
+                raise WeirdError(
+                    f"Gene {gene.Index} has length {len(gene_positions):,}?"
+                )
+
+            cp = 1
+            curr_codon_cp1_pos = None
+            for pos in gene_positions:
+                if cp == 1:
+                    curr_codon_cp1_pos = pos
+
+                # Ignore unreasonable or multi-gene positions
+                if pos in pos_to_consider:
+                    # Get parent codon from the contig sequence. Note that the
+                    # contig_seq object (of type skbio.DNA) is 0-indexed, so
+                    # we've gotta take that into account here.
+                    if gene.Strand == "+":
+                        parent_codon_seq = str(
+                            contig_seq[
+                                curr_codon_cp1_pos - 1 : curr_codon_cp1_pos + 2
+                            ]
+                        )
+                    else:
+                        parent_codon_seq = str(
+                            contig_seq[
+                                curr_codon_cp1_pos - 3 : curr_codon_cp1_pos
+                            ]
+                        )
+
+                    raise NotImplementedError(
+                        f"{parent_codon_seq} not done yet"
+                    )
+                    ###
+                    # Record the number of "possible" type of mutation we care
+                    # about at this position (based on this position's specific
+                    # nucleotide and parent codon)
+                    ###
+                    # (If that number is zero, then continue, I guess)
+
+                    ###
+                    # Get alternate nucleotide at this position.
+                    # Figure out if mutating to this alternate nucleotide would
+                    # be the sort of mutation we care about (transversion?
+                    # nonsyn? nonsense?)
+                    # If so, call update_number_of_mutations_at_thresholds().
+
+                # We already know that gene_positions respects the gene's
+                # strand, so we can safely update the CP by going 123123...
+                cp = get_next_cp(cp, gene)
 
     return [n / num_poss_muts for n in num_muts]
+
+
+def get_next_cp(cp, gene, ascending=True):
+    """Updates a 1-indexed codon position.
+
+    Intended to be used while iterating through the positions in a
+    (protein-coding) gene. There's probably a more elegant way to do this, but
+    this seems like the clearest (and least prone to off by one errors) way.
+
+    ...BREAKING NEWS: local grad student "too stupid to use basic modulo
+    arithmetic"; bystanders SHOCKED at this SUSSY IMPOSTOR BEHAVIOR; more at 11
+
+    Parameters
+    ----------
+    cp: int
+        Either 1, 2, or 3. (Hopefully.)
+
+    gene: pandas.core.frame.Pandas (aka a namedtuple)
+        Row in a DataFrame (produced by parse_sco()) representing a gene.
+        Like, if you say something like "for gene in df.itertuples():",
+        then you can just pass "gene" directly to this function.
+
+        The main purpose of this is to allow us to throw helpful error
+        messages, so we can see *where* iteration broke (rather than just "hey
+        something went wrong at some point").
+
+    ascending: bool
+        If True,  go from 1 --> 2 -- > 3 --> 1 --> ...;
+        if False, go from 3 --> 2 -- > 1 --> 3 --> ...
+
+    Returns
+    -------
+    next_cp: int
+
+    Raises
+    ------
+    WeirdError
+        Raised by complain_about_cps() if cp isn't 1, 2, or 3.
+    """
+    if ascending:
+        if cp == 1 or cp == 2:
+            return cp + 1
+        elif cp == 3:
+            return 1
+        else:
+            complain_about_cps(gene.Index, gene.Strand, cp)
+    else:
+        if cp == 3 or cp == 2:
+            return cp - 1
+        elif cp == 1:
+            return 3
+        else:
+            complain_about_cps(gene.Index, gene.Strand, cp)
 
 
 def complain_about_cps(gn, gs, cp):
     """Raises an error about codon position while iterating through a gene.
 
     Mostly intended as a fail-safe to catch weird errors. See
-    get_single_gene_cp2_positions() for context on why this function is even
-    useful.
+    get_next_cp() for context on why this function is even useful.
 
     Parameters
     ----------
@@ -638,20 +754,30 @@ def complain_about_cps(gn, gs, cp):
     )
 
 
-def get_single_gene_cp2_positions(genes_df):
-    """Returns a set of all positions located in exactly one gene and in CP2.
+def get_single_gene_and_cp2_positions(genes_df, fail_if_no_sgcp2=True):
+    """Returns positions located in exactly one gene and, also, that plus CP2.
 
     Parameters
     ----------
     genes_df: pd.DataFrame
         Describes predicted genes in a contig. See parse_sco().
 
+    fail_if_no_cp2: bool
+        Determines how we handle the rare case when there is at least one
+        single-gene position, but no single-gene CP2 positions. If True, raise
+        an error; if False, just return an empty set for single-gene CP2
+        positions.
+
     Returns
     -------
-    single_gene_cp2_pos: set
-        Set of all positions located in exactly one gene, and located in CP2
-        (in the second codon position) of their parent gene. These positions
-        are 1-indexed.
+    single_gene_pos, single_gene_cp2_pos: set
+        single_gene_pos describes all positions located in exactly one gene.
+
+        single_gene_cp2_pos is the intersection of single_gene_pos and all
+        positions that are in CP2 (the second codon position) of their single
+        parent gene.
+
+        Both of these sets of positions use 1-indexing.
 
     Raises
     ------
@@ -660,8 +786,13 @@ def get_single_gene_cp2_positions(genes_df):
         you never know.
 
     ParameterError
-        If no positions meet these criteria. This one could actually happen, I
-        guess, if the genes predicted overlap almost completely.
+        If no single-gene positions exist. (In the rare case where there exist
+        some single-gene positions but no single-gene CP2 positions, whether or
+        not we will fail or just return an empty set for single_gene_cp2_pos
+        depends on the fail_if_no_cp2 parameter.)
+
+        This situation could actually happen, I guess, if the genes predicted
+        overlap almost completely.
 
     Notes
     -----
@@ -670,12 +801,14 @@ def get_single_gene_cp2_positions(genes_df):
     speed this up a good first step might be moving from itertuples() to
     something like .apply() / vectorization.
     """
-    # records all positions in CP2 of at least one gene
-    cp2_pos = set()
+    # records all positions located in at least one gene
+    genic_pos = set()
     # records all positions in at least one gene that we have seen thus far
     pos_seen_in_other_genes = set()
     # records all positions known to be in multiple genes
     multi_gene_pos = set()
+    # records all positions in CP2 of at least one gene
+    cp2_pos = set()
 
     # PERF: yeah yeah yeah use something faster than itertuples
     for gene in genes_df.itertuples():
@@ -684,6 +817,9 @@ def get_single_gene_cp2_positions(genes_df):
         else:
             cp = 3
         for pos in range(gene.LeftEnd, gene.RightEnd + 1):
+
+            genic_pos.add(pos)
+
             # if we've already seen this position in another gene, then this
             # position is contained in multiple genes. So: we won't include it
             # as part of the decoy.
@@ -701,43 +837,29 @@ def get_single_gene_cp2_positions(genes_df):
             # Make it clear that we've seen this position in at least one gene.
             pos_seen_in_other_genes.add(pos)
 
-            # There's probably a more elegant way to do this, but this seems
-            # like the clearest (and least prone to off by one errors) way.
-            #
-            # I guess it's worth noting that we don't really *need* to split
-            # this up by strand, since (for an arbitrary gene) the CP2
-            # positions will be the same regardless of strand. but, oh well,
-            # this is how i initially wrote the code, and no sense
+            # Update the current codon position.
+            # I guess it's worth noting that we don't really *need* to care
+            # about whether this goes 123123... or 321321... (determined by the
+            # "ascending" parameter of get_next_cp(), since (for an arbitrary
+            # gene) the CP2 positions will be the same regardless of strand.
+            # But, oh well, this is how i initially wrote the code; no sense
             # intentionally making it more confusing.
-            #
-            # ...BREAKING NEWS: local grad student "too stupid to use
-            # basic modulo arithmetic"; bystanders SHOCKED at this SUSSY
-            # IMPOSTOR BEHAVIOR; more at 11
-            if gene.Strand == "+":
-                # 123123123...
-                if cp == 1 or cp == 2:
-                    cp += 1
-                elif cp == 3:
-                    cp = 1
-                else:
-                    complain_about_cps(gene.Index, gene.Strand, cp)
-            else:
-                # 321321321...
-                if cp == 3 or cp == 2:
-                    cp -= 1
-                elif cp == 1:
-                    cp = 3
-                else:
-                    complain_about_cps(gene.Index, gene.Strand, cp)
+            cp = get_next_cp(cp, gene, ascending=(gene.Strand == "+"))
 
-    single_gene_cp2_pos = cp2_pos - multi_gene_pos
+    single_gene_pos = genic_pos - multi_gene_pos
+    single_gene_cp2_pos = single_gene_pos & cp2_pos
 
-    if len(single_gene_cp2_pos) == 0:
+    if len(single_gene_pos) == 0:
+        raise ParameterError(
+            "No single-gene positions exist (given the predicted genes)."
+        )
+
+    if fail_if_no_sgcp2 and len(single_gene_cp2_pos) == 0:
         raise ParameterError(
             "No single-gene CP2 positions exist (given the predicted genes)."
         )
 
-    return single_gene_cp2_pos
+    return single_gene_pos, single_gene_cp2_pos
 
 
 def compute_target_contig_fdr_curve_info(
@@ -1160,11 +1282,9 @@ def compute_decoy_contig_mut_rates(
     # the contexts include CP2, Nonsyn, or Nonsense)
     decoy_genes_df = None
     has_genic_decoy_context = False
-
-    # Also, if we do need to run Prodigal, figure out if we need to identify
-    # single-gene CP2 positions (yes if any of the contexts include CP2)
-    decoy_single_gene_cp2_pos = None
     has_cp2_decoy_context = False
+    decoy_single_gene_pos = None
+    decoy_single_gene_cp2_pos = None
 
     # Figure out if we need to determine unreasonable positions (yes if any of
     # the contexts include Nonsyn, Nonsense, or Tv)
@@ -1173,8 +1293,8 @@ def compute_decoy_contig_mut_rates(
 
     for ctx in decoy_contexts:
         if "CP2" in ctx:
-            has_cp2_decoy_context = True
             has_genic_decoy_context = True
+            has_cp2_decoy_context = True
 
         elif "Nonsyn" in ctx or "Nonsense" in ctx:
             has_genic_decoy_context = True
@@ -1188,12 +1308,15 @@ def compute_decoy_contig_mut_rates(
         # will raise a SequencingDataError if decoy_contig isn't in this FASTA
         decoy_genes_df = get_prodigal_genes(decoy_seq, decoy_contig)
 
-        # ... and we gotta identify single-gene CP2 positions (these are
-        # 1-indexed)
-        if has_cp2_decoy_context:
-            decoy_single_gene_cp2_pos = get_single_gene_cp2_positions(
-                decoy_genes_df
-            )
+        # compute single-gene CP2 positions even if "CP2" isn't in any of the
+        # contexts; we're iterating through the genes anyway, so this doesn't
+        # require much extra time
+        (
+            decoy_single_gene_pos,
+            decoy_single_gene_cp2_pos,
+        ) = get_single_gene_and_cp2_positions(
+            decoy_genes_df, fail_if_no_sgcp2=has_cp2_decoy_context
+        )
 
     # Get a set of "unreasonable" positions (1-indexed):
     # these are positions where the consensus and reference don't match.
@@ -1231,12 +1354,20 @@ def compute_decoy_contig_mut_rates(
             )
 
         else:
+            # for most contexts at this point, we'll just consider positions
+            # located in a single gene (whether that's single-gene CP2
+            # positions, or just single-gene positions). However, there is one
+            # exception where we will look outside of genes -- if the context
+            # is ONLY "Tv", then there's nothing binding us to looking at
+            # positions in genes.
             if "CP2" in ctx:
                 pos_to_consider = decoy_single_gene_cp2_pos
-            else:
+            elif ctx == "Tv":
                 pos_to_consider = set(range(1, len(decoy_seq) + 1))
+            else:
+                pos_to_consider = decoy_single_gene_pos
 
-            # Ignore unreasonable positions
+            # In any case, we will ignore unreasonable positions
             pos_to_consider -= unreasonable_positions
 
             mutation_types = [

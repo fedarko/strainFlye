@@ -1128,7 +1128,7 @@ def test_complain_about_cps():
     )
 
 
-def test_get_single_gene_cp2_positions_overlapping_genes():
+def test_get_single_gene_and_cp2_positions_overlapping_genes():
     # looks like
     #
     #   *     *     *
@@ -1152,10 +1152,13 @@ def test_get_single_gene_cp2_positions_overlapping_genes():
         },
         index=pd.Index([1234, 56789]),
     )
-    assert fu.get_single_gene_cp2_positions(df) == {2, 5, 10}
+    assert fu.get_single_gene_and_cp2_positions(df) == (
+        {1, 2, 3, 4, 5, 10, 11},
+        {2, 5, 10},
+    )
 
 
-def test_get_single_gene_cp2_positions_one_gene():
+def test_get_single_gene_and_cp2_positions_one_gene():
     #   *     *     *
     # ----- ----- -----
     # 1 2 3 4 5 6 7 8 9
@@ -1168,10 +1171,13 @@ def test_get_single_gene_cp2_positions_one_gene():
         },
         index=pd.Index([1]),
     )
-    assert fu.get_single_gene_cp2_positions(df) == {2, 5, 8}
+    assert fu.get_single_gene_and_cp2_positions(df) == (
+        {1, 2, 3, 4, 5, 6, 7, 8, 9},
+        {2, 5, 8},
+    )
 
 
-def test_get_single_gene_cp2_positions_nothing_valid():
+def test_get_single_gene_and_cp2_positions_no_single_gene_pos():
     #   *     *     *
     # ----- ----- -----
     # 1 2 3 4 5 6 7 8 9
@@ -1188,7 +1194,33 @@ def test_get_single_gene_cp2_positions_nothing_valid():
         index=pd.Index([1, 2]),
     )
     with pytest.raises(ParameterError) as ei:
-        fu.get_single_gene_cp2_positions(df)
+        fu.get_single_gene_and_cp2_positions(df)
+
+    assert str(ei.value) == (
+        "No single-gene positions exist (given the predicted genes)."
+    )
+
+
+def test_get_single_gene_and_cp2_positions_no_single_gene_cp2_pos():
+    # (No single-gene positions implies no single-gene CP2 positions, but
+    # no single-gene CP2 positions does not imply no single-gene positions)
+    #   *     *     *
+    # ----- ----- -----
+    # 1 2 3 4 5 6 7 8 9
+    #   2 3 4 5 6 7 8 9 A
+    #   ----- ----- -----
+    #     *     *     *
+    df = pd.DataFrame(
+        {
+            "LeftEnd": [1, 2],
+            "RightEnd": [9, 10],
+            "Length": [9, 9],
+            "Strand": ["-", "+"],
+        },
+        index=pd.Index([1, 2]),
+    )
+    with pytest.raises(ParameterError) as ei:
+        fu.get_single_gene_and_cp2_positions(df)
 
     assert str(ei.value) == (
         "No single-gene CP2 positions exist (given the predicted genes)."
@@ -1224,7 +1256,7 @@ def test_compute_cp2_decoy_contig_mut_rates():
             },
             index=pd.Index([1, 2]),
         )
-        sg_cp2_pos = fu.get_single_gene_cp2_positions(genes_df)
+        sg_pos, sg_cp2_pos = fu.get_single_gene_and_cp2_positions(genes_df)
         mut_rates = fu.compute_any_mutation_decoy_contig_mut_rates(
             bcf_obj,
             thresh_type,
