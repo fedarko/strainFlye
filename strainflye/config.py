@@ -22,6 +22,6 @@ DECOY_CONTEXTS = [
     "CP2Nonsense",
     "TvNonsyn",
     "TvNonsense",
-    "CP2TvNonsense",
     "CP2TvNonsyn",
+    "CP2TvNonsense",
 ]
