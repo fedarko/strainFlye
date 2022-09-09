@@ -1763,7 +1763,7 @@ def compute_decoy_contig_mut_rates(
             (
                 "At least one of the decoy context(s) requires us to know "
                 '"unreasonable" positions (where reference and consensus '
-                "disagree) in {decoy_contig}; going through alignment..."
+                f"disagree) in {decoy_contig}; going through alignment..."
             ),
             prefix="",
         )
@@ -1799,8 +1799,8 @@ def compute_decoy_contig_mut_rates(
     for ci, ctx in enumerate(decoy_contexts, 1):
         fancylog(
             (
-                f'Computing mutation rates for decoy context "ctx" ({ci:,} / '
-                f"{num_ctxs:,})..."
+                f'Computing mutation rates for decoy context "{ctx}" ({ci:,} '
+                f"/ {num_ctxs:,})..."
             ),
             prefix="",
         )
@@ -1843,7 +1843,10 @@ def compute_decoy_contig_mut_rates(
                 decoy_genes_df,
                 codon2cp2mts,
             )
-        fancylog("Done computing those mutation rates.", prefix="")
+        fancylog(
+            f'Done computing "{ctx}" mutation rates for {decoy_contig}.',
+            prefix="",
+        )
 
     return ctx2mr
 
