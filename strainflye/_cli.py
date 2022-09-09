@@ -501,7 +501,7 @@ strainflye.add_command(fdr)
     "-dctx",
     "--decoy-contexts",
     required=False,
-    default=["CP2"],
+    default=["CP2Tv"],
     show_default=True,
     multiple=True,
     type=click.Choice(config.DECOY_CONTEXTS, case_sensitive=False),
