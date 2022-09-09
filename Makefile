@@ -13,8 +13,8 @@
 # -s to the end of this command. Useful when debugging stuff.
 test:
 	python3 -B -m pytest \
-		--doctest-modules \
 		strainflye/ \
+		--doctest-modules \
 		--ignore strainflye/_cli.py \
 		--cov-report xml \
 		--cov-report term \
