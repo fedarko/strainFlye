@@ -643,7 +643,40 @@ class CodonPositionMutationCounts(object):
 
 
 def is_transversion(nt1, nt2):
-    """True if the mutation nt --> nt2 is a transversion, False otherwise."""
+    """True if the mutation nt --> nt2 is a transversion, False otherwise.
+
+    Parameters
+    ----------
+    nt1: str
+        One of "A", "C", "G", "T".
+
+    nt2: str
+        One of "A", "C", "G", "T". Should be different from nt1.
+
+    Raises
+    ------
+    WeirdError
+        If nt1 == nt2.
+        If nt1 or nt2 is not a nucleotide character.
+        If something goes unexpectedly wrong.
+    """
+    if nt1 == nt2:
+        raise WeirdError(
+            f"is_transversion() called with nt1 == nt2 == {nt1}"
+        )
+
+    # checking using "in nts" works as expected for non-string values; however,
+    # checking using "in 'ACGT'" fails, because you get a TypeError about the
+    # left operand needing to be a string. So let's do the list method in order
+    # to throw a more informative error (and also to prevent some junk like
+    # nt1 == "AC" from slipping through).
+    nts = ["A", "C", "G", "T"]
+    if nt1 not in nts or nt2 not in nts:
+        raise WeirdError(
+            "is_transversion() parameters are not both str nucleotides. "
+            f"nt1 == {nt1}, nt2 == {nt2}. Check types?"
+        )
+
     if nt1 == "A":
         return nt2 != "G"
     elif nt1 == "C":
@@ -653,9 +686,7 @@ def is_transversion(nt1, nt2):
     elif nt1 == "T":
         return nt2 != "C"
     else:
-        raise WeirdError(
-            f"is_transversion() called with nt1 == {nt1}, nt2 == {nt2}"
-        )
+        raise WeirdError("Call a priest")
 
 
 def get_poss_mutation_type_info():

@@ -1423,3 +1423,59 @@ def test_get_mutation_types_for_cp():
     with pytest.raises(WeirdError) as ei:
         fu.get_mutation_types_for_cp("AAA", 1, "A")
     assert str(ei.value) == "In codon AAA, trying to mutate CP 1 into itself?"
+
+
+def test_is_transversion_good():
+    assert fu.is_transversion("A", "C")
+    assert not fu.is_transversion("A", "G")
+    assert fu.is_transversion("A", "T")
+
+    assert fu.is_transversion("C", "A")
+    assert fu.is_transversion("C", "G")
+    assert not fu.is_transversion("C", "T")
+
+    assert not fu.is_transversion("G", "A")
+    assert fu.is_transversion("G", "C")
+    assert fu.is_transversion("G", "T")
+
+    assert fu.is_transversion("T", "A")
+    assert not fu.is_transversion("T", "C")
+    assert fu.is_transversion("T", "G")
+
+
+def test_is_transversion_same():
+    for nt in "ACGT":
+        with pytest.raises(WeirdError) as ei:
+            fu.is_transversion(nt, nt)
+
+        assert str(ei.value) == (
+            f"is_transversion() called with nt1 == nt2 == {nt}"
+        )
+
+
+def test_is_transversion_non_nucleotide():
+    for nt in "ACGT":
+        with pytest.raises(WeirdError) as ei:
+            fu.is_transversion(nt, skbio.DNA("C"))
+
+        assert str(ei.value) == (
+            "is_transversion() parameters are not both str nucleotides. "
+            f"nt1 == {nt}, nt2 == C. Check types?"
+        )
+
+        with pytest.raises(WeirdError) as ei:
+            fu.is_transversion(nt, "N")
+
+        assert str(ei.value) == (
+            "is_transversion() parameters are not both str nucleotides. "
+            f"nt1 == {nt}, nt2 == N. Check types?"
+        )
+
+
+        with pytest.raises(WeirdError) as ei:
+            fu.is_transversion(nt, "AC")
+
+        assert str(ei.value) == (
+            "is_transversion() parameters are not both str nucleotides. "
+            f"nt1 == {nt}, nt2 == AC. Check types?"
+        )
