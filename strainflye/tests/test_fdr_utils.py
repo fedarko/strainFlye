@@ -471,6 +471,7 @@ def test_compute_decoy_contig_mut_rates_full_r_simple():
             range(5, 13),
             "edge_1",
             ["Full"],
+            mock_log,
         )
         denominator = 3 * 500
         # Two r-mutations at r = 5, then only one r-mutation for 6 <= r <= 10,

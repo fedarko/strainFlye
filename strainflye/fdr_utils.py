@@ -1587,6 +1587,7 @@ def compute_decoy_contig_mut_rates(
     thresh_vals,
     decoy_contig,
     decoy_contexts,
+    fancylog,
 ):
     """Computes mutation rates for a decoy contig at some threshold values.
 
@@ -1656,6 +1657,9 @@ def compute_decoy_contig_mut_rates(
         useless, but there is one possible "synonymous" CP2 mutation (TGA <->
         TAA both code for a stop codon) so we include that.
 
+    fancylog: function
+        Logging function.
+
     Returns
     -------
     ctx2mr: dict
@@ -1721,8 +1725,22 @@ def compute_decoy_contig_mut_rates(
 
     # Ok we gotta run Prodigal
     if has_genic_decoy_context:
+        fancylog(
+            (
+                "At least one of the decoy context(s) requires us to have "
+                f"gene predictions for {decoy_contig}; running Prodigal..."
+            ),
+            prefix="",
+        )
         # will raise a SequencingDataError if decoy_contig isn't in this FASTA
         decoy_genes_df = get_prodigal_genes(decoy_seq, decoy_contig)
+        fancylog(
+            (
+                "Finished running Prodigal! It predicted "
+                f"{len(decoy_genes_df.index):,} genes in {decoy_contig}."
+            ),
+            prefix="",
+        )
 
         # compute single-gene CP2 positions even if "CP2" isn't in any of the
         # contexts; we're iterating through the genes anyway, so this doesn't
@@ -1741,6 +1759,14 @@ def compute_decoy_contig_mut_rates(
     # Get a set of "unreasonable" positions (1-indexed):
     # these are positions where the consensus and reference don't match.
     if has_specific_mutation_decoy_context:
+        fancylog(
+            (
+                "At least one of the decoy context(s) requires us to know "
+                '"unreasonable" positions (where reference and consensus '
+                "disagree) in {decoy_contig}; going through alignment..."
+            ),
+            prefix="",
+        )
         unreasonable_positions = set()
         for pos, rec in enumerate(
             pysamstats.stat_variation(
@@ -1753,8 +1779,15 @@ def compute_decoy_contig_mut_rates(
             1,
         ):
             max_nt_freq = max([rec[nt] for nt in "ACGT"])
-            if rec[decoy_seq[pos - 1]] < max_nt_freq:
+            if rec[str(decoy_seq[pos - 1])] < max_nt_freq:
                 unreasonable_positions.add(pos)
+        fancylog(
+            (
+                f"Done: identified {len(unreasonable_positions):,} "
+                f"unreasonable positions in {decoy_contig}."
+            ),
+            prefix="",
+        )
 
     # this'll be the main output
     ctx2mr = {}
@@ -1762,7 +1795,15 @@ def compute_decoy_contig_mut_rates(
     # save some repeated typing...
     params = [bcf_obj, thresh_type, thresh_vals, decoy_contig]
 
-    for ctx in decoy_contexts:
+    num_ctxs = len(decoy_contexts)
+    for ci, ctx in enumerate(decoy_contexts, 1):
+        fancylog(
+            (
+                f'Computing mutation rates for decoy context "ctx" ({ci:,} / '
+                f"{num_ctxs:,})..."
+            ),
+            prefix="",
+        )
 
         if ctx == "Full":
             ctx2mr[ctx] = compute_any_mutation_decoy_contig_mut_rates(*params)
@@ -1802,6 +1843,7 @@ def compute_decoy_contig_mut_rates(
                 decoy_genes_df,
                 codon2cp2mts,
             )
+        fancylog("Done computing those mutation rates.", prefix="")
 
     return ctx2mr
 
@@ -2031,6 +2073,7 @@ def run_estimate(
         thresh_vals,
         used_decoy_contig,
         unique_ctxs,
+        fancylog,
     )
     fancylog("Done.", prefix="")
 
