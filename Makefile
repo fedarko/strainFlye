@@ -9,6 +9,11 @@
 # --cov-report term is needed in order to print a fancy table on the terminal
 # (useful when testing locally).
 #
+# The reason for the --ignore strainflye/_cli.py is that pytest kept throwing
+# a strange error when trying to read through this file, for some reason (and
+# this was specific to the Python 3.6 build of strainFlye -- the Python 3.7
+# build worked fine). This bypasses that problem.
+#
 # Also, for reference -- if you wanna see all print output during testing, add
 # -s to the end of this command. Useful when debugging stuff.
 test:
