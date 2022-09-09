@@ -463,7 +463,6 @@ strainflye.add_command(fdr)
     help=desc.INPUT_BAM,
 )
 @click.option(
-    "-b",
     "--bcf",
     required=True,
     type=click.Path(exists=True),
