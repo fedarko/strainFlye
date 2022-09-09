@@ -1350,6 +1350,9 @@ def test_compute_tv_decoy_contig_mut_rates():
             set(range(1, 501)),
             ["Tv"],
             skbio.DNA("A" * 500),
+            # genes DF (not needed)
+            None,
+            # codon2cp2mts (not needed)
             None,
         )
         assert mut_rates == ([8 / 1000] * 6) + [0, 0]
@@ -1365,6 +1368,9 @@ def test_compute_tv_decoy_contig_mut_rates():
             set(range(1, 501)) - {1, 6, 7},
             ["Tv"],
             skbio.DNA("A" * 500),
+            # genes DF (not needed)
+            None,
+            # codon2cp2mts (not needed)
             None,
         )
         assert mut_rates == ([7 / 994] * 6) + [0, 0]

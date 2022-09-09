@@ -244,13 +244,20 @@ def autoselect_decoy(diversity_indices, min_len, min_avg_cov, fancylog):
     return lowest_score_contig
 
 
-def verify_thresh_vals_good(thresh_vals):
+def extract_and_verify_thresh_vals(thresh_vals):
     if thresh_vals.step != 1:
         raise ParameterError("thresh_vals must use a step size of 1.")
     if len(thresh_vals) <= 0:
         raise ParameterError("thresh_vals must have a positive length.")
     if thresh_vals.start <= 0 or thresh_vals.stop <= 0:
         raise ParameterError("thresh_vals' start and stop must be positive.")
+
+    # We can just infer the "indisputable" mutation value from thresh_vals as
+    # the value just above the max thresh_vals entry
+    high_val = thresh_vals[-1] + 1
+    min_val = thresh_vals[0]
+
+    return min_val, high_val
 
 
 def update_number_of_mutations_at_thresholds(
@@ -333,16 +340,10 @@ def compute_number_of_mutations_in_contig(
 
         (None of these should happen in practice, but you never know...)
     """
-    verify_thresh_vals_good(thresh_vals)
-
+    min_val, high_val = extract_and_verify_thresh_vals(thresh_vals)
     # For each threshold value, keep track of how many mutations we've seen at
     # this threshold.
     num_muts = [0] * len(thresh_vals)
-
-    # We can just infer the "indisputable" mutation value from thresh_vals as
-    # the value just above the max thresh_vals entry
-    high_val = thresh_vals[-1] + 1
-    min_val = thresh_vals[0]
 
     for mut in bcf_obj.fetch(contig):
 
@@ -463,75 +464,165 @@ def get_mutation_types(mutation_types):
     return tv, nonsyn, nonsense
 
 
+def get_mutation_types_for_cp(codon, pos, alt_nt):
+    alt_codon = codon[:pos] + alt_nt + codon[pos + 1 :]
+    aa1 = str(skbio.DNA(codon).translate())
+    aa2 = str(skbio.DNA(alt_codon).translate())
+
+    si = False
+    nnsi = None
+
+    if aa1 == aa2:
+        si = True
+        if aa1 != "*":
+            nnsi = True
+    else:
+        if aa1 != "*":
+            if aa2 == "*":
+                nnsi = False
+            else:
+                nnsi = True
+    return (si, nnsi)
+
+
 class CodonPositionMutationCounts(object):
-    def __init__(self, codon, cp, is_sense):
+    """Represents the number of possible mutations at a CP in a codon."""
+
+    def __init__(self, codon, cp):
+        """Initializes the object.
+
+        Parameters
+        ----------
+        codon: str
+            The three-character DNA codon we are considering. Each character
+            should be one of "A", "C", "G", or "T".
+
+        cp: int
+            One of the codon positions (CPs) within this codon. This is
+            one-indexed, so this should be one of 1, 2, or 3.
+        """
+        if len(codon) != 3:
+            raise ParameterError("Codon must be exactly 3 nt long")
+
+        if cp not in (1, 2, 3):
+            raise ParameterError("CP must be one of 1, 2, or 3")
+
         self.codon = codon
         self.cp = cp
-        self.is_sense = is_sense
+
+        self.nt = self.codon[cp - 1]
+        self.aa = str(skbio.DNA(self.codon).translate())
+        self.in_sense_codon = self.aa != "*"
 
         self.si = 0
         self.ni = 0
-        if self.is_sense:
+        self.si_tv = 0
+        self.ni_tv = 0
+        if self.in_sense_codon:
             self.nnsi = 0
             self.nsi = 0
+            self.nnsi_tv = 0
+            self.nsi_tv = 0
         else:
             # I want things that try to use these in place of ordinary numbers
             # to fail explicitly, rather than silently do weird stuff with
             # zeros
             self.nnsi = None
             self.nsi = None
+            self.nnsi_tv = None
+            self.nsi_tv = None
 
-    def _sanity_check_syn_intermediate(self):
-        if (self.si + self.ni) > 3:
-            raise WeirdError(
-                f"Pos {self.cp} for codon {self.codon} has Si + Ni == "
-                f"{self.si + self.ni:,} (intermediate)?"
-            )
+        self._fill_in_counts()
+        self._sanity_check_final()
 
-    def _sanity_check_sense_intermediate(self):
-        if (self.nnsi + self.nsi) > 3:
-            raise WeirdError(
-                f"Pos {self.cp} for codon {self.codon} has NNSi + NSi == "
-                f"{self.nnsi + self.nsi:,} (intermediate)?"
-            )
+    def _fill_in_counts(self):
+        """Fills in the mutation type counts for this object."""
+        # Get the zero-indexed codon position
+        pos = self.cp - 1
+        for alt_nt in set("ACGT") - set(self.nt):
 
-    def sanity_check_final(self):
+            is_si, is_nnsi = get_mutation_types_for_cp(self.codon, pos, alt_nt)
+            tv = is_transversion(self.nt, alt_nt)
+
+            if is_si:
+                self.si += 1
+                if tv:
+                    self.si_tv += 1
+            else:
+                self.ni += 1
+                if tv:
+                    self.ni_tv += 1
+
+            if self.in_sense_codon:
+                if is_nnsi:
+                    self.nnsi += 1
+                    if tv:
+                        self.nnsi_tv += 1
+                else:
+                    self.nsi += 1
+                    if tv:
+                        self.nsi_tv += 1
+
+    def _sanity_check_final(self):
+        """Checks that the counts look good after recording possible mutations.
+
+        Raises
+        ------
+        WeirdError
+            If Si + Ni != 3.
+            If self.in_sense_codon is True, and NNSi + NSi != 3.
+            If self.in_sense_codon is False, and either NNSi or NSi isn't None.
+
+            ...And versions of the above, but for the transversion mutations
+            (these should add up to 2 rather than 3, since each nucleotide has
+            two possible transversions and one possible transition).
+        """
+        prefix = f"Pos {self.cp} for codon {self.codon}"
+
         if (self.si + self.ni) != 3:
+            raise WeirdError(f"{prefix} has Si + Ni == {self.si + self.ni}?")
+
+        if (self.si_tv + self.ni_tv) != 2:
             raise WeirdError(
-                f"Pos {self.cp} for codon {self.codon} has Si + Ni == "
-                f"{self.si + self.ni:,}?"
+                f"{prefix} has (Tv): Si + Ni == {self.si_tv + self.ni_tv}?"
             )
-        if self.is_sense:
+
+        if self.in_sense_codon:
             if (self.nnsi + self.nsi) != 3:
                 raise WeirdError(
-                    f"Pos {self.cp} for codon {self.codon} has NNSi + NSi == "
-                    f"{self.nnsi + self.nsi:,}?"
+                    f"{prefix} has NNSi + NSi == {self.nnsi + self.nsi}?"
+                )
+            if (self.nnsi_tv + self.nsi_tv) != 2:
+                raise WeirdError(
+                    f"{prefix} has (Tv): NNSi + NSi == "
+                    f"{self.nnsi_tv + self.nsi_tv}?"
                 )
         else:
-            if self.nnsi is not None or self.nsi is not None:
+            if (
+                self.nnsi is not None
+                or self.nsi is not None
+                or self.nnsi_tv is not None
+                or self.nsi_tv is not None
+            ):
                 raise WeirdError(
                     "For stop codons, NNSi and NSi should be None."
                 )
 
-    def add_si(self):
-        self.si += 1
-        self._sanity_check_syn_intermediate()
 
-    def add_ni(self):
-        self.ni += 1
-        self._sanity_check_syn_intermediate()
-
-    def add_nnsi(self):
-        if not self.is_sense:
-            raise WeirdError("Can't have NNSi for stop codon")
-        self.nnsi += 1
-        self._sanity_check_sense_intermediate()
-
-    def add_nsi(self):
-        if not self.is_sense:
-            raise WeirdError("Can't have NSi for stop codon")
-        self.nsi += 1
-        self._sanity_check_sense_intermediate()
+def is_transversion(nt1, nt2):
+    """True if the mutation nt --> nt2 is a transversion, False otherwise."""
+    if nt1 == "A":
+        return nt2 != "G"
+    elif nt1 == "C":
+        return nt2 != "T"
+    elif nt1 == "G":
+        return nt2 != "A"
+    elif nt1 == "T":
+        return nt2 != "C"
+    else:
+        raise WeirdError(
+            f"is_transversion() called with nt1 == {nt1}, nt2 == {nt2}"
+        )
 
 
 def get_poss_mutation_type_info():
@@ -558,8 +649,9 @@ def get_poss_mutation_type_info():
         positions in this codon) to a CodonPositionMutationCounts object, which
         describes the number of possible Synonymous (si), Nonsynonymous (ni),
         Non-Nonsense (nnsi), and Nonsense (nsi) mutations at this codon
-        position in this codon (for the standard genetic code).
-
+        position in this codon (for the standard genetic code). It also
+        contains versions of these properties ending in _tv, indicating which
+        of these types of mutations are also transversions.
 
     Raises
     ------
@@ -593,6 +685,14 @@ def get_poss_mutation_type_info():
     2
     >>> codon2cp2mts["TGC"][3].nsi
     1
+    >>> codon2cp2mts["TGC"][3].si_tv  # C --> T is a transition
+    0
+    >>> codon2cp2mts["TGC"][3].ni_tv  # C -> A and C --> T are both tvs
+    2
+    >>> codon2cp2mts["TGC"][3].nnsi_tv
+    1
+    >>> codon2cp2mts["TGC"][3].nsi_tv
+    1
 
     Also, let's demonstrate that for stop codons NNSi and NSi should both be
     None:
@@ -605,45 +705,26 @@ def get_poss_mutation_type_info():
     True
     >>> codon2cp2mts["TGA"][3].nsi is None
     True
+    >>> codon2cp2mts["TGA"][3].si_tv
+    0
+    >>> codon2cp2mts["TGA"][3].ni_tv
+    2
+    >>> codon2cp2mts["TGA"][3].nnsi_tv is None
+    True
+    >>> codon2cp2mts["TGA"][3].nsi_tv is None
+    True
     """
     codon2cp2mts = {}
-    codon2is_sense = {}
     dna = "ACGT"
     for x in dna:
         for y in dna:
             for z in dna:
                 codon = x + y + z
-                is_sense = not (str(skbio.DNA(codon).translate()) == "*")
-                codon2is_sense[codon] = is_sense
                 codon2cp2mts[codon] = {
-                    1: CodonPositionMutationCounts(codon, 1, is_sense),
-                    2: CodonPositionMutationCounts(codon, 2, is_sense),
-                    3: CodonPositionMutationCounts(codon, 3, is_sense),
+                    1: CodonPositionMutationCounts(codon, 1),
+                    2: CodonPositionMutationCounts(codon, 2),
+                    3: CodonPositionMutationCounts(codon, 3),
                 }
-
-    for c in codon2cp2mts:
-
-        for pos in [0, 1, 2]:
-
-            cp = pos + 1
-
-            for alt_nt in set(dna) - set(c[pos]):
-                alt_codon = c[:pos] + alt_nt + c[pos + 1 :]
-                aa1 = str(skbio.DNA(c).translate())
-                aa2 = str(skbio.DNA(alt_codon).translate())
-                if aa1 == aa2:
-                    codon2cp2mts[c][cp].add_si()
-                    if codon2is_sense[c]:
-                        codon2cp2mts[c][cp].add_nnsi()
-                else:
-                    codon2cp2mts[c][cp].add_ni()
-                    if codon2is_sense[c]:
-                        if aa2 == "*":
-                            codon2cp2mts[c][cp].add_nsi()
-                        else:
-                            codon2cp2mts[c][cp].add_nnsi()
-
-        codon2cp2mts[c][cp].sanity_check_final()
 
     return codon2cp2mts
 
@@ -657,6 +738,7 @@ def compute_specific_mutation_decoy_contig_mut_rates(
     mutation_types,
     contig_seq,
     contig_genes_df,
+    codon2cp2mts,
 ):
     """Computes "specific" mutation rates for positions in a contig.
 
@@ -727,6 +809,12 @@ def compute_specific_mutation_decoy_contig_mut_rates(
         won't care about genes) -- so, in that case, it's ok for this to be
         None.
 
+    codon2cp2mts: dict or None
+        The output of get_poss_mutation_type_info(), mapping codons to CPs to
+        the numbers of possible (non)synonymous and (non)nonsense mutations.
+        As with contig_genes_df, this won't be necessary if mutation_types
+        only contains "Tv", so this can be None in that case.
+
     Returns
     -------
     mut_rates: list of float
@@ -747,6 +835,9 @@ def compute_specific_mutation_decoy_contig_mut_rates(
 
     (that's a joke i'm just tired lmao)
     """
+    min_val, high_val = extract_and_verify_thresh_vals(thresh_vals)
+    num_muts = [0] * len(thresh_vals)
+
     tv, nonsyn, nonsense = get_mutation_types(mutation_types)
 
     # The number of *possible* mutations of each type, throughout the contig
@@ -759,10 +850,6 @@ def compute_specific_mutation_decoy_contig_mut_rates(
     # far as I can tell.
     if tv and (not nonsyn) and (not nonsense):
         # Covers contexts "Tv", "CP2Tv"
-        verify_thresh_vals_good(thresh_vals)
-        num_muts = [0] * len(thresh_vals)
-        high_val = thresh_vals[-1] + 1
-        min_val = thresh_vals[0]
 
         # Regardless of the reference nucleotide (A/C/G/T), there are exactly
         # two transversion mutations possible at every position.
@@ -770,10 +857,7 @@ def compute_specific_mutation_decoy_contig_mut_rates(
 
         for mut in bcf_obj.fetch(contig):
             if mut.pos in pos_to_consider:
-                # Sort this so that G -> A and A -> G are treated equivalently
-                # (same for C -> T and T -> C)
-                sorted_ra = sorted([mut.ref.upper(), mut.alts[0].upper()])
-                if sorted_ra != ["A", "G"] and sorted_ra != ["C", "T"]:
+                if is_transversion(mut.ref.upper(), mut.alts[0].upper()):
                     # this is a transversion mutation
                     update_number_of_mutations_at_thresholds(
                         num_muts, thresh_type, min_val, high_val, mut
@@ -781,12 +865,29 @@ def compute_specific_mutation_decoy_contig_mut_rates(
     else:
         # Covers contexts "Nonsyn", "Nonsense", "CP2Nonsyn", "CP2Nonsense",
         # "TvNonsyn", "TvNonsense", "CP2TvNonsyn", "CP2TvNonsense"
+
+        # Figure out all mutated positions in this contig and their ref/alt nts
+        mp2ra = bcf_utils.get_mutated_position_details_in_contig(
+            bcf_obj, contig, zero_indexed=False
+        )
+
+        # Set of (0-indexed) mutated positions in the contig that pass our
+        # checks. We build up this set and then update the number of observed
+        # mutations, rather than updating the number of observed mutations
+        # gradually, because we need to have access to the mutation records in
+        # the BCF in order to call update_number_of_mutations_at_thresholds().
+        # (I guess I could write a new utility function that loads all records
+        # at once into memory, but that might be too inefficient. But whatever,
+        # it doesn't matter too much, this only happens for one contig, I'm
+        # going to stop writing this comment now)
+        passing_mutated_positions = set()
+
+        # We know at this point that either Nonsyn or Nonsense is given: so we
+        # will implicitly limit ourselves to considering positions in genes.
         #
-        # If we're here, we know that either Nonsyn or Nonsense is given:
-        # so we will implicitly limit ourselves to positions in genes.
         # (Note that multi-gene positions should've already been removed from
         # pos_to_consider before this function, so we don't bother checking for
-        # that here).
+        # those here).
         for gene in contig_genes_df.itertuples():
 
             # Adjust the order with which we iterate through the gene's
@@ -819,13 +920,13 @@ def compute_specific_mutation_decoy_contig_mut_rates(
                     # contig_seq object (of type skbio.DNA) is 0-indexed, so
                     # we've gotta take that into account here.
                     if gene.Strand == "+":
-                        parent_codon_seq = str(
+                        parent_codon = str(
                             contig_seq[
                                 curr_codon_cp1_pos - 1 : curr_codon_cp1_pos + 2
                             ]
                         )
                     else:
-                        parent_codon_seq = str(
+                        parent_codon = str(
                             contig_seq[
                                 curr_codon_cp1_pos - 3 : curr_codon_cp1_pos
                             ]
@@ -834,29 +935,73 @@ def compute_specific_mutation_decoy_contig_mut_rates(
                     # Now that we know the parent codon and the current CP we
                     # are on, figure out how many possible mutations (of the
                     # type(s) we care about) are possible at this position.
-                    #
-                    # We should already know this information
+                    # We already know this information thanks to codon2cp2mts.
 
-                    raise NotImplementedError(
-                        f"{parent_codon_seq} not done yet"
-                    )
-                    ###
-                    # Record the number of "possible" type of mutation we care
-                    # about at this position (based on this position's specific
-                    # nucleotide and parent codon)
-                    ###
-                    # (If that number is zero, then continue, I guess)
+                    cpm = 0
+                    if nonsyn:
+                        if tv:
+                            cpm = codon2cp2mts[parent_codon][cp].ni_tv
+                        else:
+                            cpm = codon2cp2mts[parent_codon][cp].ni
+                    elif nonsense:
+                        if tv:
+                            cpm = codon2cp2mts[parent_codon][cp].nsi_tv
+                        else:
+                            cpm = codon2cp2mts[parent_codon][cp].nsi
+                    else:
+                        raise WeirdError(
+                            "At this point in the code, either Nonsyn or "
+                            "Nonsense should be True."
+                        )
 
-                    ###
-                    # Get alternate nucleotide at this position.
-                    # Figure out if mutating to this alternate nucleotide would
-                    # be the sort of mutation we care about (transversion?
-                    # nonsyn? nonsense?)
-                    # If so, call update_number_of_mutations_at_thresholds().
+                    # If no mutations of the type we care about are possible at
+                    # this position, move on.
+                    if cpm == 0:
+                        continue
+
+                    # Otherwise, we're in business.
+                    num_poss_muts += cpm
+
+                    # Is this position actually a mutation? (Given the minimum
+                    # threshold value that call used -- if so, then we still
+                    # gotta see how this varies as we adjust the threshold.)
+                    if pos in mp2ra:
+                        ref_nt, alt_nt = mp2ra[pos]
+
+                        # Would mutating from ref_nt to alt_nt be the sort of
+                        # mutation we care about (tv? nonsyn? nonsense?)
+                        if tv and not is_transversion(ref_nt, alt_nt):
+                            continue
+                        # OK, so this mutation "passes" the transversion check
+                        # (or lack thereof)
+
+                        # Next, let's check the nonsyn/nonsense stuff
+                        is_si, is_nnsi = get_mutation_types_for_cp(
+                            parent_codon, cp - 1, alt_nt
+                        )
+                        if nonsyn and is_si:
+                            continue
+
+                        if nonsense and is_nnsi:
+                            continue
+
+                        # OK, if we've made it here we've passed everything.
+                        # The mutation at this position is the type we care
+                        # about.
+                        passing_mutated_positions.add(pos - 1)
 
                 # We already know that gene_positions respects the gene's
                 # strand, so we can safely update the CP by going 123123...
                 cp = get_next_cp(cp, gene)
+
+        # Okay, now that we've seen all mutated positions passing our checks,
+        # let's update the number of *observed* mutations at each of the
+        # threshold values we are considering.
+        for mut in bcf_obj.fetch(contig):
+            if mut.pos in passing_mutated_positions:
+                update_number_of_mutations_at_thresholds(
+                    num_muts, thresh_type, min_val, high_val, mut
+                )
 
     return [n / num_poss_muts for n in num_muts]
 
@@ -1479,6 +1624,11 @@ def compute_decoy_contig_mut_rates(
     unreasonable_positions = None
     has_specific_mutation_decoy_context = False
 
+    # Figure out if we need to compute Codon --> CP --> Possible Mutation Type
+    # info (yes if any of the contexts include Nonsyn or Nonsense)
+    codon2cp2mts = None
+    has_nn_decoy_context = False
+
     for ctx in decoy_contexts:
         if "CP2" in ctx:
             has_genic_decoy_context = True
@@ -1487,6 +1637,7 @@ def compute_decoy_contig_mut_rates(
         elif "Nonsyn" in ctx or "Nonsense" in ctx:
             has_genic_decoy_context = True
             has_specific_mutation_decoy_context = True
+            has_nn_decoy_context = True
 
         elif "Tv" in ctx:
             has_specific_mutation_decoy_context = True
@@ -1505,6 +1656,10 @@ def compute_decoy_contig_mut_rates(
         ) = get_single_gene_and_cp2_positions(
             decoy_genes_df, fail_if_no_sgcp2=has_cp2_decoy_context
         )
+
+        # compute "possible" mutation type info, if needed
+        if has_nn_decoy_context:
+            codon2cp2mts = get_poss_mutation_type_info()
 
     # Get a set of "unreasonable" positions (1-indexed):
     # these are positions where the consensus and reference don't match.
@@ -1568,6 +1723,7 @@ def compute_decoy_contig_mut_rates(
                 mutation_types,
                 decoy_seq,
                 decoy_genes_df,
+                codon2cp2mts,
             )
 
     return ctx2mr

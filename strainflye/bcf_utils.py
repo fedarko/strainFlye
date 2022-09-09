@@ -453,6 +453,16 @@ def verify_contig_in_bcf(bcf_obj, contig):
         )
 
 
+def index_pysam_pos(pos, zero_indexed):
+    # pysam gives us 1-based positions, so if we want zero-indexed positions we
+    # gotta subtract 1 from everything. This is probably an inefficient way to
+    # do this but whatever if this is the bottleneck then god help us all
+    if zero_indexed:
+        return pos - 1
+    else:
+        return pos
+
+
 def get_mutated_positions_in_contig(bcf_obj, contig, zero_indexed=True):
     """Identifies positions containing mutations in a contig.
 
@@ -493,22 +503,13 @@ def get_mutated_positions_in_contig(bcf_obj, contig, zero_indexed=True):
     # correct than fast and wrong.
     mutated_positions = set()
 
-    # pysam gives us 1-based positions, so if we want zero-indexed positions we
-    # gotta subtract 1 from everything. This is probably an inefficient way to
-    # do this but whatever if this is the bottleneck then god help us all
-    def index_position(pos):
-        if zero_indexed:
-            return pos - 1
-        else:
-            return pos
-
     for mut in bcf_obj.fetch(contig):
-        mutated_positions.add(index_position(mut.pos))
+        mutated_positions.add(index_pysam_pos(mut.pos, zero_indexed))
 
     return mutated_positions
 
 
-def get_mutated_position_details_in_contig(bcf_obj, contig):
+def get_mutated_position_details_in_contig(bcf_obj, contig, zero_indexed=True):
     """Returns a summary of mutated-position details in a contig.
 
     Parameters
@@ -521,12 +522,17 @@ def get_mutated_position_details_in_contig(bcf_obj, contig):
     contig: str
         Name of a contig for which we will fetch mutations in bcf_obj.
 
+    zero_indexed: bool
+        If True, use zero-indexed positions; otherwise, use one-indexed
+        positions.
+
     Returns
     -------
     mp2ra: dict
-        Maps (zero-indexed) mutated positions in the contig to a tuple of
-        (ref nt, alt nt), as listed in the BCF file. If the contig has no
-        mutations, then this dict will be empty.
+        Maps mutated positions (either zero- or one-indexed, depending on the
+        value of zero_indexed) in the contig to a tuple of (ref nt, alt nt),
+        as listed in the BCF file. If the contig has no mutations, then this
+        dict will be empty.
 
     Raises
     ------
@@ -536,8 +542,10 @@ def get_mutated_position_details_in_contig(bcf_obj, contig):
     verify_contig_in_bcf(bcf_obj, contig)
     mp2ra = {}
     for mut in bcf_obj.fetch(contig):
-        # mut.pos is 1-indexed, so gotta subtract 1 to make it 0-indexed
-        # (also, pysam technically allows lowercase alleles, so we call upper()
+        # (pysam technically allows lowercase alleles, so we call upper()
         # on everything to ensure all nucleotides are in {A, C, G, T})
-        mp2ra[mut.pos - 1] = (mut.ref.upper(), mut.alts[0].upper())
+        mp2ra[index_pysam_pos(mut.pos, zero_indexed)] = (
+            mut.ref.upper(),
+            mut.alts[0].upper(),
+        )
     return mp2ra
