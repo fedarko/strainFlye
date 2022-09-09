@@ -827,7 +827,11 @@ def test_run_estimate_with_autoselect_and_full_decoy_good(capsys):
             "the FDR estimation results.\n"
             "PREFIX\nMockLog: Computing mutation rates for c2 at these "
             "threshold values, for each of the 1 decoy context(s)...\n"
-            "MockLog: Done.\n"
+            'MockLog: Computing mutation rates for decoy context "Full" '
+            "(1 / 1)...\n"
+            'MockLog: Done computing "Full" mutation rates for c2.\n'
+            "MockLog: Done computing mutation rates for all decoy context(s) "
+            "for c2.\n"
             "PREFIX\nMockLog: Computing mutation rates and FDR estimates for "
             "the 2 target contig(s)...\n"
             "MockLog: Done.\n"
@@ -908,7 +912,11 @@ def test_run_estimate_with_preselected_full_decoy_good(capsys):
             "the FDR estimation results.\n"
             "PREFIX\nMockLog: Computing mutation rates for c2 at these "
             "threshold values, for each of the 1 decoy context(s)...\n"
-            "MockLog: Done.\n"
+            'MockLog: Computing mutation rates for decoy context "Full" '
+            "(1 / 1)...\n"
+            'MockLog: Done computing "Full" mutation rates for c2.\n'
+            "MockLog: Done computing mutation rates for all decoy context(s) "
+            "for c2.\n"
             "PREFIX\nMockLog: Computing mutation rates and FDR estimates for "
             "the 2 target contig(s)...\n"
             "MockLog: Done.\n"

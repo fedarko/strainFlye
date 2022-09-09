@@ -2078,7 +2078,13 @@ def run_estimate(
         unique_ctxs,
         fancylog,
     )
-    fancylog("Done.", prefix="")
+    fancylog(
+        (
+            "Done computing mutation rates for all decoy context(s) for "
+            f"{used_decoy_contig}."
+        ),
+        prefix="",
+    )
 
     # At this point, we've delayed this about as long as we can -- create the
     # output directory
