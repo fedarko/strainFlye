@@ -535,12 +535,22 @@ class CodonPositionMutationCounts(object):
         cp: int
             One of the codon positions (CPs) within this codon. This is
             one-indexed, so this should be one of 1, 2, or 3.
+
+        Raises
+        ------
+        WeirdError
+            If codon does not have length 3 and contain only {A, C, G, T}.
+            If cp is not one of 1, 2, or 3.
         """
         if len(codon) != 3:
-            raise ParameterError("Codon must be exactly 3 nt long")
+            raise WeirdError("Codon must be exactly 3 nt long")
+
+        for nt in codon:
+            if nt not in ["A", "C", "G", "T"]:
+                raise WeirdError("Codon should only contain {A, C, G, T}")
 
         if cp not in (1, 2, 3):
-            raise ParameterError("CP must be one of 1, 2, or 3")
+            raise WeirdError("CP must be one of 1, 2, or 3")
 
         self.codon = codon
         self.cp = cp

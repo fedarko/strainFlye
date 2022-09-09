@@ -1478,3 +1478,48 @@ def test_is_transversion_non_nucleotide():
             "is_transversion() parameters are not both str nucleotides. "
             f"nt1 == {nt}, nt2 == AC. Check types?"
         )
+
+
+def test_CodonPositionMutationCounts_good():
+    mc = fu.CodonPositionMutationCounts("ACG", 3)
+
+    assert mc.si == 3
+    assert mc.si_tv == 2
+
+    assert mc.ni == 0
+    assert mc.ni_tv == 0
+
+    assert mc.nnsi == 3
+    assert mc.nnsi_tv == 2
+
+    assert mc.nsi == 0
+    assert mc.nsi_tv == 0
+
+    mc = fu.CodonPositionMutationCounts("TGA", 2)
+
+    assert mc.si == 1
+    assert mc.si_tv == 0
+
+    assert mc.ni == 2
+    assert mc.ni_tv == 2
+
+    assert mc.nnsi is None
+    assert mc.nnsi_tv is None
+
+    assert mc.nsi is None
+    assert mc.nsi_tv is None
+
+
+def test_CodonPositionMutationCounts_bad():
+    with pytest.raises(WeirdError) as ei:
+        mc = fu.CodonPositionMutationCounts("ACS", 3)
+    assert str(ei.value) == "Codon should only contain {A, C, G, T}"
+
+    with pytest.raises(WeirdError) as ei:
+        mc = fu.CodonPositionMutationCounts("ACGT", 3)
+    assert str(ei.value) == "Codon must be exactly 3 nt long"
+
+    for bad_cp in (-100, -2, -1, 0, 0.5, 1.5, 2.5, 4, 100):
+        with pytest.raises(WeirdError) as ei:
+            mc = fu.CodonPositionMutationCounts("ACG", 4)
+        assert str(ei.value) == "CP must be one of 1, 2, or 3"
