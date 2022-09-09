@@ -525,8 +525,13 @@ def get_mutation_types_for_cp(codon_seq, cp, alt_nt, strand="+"):
             pos = 0
         elif cp == 2:
             pos = 1
-        else:
+        elif cp == 1:
             pos = 2
+        else:
+            # shouldn't happen, but let's be careful
+            raise WeirdError(
+                f"Bad CP {cp} for codon {codon_seq} (strand {strand})?"
+            )
         err_if_same(pos)
         aa1 = str(codon_seq.reverse_complement().translate())
         # Apply the mutation, *then* reverse-complement the codon
@@ -1026,9 +1031,19 @@ def compute_specific_mutation_decoy_contig_mut_rates(
                     f"Gene {gene.Index} has length {len(gene_positions):,}?"
                 )
 
-            cp = 1
+            cp = 3
             curr_codon_cp1_pos = None
             for pos in gene_positions:
+                # We already know that gene_positions respects the gene's
+                # strand, so we can safely update the CP by going 123123...
+                #
+                # (We initialized cp to 3 before this loop so that calling it
+                # up at the top here, on our first time through this loop, will
+                # start us off at cp == 1. This is easier than remembering to
+                # update the cp at the end of the loop below, because then
+                # trying to "continue" without first updating the CP will get
+                # everything out of whack.)
+                cp = get_next_cp(cp, gene)
                 if cp == 1:
                     curr_codon_cp1_pos = pos
 
@@ -1042,7 +1057,6 @@ def compute_specific_mutation_decoy_contig_mut_rates(
                     # contig_seq object (of type skbio.DNA) is 0-indexed, so
                     # we've gotta take that into account here.
 
-                    parent_codon_rc_seq = None
                     if gene.Strand == "+":
                         parent_codon_ltr_seq = contig_seq[
                             curr_codon_cp1_pos - 1 : curr_codon_cp1_pos + 2
@@ -1113,6 +1127,7 @@ def compute_specific_mutation_decoy_contig_mut_rates(
                         # mutation we care about (tv? nonsyn? nonsense?)
                         if tv and not is_transversion(ref_nt, alt_nt):
                             continue
+
                         # OK, so this mutation "passes" the transversion check
                         # (or lack thereof)
 
@@ -1133,10 +1148,6 @@ def compute_specific_mutation_decoy_contig_mut_rates(
                         # The mutation at this position is the type we care
                         # about.
                         passing_mutated_positions.add(pos - 1)
-
-                # We already know that gene_positions respects the gene's
-                # strand, so we can safely update the CP by going 123123...
-                cp = get_next_cp(cp, gene)
 
         # Okay, now that we've seen all mutated positions passing our checks,
         # let's update the number of *observed* mutations at each of the
