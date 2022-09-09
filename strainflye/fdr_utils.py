@@ -1066,7 +1066,7 @@ def compute_specific_mutation_decoy_contig_mut_rates(
                         # "cp" variable. (but sheesh, this is a lot to keep
                         # track of! i'm tired)
                         parent_codon_rc_seq = (
-                            parent_codon_fwd_seq.reverse_complement()
+                            parent_codon_ltr_seq.reverse_complement()
                         )
                         parent_codon_correct = str(parent_codon_rc_seq)
 
