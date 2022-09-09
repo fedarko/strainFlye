@@ -8,9 +8,15 @@ DI_PREF = "DivIdx"
 # Default parameters for LJA for "strainFlye smooth assemble"
 DEFAULT_LJA_PARAMS = "--simpleec --Cov-threshold 10"
 
-# Rationale: this essentially the power set of (CP2, Tv, Nonsyn, Nonsense),
-# ignoring combinations where Nonsyn and Nonsense are together (because all
-# nonsense mutations are by definition nonsynonymous).
+# Rationale: this essentially the power set of (CP2, Tv, Nonsyn, Nonsense).
+# We ignore:
+#
+# - combinations where Nonsyn and Nonsense are together (because all nonsense
+#   mutations are by definition nonsynonymous).
+#
+# - CP2 + Tv + Nonsyn (because there is only one synonymous mutation in CP2 in
+#   the standard genetic code, TAA <--> TGA, and A <--> G is a transition; so
+#   CP2Tv and CP2TvNonsyn would be identical).
 DECOY_CONTEXTS = [
     "Full",
     "CP2",
@@ -22,6 +28,5 @@ DECOY_CONTEXTS = [
     "CP2Nonsense",
     "TvNonsyn",
     "TvNonsense",
-    "CP2TvNonsyn",
     "CP2TvNonsense",
 ]

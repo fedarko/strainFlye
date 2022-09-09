@@ -1734,13 +1734,14 @@ def compute_decoy_contig_mut_rates(
          - "TvNonsyn": Tv + Nonsyn mutations.
          - "TvNonsense": Tv + Nonsense mutations.
          - "CP2TvNonsense": Tv + Nonsense, but only for positions in CP2.
-         - "CP2TvNonsyn": Tv + Nonsyn, but only for positions in CP2.
 
         ... Note that we don't have any options for combining Nonsyn and
         Nonsense, because this wouldn't do anything (all nonsense mutations are
         by definition nonsynonymous). Arguably, CP2 + Nonsyn is also *almost*
         useless, but there is one possible "synonymous" CP2 mutation (TGA <->
-        TAA both code for a stop codon) so we include that.
+        TAA both code for a stop codon) so we include that. (Also, we don't
+        include CP2TvNonsyn because it'd be equivalent to CP2Tv; see config.py
+        for details.)
 
     fancylog: function
         Logging function.
