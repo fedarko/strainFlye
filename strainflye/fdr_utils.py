@@ -976,7 +976,7 @@ def compute_specific_mutation_decoy_contig_mut_rates(
                 gene_positions = range(gene.RightEnd, gene.LeftEnd - 1, -1)
 
             # Should never happen (tm) (c) ... but let's catch it if it does.
-            if len(gene_positions) % 3 == 0:
+            if len(gene_positions) % 3 != 0:
                 raise WeirdError(
                     f"Gene {gene.Index} has length {len(gene_positions):,}?"
                 )
@@ -1737,7 +1737,7 @@ def compute_decoy_contig_mut_rates(
         fancylog(
             (
                 "Finished running Prodigal! It predicted "
-                f"{len(decoy_genes_df.index):,} genes in {decoy_contig}."
+                f"{len(decoy_genes_df.index):,} gene(s) in {decoy_contig}."
             ),
             prefix="",
         )
@@ -1784,7 +1784,7 @@ def compute_decoy_contig_mut_rates(
         fancylog(
             (
                 f"Done: identified {len(unreasonable_positions):,} "
-                f"unreasonable positions in {decoy_contig}."
+                f"unreasonable position(s) in {decoy_contig}."
             ),
             prefix="",
         )
