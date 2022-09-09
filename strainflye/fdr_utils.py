@@ -1121,7 +1121,7 @@ def compute_specific_mutation_decoy_contig_mut_rates(
                             parent_codon_ltr_seq,
                             cp,
                             alt_nt,
-                            strand=gene.strand,
+                            strand=gene.Strand,
                         )
                         if nonsyn and is_si:
                             continue
