@@ -977,7 +977,10 @@ def compute_specific_mutation_decoy_contig_mut_rates(
                 if cp == 1:
                     curr_codon_cp1_pos = pos
 
-                # Ignore unreasonable or multi-gene positions
+                # Ignore unreasonable or multi-gene positions (oh, or also any
+                # other filtering that was done before this function was called
+                # -- e.g. for the "CP2" contexts, pos_to_consider will only
+                # include CP2 positions)
                 if pos in pos_to_consider:
 
                     # Get parent codon from the contig sequence. Note that the
