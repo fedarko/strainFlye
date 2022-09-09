@@ -464,7 +464,42 @@ def get_mutation_types(mutation_types):
     return tv, nonsyn, nonsense
 
 
-def get_mutation_types_for_cp(codon, pos, alt_nt):
+def get_mutation_types_for_cp(codon, cp, alt_nt):
+    """Classifies a mutation at a position as synonymous and non-nonsense.
+
+    Parameters
+    ----------
+    codon: str
+        DNA codon we are considering.
+
+    pos: int
+        One-indexed position within the codon that we are mutating. Should be
+        one of 1, 2, or 3.
+
+    alt_nt: str
+        Alternate nucleotide to which we will try mutating the pos-th position
+        in this codon.
+
+    Returns
+    -------
+    (si, nnsi): (bool, bool)
+        si will be True if this is a synonymous mutation and False otherwise.
+
+        If the codon is one of the 61 sense codons, then nnsi will be True if
+        this is a non-nonsense mutation and False otherwise.
+
+        If the codon is one of the 3 stop codons, then nnsi will be None.
+
+    Raises
+    ------
+    WeirdError
+        If alt_nt is the same nucleotide as that given by codon[cp - 1].
+    """
+    pos = cp - 1
+    if alt_nt == codon[pos]:
+        raise WeirdError(
+            f"In codon {codon}, trying to mutate CP {cp} into itself?"
+        )
     alt_codon = codon[:pos] + alt_nt + codon[pos + 1 :]
     aa1 = str(skbio.DNA(codon).translate())
     aa2 = str(skbio.DNA(alt_codon).translate())
@@ -537,11 +572,9 @@ class CodonPositionMutationCounts(object):
 
     def _fill_in_counts(self):
         """Fills in the mutation type counts for this object."""
-        # Get the zero-indexed codon position
-        pos = self.cp - 1
         for alt_nt in set("ACGT") - set(self.nt):
 
-            is_si, is_nnsi = get_mutation_types_for_cp(self.codon, pos, alt_nt)
+            is_si, is_nnsi = get_mutation_types_for_cp(self.codon, self.cp, alt_nt)
             tv = is_transversion(self.nt, alt_nt)
 
             if is_si:
@@ -977,7 +1010,7 @@ def compute_specific_mutation_decoy_contig_mut_rates(
 
                         # Next, let's check the nonsyn/nonsense stuff
                         is_si, is_nnsi = get_mutation_types_for_cp(
-                            parent_codon, cp - 1, alt_nt
+                            parent_codon, cp, alt_nt
                         )
                         if nonsyn and is_si:
                             continue

@@ -1410,3 +1410,16 @@ def test_get_mutation_types_bad():
     assert str(ei.value) == (
         "No need to specify both Nonsyn and Nonsense: just say Nonsense."
     )
+
+
+def test_get_mutation_types_for_cp():
+    assert fu.get_mutation_types_for_cp("AAA", 3, "G") == (True, True)
+    assert fu.get_mutation_types_for_cp("AAA", 3, "C") == (False, True)
+    assert fu.get_mutation_types_for_cp("AAA", 1, "T") == (False, False)
+
+    assert fu.get_mutation_types_for_cp("TAA", 3, "C") == (False, None)
+    assert fu.get_mutation_types_for_cp("TAA", 3, "G") == (True, None)
+
+    with pytest.raises(WeirdError) as ei:
+        fu.get_mutation_types_for_cp("AAA", 1, "A")
+    assert str(ei.value) == "In codon AAA, trying to mutate CP 1 into itself?"
