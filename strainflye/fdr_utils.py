@@ -464,21 +464,28 @@ def get_mutation_types(mutation_types):
     return tv, nonsyn, nonsense
 
 
-def get_mutation_types_for_cp(codon, cp, alt_nt):
+def get_mutation_types_for_cp(codon_seq, cp, alt_nt, strand="+"):
     """Classifies a mutation at a position as synonymous and non-nonsense.
 
     Parameters
     ----------
-    codon: str
-        DNA codon we are considering.
+    codon_seq: skbio.DNA
+        DNA codon we are considering. The order for this should go from left to
+        right (I know that's not actually how you describe ordering of a real
+        chromosome, but you know what I mean) -- so, if this is on a "-" strand
+        gene, it should be *not* reverse-complemented.
 
-    pos: int
+    cp: int
         One-indexed position within the codon that we are mutating. Should be
-        one of 1, 2, or 3.
+        one of 1, 2, or 3. (If strand is "+", then these go 1 -> 2 -> 3; if
+        strand is "-", then these go 3 <- 2 <- 1.)
 
     alt_nt: str
-        Alternate nucleotide to which we will try mutating the pos-th position
+        Alternate nucleotide to which we will try mutating the cp-th CP
         in this codon.
+
+    strand: str
+        One of "+" or "-".
 
     Returns
     -------
@@ -493,16 +500,40 @@ def get_mutation_types_for_cp(codon, cp, alt_nt):
     Raises
     ------
     WeirdError
-        If alt_nt is the same nucleotide as that given by codon[cp - 1].
+        If alt_nt is the same nucleotide as that given by the cp-th nucleotide
+        on the codon.
     """
-    pos = cp - 1
-    if alt_nt == codon[pos]:
-        raise WeirdError(
-            f"In codon {codon}, trying to mutate CP {cp} into itself?"
-        )
-    alt_codon = codon[:pos] + alt_nt + codon[pos + 1 :]
-    aa1 = str(skbio.DNA(codon).translate())
-    aa2 = str(skbio.DNA(alt_codon).translate())
+    validate_codon(str(codon_seq))
+    validate_cp(cp)
+
+    def err_if_same(zero_indexed_pos):
+        if str(codon_seq[zero_indexed_pos]) == alt_nt:
+            raise WeirdError(
+                f"In codon {codon_seq} (strand {strand}), trying to mutate "
+                f"CP {cp} ({alt_nt}) into itself?"
+            )
+
+    # Convert to a zero-indexed position on this codon.
+    if strand == "+":
+        pos = cp - 1
+        err_if_same(pos)
+        aa1 = str(codon_seq.translate())
+        alt_codon_seq = codon_seq.replace([pos], alt_nt)
+    else:
+        # convert from 321 to 012
+        if cp == 3:
+            pos = 0
+        elif cp == 2:
+            pos = 1
+        else:
+            pos = 2
+        err_if_same(pos)
+        aa1 = str(codon_seq.reverse_complement().translate())
+        # Apply the mutation, *then* reverse-complement the codon
+        alt_codon_seq_fwd = codon_seq.replace([pos], alt_nt)
+        alt_codon_seq = alt_codon_seq_fwd.reverse_complement()
+
+    aa2 = str(alt_codon_seq.translate())
 
     si = False
     nnsi = None
@@ -518,6 +549,20 @@ def get_mutation_types_for_cp(codon, cp, alt_nt):
             else:
                 nnsi = True
     return (si, nnsi)
+
+
+def validate_codon(codon_str):
+    if len(codon_str) != 3:
+        raise WeirdError("Codon must be exactly 3 nt long")
+
+    for nt in codon_str:
+        if nt not in ["A", "C", "G", "T"]:
+            raise WeirdError("Codon should only contain {A, C, G, T}")
+
+
+def validate_cp(cp_1indexed):
+    if cp_1indexed not in (1, 2, 3):
+        raise WeirdError("CP must be one of 1, 2, or 3")
 
 
 class CodonPositionMutationCounts(object):
@@ -542,21 +587,15 @@ class CodonPositionMutationCounts(object):
             If codon does not have length 3 and contain only {A, C, G, T}.
             If cp is not one of 1, 2, or 3.
         """
-        if len(codon) != 3:
-            raise WeirdError("Codon must be exactly 3 nt long")
-
-        for nt in codon:
-            if nt not in ["A", "C", "G", "T"]:
-                raise WeirdError("Codon should only contain {A, C, G, T}")
-
-        if cp not in (1, 2, 3):
-            raise WeirdError("CP must be one of 1, 2, or 3")
+        validate_codon(codon)
+        validate_cp(cp)
 
         self.codon = codon
         self.cp = cp
 
         self.nt = self.codon[cp - 1]
-        self.aa = str(skbio.DNA(self.codon).translate())
+        self.codon_seq = skbio.DNA(self.codon)
+        self.aa = str(self.codon_seq.translate())
         self.in_sense_codon = self.aa != "*"
 
         self.si = 0
@@ -585,7 +624,7 @@ class CodonPositionMutationCounts(object):
         for alt_nt in set("ACGT") - set(self.nt):
 
             is_si, is_nnsi = get_mutation_types_for_cp(
-                self.codon, self.cp, alt_nt
+                self.codon_seq, self.cp, alt_nt
             )
             tv = is_transversion(self.nt, alt_nt)
 
@@ -1002,18 +1041,34 @@ def compute_specific_mutation_decoy_contig_mut_rates(
                     # Get parent codon from the contig sequence. Note that the
                     # contig_seq object (of type skbio.DNA) is 0-indexed, so
                     # we've gotta take that into account here.
+
+                    parent_codon_rc_seq = None
                     if gene.Strand == "+":
-                        parent_codon = str(
-                            contig_seq[
-                                curr_codon_cp1_pos - 1 : curr_codon_cp1_pos + 2
-                            ]
-                        )
+                        parent_codon_ltr_seq = contig_seq[
+                            curr_codon_cp1_pos - 1 : curr_codon_cp1_pos + 2
+                        ]
+                        parent_codon_correct = str(parent_codon_ltr_seq)
                     else:
-                        parent_codon = str(
-                            contig_seq[
-                                curr_codon_cp1_pos - 3 : curr_codon_cp1_pos
-                            ]
+                        # Note that this describes the parent codon backwards:
+                        # we will need to reverse complement it in order to see
+                        # the impact of a mutation within it on what this codon
+                        # encodes.
+                        parent_codon_ltr_seq = contig_seq[
+                            curr_codon_cp1_pos - 3 : curr_codon_cp1_pos
+                        ]
+                        # We'll figure out the number of possible mutations at
+                        # this position in this codon using the
+                        # reverse-complemented version of it, since that's the
+                        # version we actually care about. Also, since we are
+                        # iterating through reverse-strand genes from right to
+                        # left, i.e. ... <- 3 <- 2 <- 1 <- 3 <- 2 <- 1, the
+                        # codon2cp2mts stuff below works naturally with the
+                        # "cp" variable. (but sheesh, this is a lot to keep
+                        # track of! i'm tired)
+                        parent_codon_rc_seq = (
+                            parent_codon_fwd_seq.reverse_complement()
                         )
+                        parent_codon_correct = str(parent_codon_rc_seq)
 
                     # Now that we know the parent codon and the current CP we
                     # are on, figure out how many possible mutations (of the
@@ -1023,14 +1078,14 @@ def compute_specific_mutation_decoy_contig_mut_rates(
                     cpm = 0
                     if nonsyn:
                         if tv:
-                            cpm = codon2cp2mts[parent_codon][cp].ni_tv
+                            cpm = codon2cp2mts[parent_codon_correct][cp].ni_tv
                         else:
-                            cpm = codon2cp2mts[parent_codon][cp].ni
+                            cpm = codon2cp2mts[parent_codon_correct][cp].ni
                     elif nonsense:
                         if tv:
-                            cpm = codon2cp2mts[parent_codon][cp].nsi_tv
+                            cpm = codon2cp2mts[parent_codon_correct][cp].nsi_tv
                         else:
-                            cpm = codon2cp2mts[parent_codon][cp].nsi
+                            cpm = codon2cp2mts[parent_codon_correct][cp].nsi
                     else:
                         raise WeirdError(
                             "At this point in the code, either Nonsyn or "
@@ -1063,7 +1118,10 @@ def compute_specific_mutation_decoy_contig_mut_rates(
 
                         # Next, let's check the nonsyn/nonsense stuff
                         is_si, is_nnsi = get_mutation_types_for_cp(
-                            parent_codon, cp, alt_nt
+                            parent_codon_ltr_seq,
+                            cp,
+                            alt_nt,
+                            strand=gene.strand,
                         )
                         if nonsyn and is_si:
                             continue
@@ -1787,6 +1845,7 @@ def compute_decoy_contig_mut_rates(
             ),
             1,
         ):
+            # break
             max_nt_freq = max([rec[nt] for nt in "ACGT"])
             if rec[str(decoy_seq[pos - 1])] < max_nt_freq:
                 unreasonable_positions.add(pos)

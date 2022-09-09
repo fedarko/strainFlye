@@ -1421,17 +1421,76 @@ def test_get_mutation_types_bad():
     )
 
 
-def test_get_mutation_types_for_cp():
-    assert fu.get_mutation_types_for_cp("AAA", 3, "G") == (True, True)
-    assert fu.get_mutation_types_for_cp("AAA", 3, "C") == (False, True)
-    assert fu.get_mutation_types_for_cp("AAA", 1, "T") == (False, False)
+def test_get_mutation_types_for_cp_fwd():
+    aaa = skbio.DNA("AAA")
+    assert fu.get_mutation_types_for_cp(aaa, 3, "G") == (True, True)
+    assert fu.get_mutation_types_for_cp(aaa, 3, "C") == (False, True)
+    assert fu.get_mutation_types_for_cp(aaa, 1, "T") == (False, False)
 
-    assert fu.get_mutation_types_for_cp("TAA", 3, "C") == (False, None)
-    assert fu.get_mutation_types_for_cp("TAA", 3, "G") == (True, None)
+    taa = skbio.DNA("TAA")
+    assert fu.get_mutation_types_for_cp(taa, 3, "C") == (False, None)
+    assert fu.get_mutation_types_for_cp(taa, 3, "G") == (True, None)
 
     with pytest.raises(WeirdError) as ei:
-        fu.get_mutation_types_for_cp("AAA", 1, "A")
-    assert str(ei.value) == "In codon AAA, trying to mutate CP 1 into itself?"
+        fu.get_mutation_types_for_cp(aaa, 1, "A")
+    assert str(ei.value) == (
+        "In codon AAA (strand +), trying to mutate CP 1 (A) into itself?"
+    )
+
+
+def test_get_mutation_types_for_cp_rev():
+    #   ---- CTA --->
+    #   <--- GAT ----
+    #
+    # So, CTA on a - strand gene really means TAG, aka a stop codon (again
+    # this is just considering the standard genetic code yada yada)
+    cta = skbio.DNA("CTA")
+
+    # This changes it to CTC, which changes the rev comp to GAG (Glutamic Acid)
+    assert fu.get_mutation_types_for_cp(cta, 1, "C", "-") == (False, None)
+
+    # This changes it to CTG, which changes the rev comp to CAG (Glutamine)
+    assert fu.get_mutation_types_for_cp(cta, 1, "G", "-") == (False, None)
+
+    # This changes it to CTT, which changes the rev comp to AAG (Lysine)
+    assert fu.get_mutation_types_for_cp(cta, 1, "T", "-") == (False, None)
+
+    # Doesn't change anything
+    with pytest.raises(WeirdError) as ei:
+        fu.get_mutation_types_for_cp(cta, 1, "A", "-")
+    assert str(ei.value) == (
+        "In codon CTA (strand -), trying to mutate CP 1 (A) into itself?"
+    )
+
+    aaa = skbio.DNA("AAA")
+    # AAA (revcomp'd = TTT (F)) --> AAC ---rev-comp---> GTT (Valine)
+    assert fu.get_mutation_types_for_cp(aaa, 1, "C", "-") == (False, True)
+    # AAA (revcomp'd = TTT (F)) --> AAG ---rev-comp---> CTT (Leucine)
+    assert fu.get_mutation_types_for_cp(aaa, 1, "G", "-") == (False, True)
+    # AAA (revcomp'd = TTT (F)) --> AAT ---rev-comp---> ATT (Isoleucine)
+    assert fu.get_mutation_types_for_cp(aaa, 1, "T", "-") == (False, True)
+
+    # AAA (revcomp'd = TTT (F)) --> ACA ---rev-comp---> TGT (Cysteine)
+    assert fu.get_mutation_types_for_cp(aaa, 2, "C", "-") == (False, True)
+    # AAA (revcomp'd = TTT (F)) --> AGA ---rev-comp---> TCT (Serine)
+    assert fu.get_mutation_types_for_cp(aaa, 2, "G", "-") == (False, True)
+    # AAA (revcomp'd = TTT (F)) --> ATA ---rev-comp---> TAT (Tyrosine)
+    assert fu.get_mutation_types_for_cp(aaa, 2, "T", "-") == (False, True)
+
+    # AAA (revcomp'd = TTT (F)) --> CAA ---rev-comp---> TTG (Leucine)
+    assert fu.get_mutation_types_for_cp(aaa, 3, "C", "-") == (False, True)
+    # AAA (revcomp'd = TTT (F)) --> GAA ---rev-comp---> TTC (F) (syn!)
+    assert fu.get_mutation_types_for_cp(aaa, 3, "G", "-") == (True, True)
+    # AAA (revcomp'd = TTT (F)) --> TAA ---rev-comp---> TTA (Leucine)
+    assert fu.get_mutation_types_for_cp(aaa, 3, "T", "-") == (False, True)
+
+    for cp in (1, 2, 3):
+        with pytest.raises(WeirdError) as ei:
+            fu.get_mutation_types_for_cp(aaa, cp, "A", "-")
+        assert str(ei.value) == (
+            f"In codon AAA (strand -), trying to mutate CP {cp} (A) into "
+            "itself?"
+        )
 
 
 def test_is_transversion_good():
