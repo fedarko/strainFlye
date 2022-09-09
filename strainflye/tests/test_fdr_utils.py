@@ -1512,14 +1512,14 @@ def test_CodonPositionMutationCounts_good():
 
 def test_CodonPositionMutationCounts_bad():
     with pytest.raises(WeirdError) as ei:
-        mc = fu.CodonPositionMutationCounts("ACS", 3)
+        fu.CodonPositionMutationCounts("ACS", 3)
     assert str(ei.value) == "Codon should only contain {A, C, G, T}"
 
     with pytest.raises(WeirdError) as ei:
-        mc = fu.CodonPositionMutationCounts("ACGT", 3)
+        fu.CodonPositionMutationCounts("ACGT", 3)
     assert str(ei.value) == "Codon must be exactly 3 nt long"
 
     for bad_cp in (-100, -2, -1, 0, 0.5, 1.5, 2.5, 4, 100):
         with pytest.raises(WeirdError) as ei:
-            mc = fu.CodonPositionMutationCounts("ACG", 4)
+            fu.CodonPositionMutationCounts("ACG", 4)
         assert str(ei.value) == "CP must be one of 1, 2, or 3"
