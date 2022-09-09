@@ -991,11 +991,12 @@ def compute_specific_mutation_decoy_contig_mut_rates(
         # "TvNonsyn", "TvNonsense", "CP2TvNonsyn", "CP2TvNonsense"
 
         # Figure out all mutated positions in this contig and their ref/alt nts
+        # (these positions are 1-indexed)
         mp2ra = bcf_utils.get_mutated_position_details_in_contig(
             bcf_obj, contig, zero_indexed=False
         )
 
-        # Set of (0-indexed) mutated positions in the contig that pass our
+        # Set of (1-indexed) mutated positions in the contig that pass our
         # checks. We build up this set and then update the number of observed
         # mutations, rather than updating the number of observed mutations
         # gradually, because we need to have access to the mutation records in
@@ -1055,7 +1056,8 @@ def compute_specific_mutation_decoy_contig_mut_rates(
 
                     # Get parent codon from the contig sequence. Note that the
                     # contig_seq object (of type skbio.DNA) is 0-indexed, so
-                    # we've gotta take that into account here.
+                    # we've gotta take that into account here (since
+                    # curr_codon_cp1_pos, and pos, are 1-indexed)
 
                     if gene.Strand == "+":
                         parent_codon_ltr_seq = contig_seq[
@@ -1082,6 +1084,11 @@ def compute_specific_mutation_decoy_contig_mut_rates(
                         parent_codon_rc_seq = (
                             parent_codon_ltr_seq.reverse_complement()
                         )
+                        # This describes the parent codon in the "correct"
+                        # orientation: for example, if the left-to-right (LTR)
+                        # seq above is CAT, then this will be ATG (representing
+                        # Methionine / a start codon), with CP1 = G, CP2 = T,
+                        # CP3 = A.
                         parent_codon_correct = str(parent_codon_rc_seq)
 
                     # Now that we know the parent codon and the current CP we
@@ -1147,7 +1154,7 @@ def compute_specific_mutation_decoy_contig_mut_rates(
                         # OK, if we've made it here we've passed everything.
                         # The mutation at this position is the type we care
                         # about.
-                        passing_mutated_positions.add(pos - 1)
+                        passing_mutated_positions.add(pos)
 
         # Okay, now that we've seen all mutated positions passing our checks,
         # let's update the number of *observed* mutations at each of the
