@@ -721,11 +721,17 @@ def get_poss_mutation_type_info():
 
         Each of these "inner" dicts maps the ints 1, 2, and 3 (the three codon
         positions in this codon) to a CodonPositionMutationCounts object, which
-        describes the number of possible Synonymous (si), Nonsynonymous (ni),
-        Non-Nonsense (nnsi), and Nonsense (nsi) mutations at this codon
-        position in this codon (for the standard genetic code). It also
-        contains versions of these properties ending in _tv, indicating which
-        of these types of mutations are also transversions.
+        describes the number of possible...
+
+        - Synonymous (si),
+        - Nonsynonymous (ni),
+        - Non-Nonsense (nnsi) (only for the 61 sense codons)
+        - Nonsense (nsi) (only for the 61 sense codons)
+
+        mutations at this codon position in this codon (for the standard
+        genetic code). It also contains versions of these properties ending in
+        _tv, indicating how many of these types of mutations are also
+        transversions.
 
     Raises
     ------
@@ -1033,7 +1039,10 @@ def compute_specific_mutation_decoy_contig_mut_rates(
 
                     # If no mutations of the type we care about are possible at
                     # this position, move on.
-                    if cpm == 0:
+                    # (cpm will be None if we're considering Nonsense
+                    # mutations, and parent_codon is a stop codon; otherwise it
+                    # should be a number.)
+                    if cpm == 0 or cpm is None:
                         continue
 
                     # Otherwise, we're in business.
