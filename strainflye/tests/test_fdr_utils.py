@@ -1471,7 +1471,6 @@ def test_is_transversion_non_nucleotide():
             f"nt1 == {nt}, nt2 == N. Check types?"
         )
 
-
         with pytest.raises(WeirdError) as ei:
             fu.is_transversion(nt, "AC")
 

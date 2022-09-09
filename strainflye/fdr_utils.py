@@ -574,7 +574,9 @@ class CodonPositionMutationCounts(object):
         """Fills in the mutation type counts for this object."""
         for alt_nt in set("ACGT") - set(self.nt):
 
-            is_si, is_nnsi = get_mutation_types_for_cp(self.codon, self.cp, alt_nt)
+            is_si, is_nnsi = get_mutation_types_for_cp(
+                self.codon, self.cp, alt_nt
+            )
             tv = is_transversion(self.nt, alt_nt)
 
             if is_si:
@@ -661,9 +663,7 @@ def is_transversion(nt1, nt2):
         If something goes unexpectedly wrong.
     """
     if nt1 == nt2:
-        raise WeirdError(
-            f"is_transversion() called with nt1 == nt2 == {nt1}"
-        )
+        raise WeirdError(f"is_transversion() called with nt1 == nt2 == {nt1}")
 
     # checking using "in nts" works as expected for non-string values; however,
     # checking using "in 'ACGT'" fails, because you get a TypeError about the
