@@ -12,7 +12,7 @@
 # Also, for reference -- if you wanna see all print output during testing, add
 # -s to the end of this command. Useful when debugging stuff.
 test:
-	python3 -B -m pytest strainflye/tests --cov-report xml --cov-report term --cov-report html --cov strainflye
+	python3 -B -m pytest --doctest-modules --cov-report xml --cov-report term --cov-report html --cov strainflye
 
 stylecheck:
 	@# Ignoring E203 per https://github.com/psf/black/issues/315

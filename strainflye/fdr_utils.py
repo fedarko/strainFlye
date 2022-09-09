@@ -463,6 +463,191 @@ def get_mutation_types(mutation_types):
     return tv, nonsyn, nonsense
 
 
+class CodonPositionMutationCounts(object):
+    def __init__(self, codon, cp, is_sense):
+        self.codon = codon
+        self.cp = cp
+        self.is_sense = is_sense
+
+        self.si = 0
+        self.ni = 0
+        if self.is_sense:
+            self.nnsi = 0
+            self.nsi = 0
+        else:
+            # I want things that try to use these in place of ordinary numbers
+            # to fail explicitly, rather than silently do weird stuff with
+            # zeros
+            self.nnsi = None
+            self.nsi = None
+
+    def _sanity_check_syn_intermediate(self):
+        if (self.si + self.ni) > 3:
+            raise WeirdError(
+                f"Pos {self.cp} for codon {self.codon} has Si + Ni == "
+                f"{self.si + self.ni:,} (intermediate)?"
+            )
+
+    def _sanity_check_sense_intermediate(self):
+        if (self.nnsi + self.nsi) > 3:
+            raise WeirdError(
+                f"Pos {self.cp} for codon {self.codon} has NNSi + NSi == "
+                f"{self.nnsi + self.nsi:,} (intermediate)?"
+            )
+
+    def sanity_check_final(self):
+        if (self.si + self.ni) != 3:
+            raise WeirdError(
+                f"Pos {self.cp} for codon {self.codon} has Si + Ni == "
+                f"{self.si + self.ni:,}?"
+            )
+        if self.is_sense:
+            if (self.nnsi + self.nsi) != 3:
+                raise WeirdError(
+                    f"Pos {self.cp} for codon {self.codon} has NNSi + NSi == "
+                    f"{self.nnsi + self.nsi:,}?"
+                )
+        else:
+            if self.nnsi is not None or self.nsi is not None:
+                raise WeirdError(
+                    "For stop codons, NNSi and NSi should be None."
+                )
+
+    def add_si(self):
+        self.si += 1
+        self._sanity_check_syn_intermediate()
+
+    def add_ni(self):
+        self.ni += 1
+        self._sanity_check_syn_intermediate()
+
+    def add_nnsi(self):
+        if not self.is_sense:
+            raise WeirdError("Can't have NNSi for stop codon")
+        self.nnsi += 1
+        self._sanity_check_sense_intermediate()
+
+    def add_nsi(self):
+        if not self.is_sense:
+            raise WeirdError("Can't have NSi for stop codon")
+        self.nsi += 1
+        self._sanity_check_sense_intermediate()
+
+
+def get_poss_mutation_type_info():
+    """Returns information about possible mutations for each CP of each codon.
+
+    In theory, this information doesn't change unless you start considering
+    non-standard genetic codes (or other weird things like alternative start
+    codons). So we could just compute it once, store the results in config.py,
+    and then not bother. But it's simpler to just compute it on the fly,
+    anyway; plus this should make it easier to set up stuff like support for
+    other genetic codes later on, on the off chance that people want that.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    codon2cp2mts: dict
+        Maps each of the 64 codons (formatted as strings, not skbio.DNA
+        objects, for the sake of convenience) to another dict.
+
+        Each of these "inner" dicts maps the ints 1, 2, and 3 (the three codon
+        positions in this codon) to a CodonPositionMutationCounts object, which
+        describes the number of possible Synonymous (si), Nonsynonymous (ni),
+        Non-Nonsense (nnsi), and Nonsense (nsi) mutations at this codon
+        position in this codon (for the standard genetic code).
+
+
+    Raises
+    ------
+    WeirdError
+        Will come up if something goes unexpectedly wrong during this process
+        -- but this shouldn't happen in practice. (Maybe if the installation of
+        scikit-bio is corrupted somehow?)
+
+    Examples
+    --------
+    Consider CP 3 of the codon TGC. In the standard genetic code, here all of
+    the four codons that start with "TG":
+
+    TGA: Stop
+    TGC: Cysteine
+    TGG: Tryptophan
+    TGT: Cysteine
+
+    So, we should see:
+    Si = 1 (one synonymous mutation, TGC --> TGT),
+    Ni = 2 (two nonsynoymous mutations, TGC --> TGA and TGC --> TGG),
+    NNSi = 2 (two non-nonsense mutations, TGC --> TGT and TGC --> TGG), and
+    NSi = 1 (one nonsense mutation, TGC --> TGA).
+
+    >>> codon2cp2mts = get_poss_mutation_type_info()
+    >>> codon2cp2mts["TGC"][3].si
+    1
+    >>> codon2cp2mts["TGC"][3].ni
+    2
+    >>> codon2cp2mts["TGC"][3].nnsi
+    2
+    >>> codon2cp2mts["TGC"][3].nsi
+    1
+
+    Also, let's demonstrate that for stop codons NNSi and NSi should both be
+    None:
+
+    >>> codon2cp2mts["TGA"][3].si
+    0
+    >>> codon2cp2mts["TGA"][3].ni
+    3
+    >>> codon2cp2mts["TGA"][3].nnsi is None
+    True
+    >>> codon2cp2mts["TGA"][3].nsi is None
+    True
+    """
+    codon2cp2mts = {}
+    codon2is_sense = {}
+    dna = "ACGT"
+    for x in dna:
+        for y in dna:
+            for z in dna:
+                codon = x + y + z
+                is_sense = not (str(skbio.DNA(codon).translate()) == "*")
+                codon2is_sense[codon] = is_sense
+                codon2cp2mts[codon] = {
+                    1: CodonPositionMutationCounts(codon, 1, is_sense),
+                    2: CodonPositionMutationCounts(codon, 2, is_sense),
+                    3: CodonPositionMutationCounts(codon, 3, is_sense),
+                }
+
+    for c in codon2cp2mts:
+
+        for pos in [0, 1, 2]:
+
+            cp = pos + 1
+
+            for alt_nt in set(dna) - set(c[pos]):
+                alt_codon = c[:pos] + alt_nt + c[pos + 1 :]
+                aa1 = str(skbio.DNA(c).translate())
+                aa2 = str(skbio.DNA(alt_codon).translate())
+                if aa1 == aa2:
+                    codon2cp2mts[c][cp].add_si()
+                    if codon2is_sense[c]:
+                        codon2cp2mts[c][cp].add_nnsi()
+                else:
+                    codon2cp2mts[c][cp].add_ni()
+                    if codon2is_sense[c]:
+                        if aa2 == "*":
+                            codon2cp2mts[c][cp].add_nsi()
+                        else:
+                            codon2cp2mts[c][cp].add_nnsi()
+
+        codon2cp2mts[c][cp].sanity_check_final()
+
+    return codon2cp2mts
+
+
 def compute_specific_mutation_decoy_contig_mut_rates(
     bcf_obj,
     thresh_type,
@@ -629,6 +814,7 @@ def compute_specific_mutation_decoy_contig_mut_rates(
 
                 # Ignore unreasonable or multi-gene positions
                 if pos in pos_to_consider:
+
                     # Get parent codon from the contig sequence. Note that the
                     # contig_seq object (of type skbio.DNA) is 0-indexed, so
                     # we've gotta take that into account here.
@@ -644,6 +830,12 @@ def compute_specific_mutation_decoy_contig_mut_rates(
                                 curr_codon_cp1_pos - 3 : curr_codon_cp1_pos
                             ]
                         )
+
+                    # Now that we know the parent codon and the current CP we
+                    # are on, figure out how many possible mutations (of the
+                    # type(s) we care about) are possible at this position.
+                    #
+                    # We should already know this information
 
                     raise NotImplementedError(
                         f"{parent_codon_seq} not done yet"
