@@ -197,15 +197,15 @@ def load_triplet(
     bam,
     bcf,
     fancylog,
-    exact=False,
+    bcf_exact=False,
     min_num_contigs=1,
     get_sf_bcf_details=False,
 ):
     """Loads and checks three files: FASTA, BAM, and BCF.
 
     Mainly, this ensures that the contigs in the FASTA file are all present in
-    the BAM and BCF files. If exact is True, then this will also make sure that
-    there aren't any "extra" contigs in the BAM and BCF files.
+    the BAM and BCF files. If bcf_exact is True, then this will also make sure
+    that there aren't any "extra" contigs in the BCF file.
 
     Parameters
     ----------
@@ -222,10 +222,10 @@ def load_triplet(
     fancylog: function
         Logging function.
 
-    exact: bool
-        If True, ensure that each of the three sets of contigs in the files are
-        identical; if False, just ensure that all contigs in the FASTA file are
-        in the BAM and BCF files.
+    bcf_exact: bool
+        If True, ensure that the sets of contigs in the FASTA and BCF files are
+        identical (still allowing there to be "extra" contigs in the BAM file).
+        If False, allow there to be "extra" contigs in the BCF file as well.
 
     min_num_contigs: int
         Will be passed to fasta_utils.get_name2len().
@@ -286,22 +286,16 @@ def load_triplet(
         set(bam_obj.references),
         "the FASTA file",
         "the BAM file",
-        exact=exact,
+        exact=False,
     )
-    if not exact:
-        fancylog(
-            (
-                "All FASTA contig(s) are included in "
-                f"the BAM file (this BAM file has {bam_obj.nreferences:,} "
-                "reference(s))."
-            ),
-            prefix="",
-        )
-    else:
-        fancylog(
-            "The FASTA file's contig(s) and BAM file's reference(s) match.",
-            prefix="",
-        )
+    fancylog(
+        (
+            "All FASTA contig(s) are included in "
+            f"the BAM file (this BAM file has {bam_obj.nreferences:,} "
+            "reference(s))."
+        ),
+        prefix="",
+    )
 
     thresh_type = None
     thresh_min = None
@@ -316,9 +310,9 @@ def load_triplet(
         bcf_contigs,
         "the FASTA file",
         "the BCF file",
-        exact=exact,
+        exact=bcf_exact,
     )
-    if not exact:
+    if not bcf_exact:
         fancylog(
             (
                 "All FASTA contig(s) are included in "

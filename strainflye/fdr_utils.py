@@ -1911,7 +1911,7 @@ def run_estimate(
         bam,
         bcf,
         fancylog,
-        exact=True,
+        bcf_exact=True,
         min_num_contigs=2,
         get_sf_bcf_details=True,
     )
