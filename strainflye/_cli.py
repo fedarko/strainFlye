@@ -501,7 +501,7 @@ strainflye.add_command(fdr)
     "-dctx",
     "--decoy-contexts",
     required=False,
-    default=["CP2Tv"],
+    default=["CP2"],
     show_default=True,
     multiple=True,
     type=click.Choice(config.DECOY_CONTEXTS, case_sensitive=False),
@@ -690,7 +690,10 @@ def estimate(
     "--fdr-info",
     required=True,
     type=click.Path(dir_okay=False),
-    help='Estimated FDR TSV file produced by "strainFlye fdr estimate".',
+    help=(
+        "One of the estimated FDR TSV files produced by "
+        '"strainFlye fdr estimate".'
+    ),
 )
 @click.option(
     "--fdr",
@@ -729,12 +732,13 @@ def estimate(
 def fix(bcf, fdr_info, fdr, output_bcf, verbose):
     """Fix contigs' na\u00efve mutation calls' FDRs to an upper limit.
 
-    This takes as input the estimated FDRs from "strainFlye fdr estimate" to
-    guide us on how to fix the FDR for each contig. Note that mutations that
-    passed the "high" p or r threshold specified for "strainFlye fdr
-    estimate", and thus were not used for FDR estimation, will all be
-    included in the output BCF file from this command; these mutations are
-    considered "indisputable."
+    This takes as input the estimated FDRs from "strainFlye fdr estimate" (if
+    you used multiple decoy contexts, then you will need to choose which set of
+    FDR estimates to use here) to guide us on how to fix the FDR for each
+    contig. Note that mutations that passed the "high" p or r threshold
+    specified for "strainFlye fdr estimate", and thus were not used for FDR
+    estimation, will all be included in the output BCF file from this command;
+    these mutations are considered "indisputable."
 
     We include indisputable mutations from the decoy contig and from all
     target contigs our output BCF file. We will only consider including
