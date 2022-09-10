@@ -669,7 +669,7 @@ class CodonPositionMutationCounts(object):
         prefix = f"Pos {self.cp} for codon {self.codon}"
 
         if (self.si + self.ni) != 3:
-            raise WeirdError(f"{prefix} has Si + Ni == {self.si + self.ni}?")
+            raise WeirdError(f"{prefix} has: Si + Ni == {self.si + self.ni}?")
 
         if (self.si_tv + self.ni_tv) != 2:
             raise WeirdError(
@@ -679,7 +679,7 @@ class CodonPositionMutationCounts(object):
         if self.in_sense_codon:
             if (self.nnsi + self.nsi) != 3:
                 raise WeirdError(
-                    f"{prefix} has NNSi + NSi == {self.nnsi + self.nsi}?"
+                    f"{prefix} has: NNSi + NSi == {self.nnsi + self.nsi}?"
                 )
             if (self.nnsi_tv + self.nsi_tv) != 2:
                 raise WeirdError(
@@ -694,7 +694,7 @@ class CodonPositionMutationCounts(object):
                 or self.nsi_tv is not None
             ):
                 raise WeirdError(
-                    "For stop codons, NNSi and NSi should be None."
+                    "For positions in stop codons, NNSi and NSi must be None."
                 )
 
 

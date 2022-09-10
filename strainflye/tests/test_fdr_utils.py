@@ -1591,3 +1591,41 @@ def test_CodonPositionMutationCounts_bad():
         with pytest.raises(WeirdError) as ei:
             fu.CodonPositionMutationCounts("ACG", 4)
         assert str(ei.value) == "CP must be one of 1, 2, or 3"
+
+
+def test_CodonPositionMutationCounts_messing_with_private_attrs_sanitycheck():
+    mc = fu.CodonPositionMutationCounts("ACG", 3)
+    mc.si = 2
+    with pytest.raises(WeirdError) as ei:
+        mc._sanity_check_final()
+    assert str(ei.value) == "Pos 3 for codon ACG has: Si + Ni == 2?"
+    mc.si = 3
+    mc._sanity_check_final()
+
+    mc.ni_tv = 1
+    with pytest.raises(WeirdError) as ei:
+        mc._sanity_check_final()
+    assert str(ei.value) == "Pos 3 for codon ACG has (Tv): Si + Ni == 3?"
+    mc.ni_tv = 0
+    mc._sanity_check_final()
+
+    mc.nsi = 2
+    with pytest.raises(WeirdError) as ei:
+        mc._sanity_check_final()
+    assert str(ei.value) == "Pos 3 for codon ACG has: NNSi + NSi == 5?"
+    mc.nsi = 0
+    mc._sanity_check_final()
+
+    mc.nnsi_tv = 1
+    with pytest.raises(WeirdError) as ei:
+        mc._sanity_check_final()
+    assert str(ei.value) == "Pos 3 for codon ACG has (Tv): NNSi + NSi == 1?"
+
+    mc = fu.CodonPositionMutationCounts("TGA", 2)
+    mc.nsi_tv = 1
+    mc.nnsi_tv = 1
+    with pytest.raises(WeirdError) as ei:
+        mc._sanity_check_final()
+    assert str(ei.value) == (
+        "For positions in stop codons, NNSi and NSi must be None."
+    )
