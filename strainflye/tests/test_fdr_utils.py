@@ -1554,7 +1554,7 @@ def test_is_transversion_non_nucleotide():
 
     assert str(ei.value) == (
         "is_transversion() parameters are not both str nucleotides. "
-        f"nt1 == AC, nt2 == AC. Check types?"
+        "nt1 == AC, nt2 == AC. Check types?"
     )
 
 
