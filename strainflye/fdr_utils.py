@@ -716,9 +716,6 @@ def is_transversion(nt1, nt2):
         If nt1 or nt2 is not a nucleotide character.
         If something goes unexpectedly wrong.
     """
-    if nt1 == nt2:
-        raise WeirdError(f"is_transversion() called with nt1 == nt2 == {nt1}")
-
     # checking using "in nts" works as expected for non-string values; however,
     # checking using "in 'ACGT'" fails, because you get a TypeError about the
     # left operand needing to be a string. So let's do the list method in order
@@ -731,6 +728,9 @@ def is_transversion(nt1, nt2):
             f"nt1 == {nt1}, nt2 == {nt2}. Check types?"
         )
 
+    if nt1 == nt2:
+        raise WeirdError(f"is_transversion() called with nt1 == nt2 == {nt1}")
+
     if nt1 == "A":
         return nt2 != "G"
     elif nt1 == "C":
@@ -740,6 +740,8 @@ def is_transversion(nt1, nt2):
     elif nt1 == "T":
         return nt2 != "C"
     else:
+        # yeah i know this should never happen but i don't trust myself enough
+        # to remove this "else"
         raise WeirdError("Call a priest")
 
 

@@ -1547,6 +1547,16 @@ def test_is_transversion_non_nucleotide():
             f"nt1 == {nt}, nt2 == AC. Check types?"
         )
 
+    # verify that this check occurs before the "are nt1 and nt2 the same"
+    # check -- not super important, but i think that order makes more sense
+    with pytest.raises(WeirdError) as ei:
+        fu.is_transversion("AC", "AC")
+
+    assert str(ei.value) == (
+        "is_transversion() parameters are not both str nucleotides. "
+        f"nt1 == AC, nt2 == AC. Check types?"
+    )
+
 
 def test_CodonPositionMutationCounts_good():
     mc = fu.CodonPositionMutationCounts("ACG", 3)
