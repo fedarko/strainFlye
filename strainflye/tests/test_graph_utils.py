@@ -7,7 +7,7 @@ from io import StringIO
 from strainflye.errors import GraphParsingError, WeirdError
 
 
-def check_sample1_graph(g):
+def check_sample1_graph(g, exp_seg3_len=21):
     # this should be an undirected graph!
     assert type(g) == nx.Graph
     assert sorted(g.nodes()) == ["1", "2", "3", "4", "5", "6"]
@@ -20,7 +20,7 @@ def check_sample1_graph(g):
     ]
     assert g.nodes["1"]["length"] == 8
     assert g.nodes["2"]["length"] == 10
-    assert g.nodes["3"]["length"] == 21
+    assert g.nodes["3"]["length"] == exp_seg3_len
     assert g.nodes["4"]["length"] == 7
     assert g.nodes["5"]["length"] == 8
     assert g.nodes["6"]["length"] == 4
@@ -42,12 +42,25 @@ def test_load_gfa_noseq():
     check_sample1_graph(g)
 
 
-def test_load_gfa_duplen():
+def test_load_gfa_duplen_consistent():
+    # this used to fail, but now it should pass -- so long as all the sources
+    # of info on length are consistent.
+
     # based on previous test code I wrote at
     # https://github.com/marbl/MetagenomeScope/blob/master/metagenomescope/tests/assembly_graph_parser/utils.py
-    with pytest.raises(GraphParsingError) as errorinfo:
-        gu.load_gfa(gfafp("sample1-duplen"))
-    assert "Duplicate length for segment 3" == str(errorinfo.value)
+    g = gu.load_gfa(gfafp("sample1-duplen"))
+    check_sample1_graph(g, exp_seg3_len=5)
+
+
+def test_load_gfa_duplen_no_disagreement():
+    # (ok but this case should fail because in this case we have no idea which
+    # source of information on the sequence length is "correct")
+    with pytest.raises(GraphParsingError) as ei:
+        gu.load_gfa(gfafp("sample1-duplen-inconsistent"))
+    assert str(ei.value) == (
+        "Contradictory lengths found for segment 3: sequence length is 5 bp, "
+        "but the LN tag says the length is 6 bp."
+    )
 
 
 def test_load_gfa_nolen():

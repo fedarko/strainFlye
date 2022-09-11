@@ -59,17 +59,27 @@ def load_gfa(gfa_fp, min_num_nodes=1):
                 else:
                     node_len = len(parts[2])
 
-                # Parse GFA tags, only caring about length
+                # Parse GFA tags, only caring (for now, at least) about length
                 extra_data = parts[3:]
                 for tag in extra_data:
-                    # This is overcautious, probably, but whatevs
                     if tag.startswith("LN:i:"):
                         if node_len is None:
                             node_len = int(tag[5:])
                         else:
-                            raise GraphParsingError(
-                                f"Duplicate length for segment {node_name}"
-                            )
+                            # Initially, I always threw an error in this case,
+                            # but some real assembly graphs (e.g. hifiasm-meta
+                            # output, as of writing) have both LN tags and
+                            # sequences given. So now I only throw an error if
+                            # the multiple sources of information on length
+                            # disagree.
+                            tag_len = int(tag[5:])
+                            if tag_len != node_len:
+                                raise GraphParsingError(
+                                    "Contradictory lengths found for segment "
+                                    f"{node_name}: sequence length is "
+                                    f"{node_len:,} bp, but the LN tag says "
+                                    f"the length is {tag_len:,} bp."
+                                )
 
                 if node_len is None:
                     raise GraphParsingError(
