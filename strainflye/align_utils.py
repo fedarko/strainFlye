@@ -724,7 +724,16 @@ def filter_pm_reads(
     fancylog("Done filtering out partially-mapped reads.", prefix="")
 
 
-def run(reads, contigs, graph, output_dir, rm_tmp_bam, fancylog, verbose):
+def run(
+    reads,
+    contigs,
+    graph,
+    minimap2_params,
+    output_dir,
+    rm_tmp_bam,
+    fancylog,
+    verbose,
+):
     """Runs the entire alignment-and-filtering process.
 
     Parameters
@@ -740,6 +749,9 @@ def run(reads, contigs, graph, output_dir, rm_tmp_bam, fancylog, verbose):
         graph. This is only used in the partially-mapped read filter; if this
         is None, this just won't be used there. See filter_pm_reads()' docs for
         more information.
+
+    minimap2_params: str
+        Parameters to pass to minimap2.
 
     output_dir: str
         Output directory path. Will be created if it doesn't already exist.
@@ -805,8 +817,15 @@ def run(reads, contigs, graph, output_dir, rm_tmp_bam, fancylog, verbose):
     # unsorted BAM file from "samtools view". So we use piping.
     # SAMtools stuff based on:
     # https://davetang.org/wiki/tiki-index.php?page=SAMTools#Converting_SAM_directly_to_a_sorted_BAM_file # noqa
-    # Python stuff based on https://stackoverflow.com/a/4846923 and
-    # https://stackoverflow.com/a/9655939
+
+    # As discussed at https://stackoverflow.com/q/6880090, some of the piping
+    # utilities Python has struggle when the amount of data being passed is
+    # massive. So -- for the sake of simplicity -- we just use shell=True. This
+    # carries with it some things that should be considered when running this
+    # e.g. on a server (see
+    # https://docs.python.org/3/library/subprocess.html#security-considerations),
+    # but for local usage it should be fine. (This is also the case for "smooth
+    # assemble" when it calls LJA.)
 
     # There's probably a way to print stuff after each individual command in
     # the chain finishes, but I don't think that sorta granularity is super
@@ -814,45 +833,12 @@ def run(reads, contigs, graph, output_dir, rm_tmp_bam, fancylog, verbose):
 
     threesteps = "minimap2 --> samtools view --> samtools sort"
     fancylog(f"Running {threesteps}...")
-
-    # NOTE: the -ax asm20 preset is what we use in the paper, but later
-    # versions of minimap2 have added in "-ax map-hifi" which is probs a better
-    # option in most cases. Shouldn't make too much of a difference; for
-    # simplicity's sake we just stick with asm20 here, but we could definitely
-    # change this (or add the option to configure it) if desired
-    #
-    # TODO TODO TODO the I8g thing is gonna cause problems for other computers
-    # -- see https://github.com/lh3/minimap2/blob/master/FAQ.md, #3.
-    # The way to handle this is make minimap2 CLI params configurable by the
-    # user (they can pass a string with params I guess?)
-    minimap2_run = subprocess.Popen(
-        [
-            "minimap2",
-            "-ax",
-            "asm20",
-            "--secondary=no",
-            "-I8g",
-            "--MD",
-            contigs,
-            *reads,
-        ],
-        stdout=subprocess.PIPE,
-        check=True,
+    cmd = (
+        f"minimap2 {minimap2_params} {contigs} {' '.join(reads)} | samtools "
+        f"view -b - | samtools sort - -o {first_output_bam}"
     )
-    sam_to_bam_run = subprocess.Popen(
-        ["samtools", "view", "-b", "-"],
-        stdin=minimap2_run.stdout,
-        stdout=subprocess.PIPE,
-        check=True,
-    )
-    minimap2_run.stdout.close()
-    bam_to_sorted_bam_run = subprocess.Popen(
-        ["samtools", "sort", "-", "-o", first_output_bam],
-        stdin=sam_to_bam_run.stdout,
-        check=True,
-    )
-    sam_to_bam_run.stdout.close()
-    bam_to_sorted_bam_run.communicate()
+    fancylog(f"Exact command we're running: {cmd}", prefix="")
+    subprocess.run(cmd, shell=True, check=True)
 
     fancylog(f"Done running {threesteps}.", prefix="")
 

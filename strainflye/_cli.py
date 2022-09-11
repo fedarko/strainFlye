@@ -80,6 +80,23 @@ def strainflye():
     ),
 )
 @click.option(
+    "-p",
+    "--minimap2-params",
+    required=False,
+    default=config.DEFAULT_MM2_PARAMS,
+    show_default=True,
+    type=click.STRING,
+    help=(
+        "Additional parameters to pass to minimap2, besides the contig and "
+        "read information. Depending on the size of your dataset and the "
+        "amount of memory your system has, you may want to adjust the -I "
+        "parameter; see minimap2's documentation for details. Please note "
+        "that we do not perform any validation on this string before passing "
+        "it to minimap2 (so if you are allowing users to run strainFlye "
+        "through a web server, be careful about shell injection)."
+    ),
+)
+@click.option(
     "-o",
     "--output-dir",
     required=True,
@@ -110,7 +127,9 @@ def strainflye():
 # Regarding the \b marker, see https://stackoverflow.com/a/53302580 -- this is
 # apparently needed to get the formatting to look the way I want (otherwise all
 # of the four steps are smooshed into a paragraph)
-def align(reads, contigs, graph, output_dir, rm_tmp_bam, verbose):
+def align(
+    reads, contigs, graph, minimap2_params, output_dir, rm_tmp_bam, verbose
+):
     """Align reads to contigs, and filter the resulting alignment.
 
     Files of reads should be in the FASTA or FASTQ formats; GZIP'd files
@@ -142,6 +161,7 @@ def align(reads, contigs, graph, output_dir, rm_tmp_bam, verbose):
             ("file(s) of reads", reads_info),
             ("contig file", contigs),
             ("graph file", graph),
+            ("minimap2 parameters", minimap2_params),
         ),
         (("directory", output_dir),),
         extra_info=(
@@ -150,7 +170,14 @@ def align(reads, contigs, graph, output_dir, rm_tmp_bam, verbose):
         ),
     )
     align_utils.run(
-        reads, contigs, graph, output_dir, rm_tmp_bam, fancylog, verbose
+        reads,
+        contigs,
+        graph,
+        minimap2_params,
+        output_dir,
+        rm_tmp_bam,
+        fancylog,
+        verbose,
     )
     fancylog("Done.")
 

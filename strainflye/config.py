@@ -5,6 +5,9 @@ MAX_DEPTH_PYSAM = 100000000
 # Prefix of diversity index columns in diversity index TSV files
 DI_PREF = "DivIdx"
 
+# Default parameters for minimap2 for "strainFlye align"
+DEFAULT_MM2_PARAMS = "-ax asm20 --secondary=no -I 8g --MD"
+
 # Default parameters for LJA for "strainFlye smooth assemble"
 DEFAULT_LJA_PARAMS = "--simpleec --Cov-threshold 10"
 
