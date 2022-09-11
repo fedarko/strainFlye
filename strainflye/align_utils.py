@@ -791,10 +791,18 @@ def run(
         # marcus)
         raise ParameterError("Collection of input reads should be a tuple.")
 
+    fancylog("Loading and checking contig information...")
     # Note that get_name2len() does some sanity checking on the FASTA
     # Also the < 2 contigs check is needed due to the target/decoy approach
     # stuff requiring at least two contigs
     fasta_name2len = fasta_utils.get_name2len(contigs, min_num_contigs=2)
+    fancylog(
+        (
+            "Looks good. The FASTA file describes {len(fasta_name2len):,} "
+            "contigs."
+        ),
+        prefix="",
+    )
 
     # Sanity-check that the GFA segments are identical to the FASTA contigs. If
     # not, we've got problems (in this case, it's probably easiest to just not
@@ -804,7 +812,7 @@ def run(
     if graph is not None:
         fancylog(
             "Sanity-checking that the assembly graph and FASTA file describe "
-            "the same contigs..."
+            "the same contigs (based on names and lengths)..."
         )
         check_contigs_in_graph(fasta_name2len, graph)
         fancylog("Everything looks good so far.", prefix="")
