@@ -839,10 +839,12 @@ def run(
     )
     fancylog(f"Exact command we're running: {cmd}", prefix="")
     subprocess.run(cmd, shell=True, check=True)
-
     fancylog(f"Done running {threesteps}.", prefix="")
 
     index_bam(first_output_bam, "sorted BAM", fancylog)
+
+    # at this point, we *could* bail out if desired -- we've got our sorted and
+    # indexed BAM file. but we'll do some more filtering on this BAM file.
 
     osa_filter_bam = os.path.join(output_dir, "sorted-osa-filtered.bam")
     filter_osa_reads(first_output_bam, osa_filter_bam, fancylog, verbose)
