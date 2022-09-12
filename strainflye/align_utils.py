@@ -35,6 +35,39 @@ def index_bam(in_bam, bam_descriptor, fancylog):
     fancylog(f"Done indexing the {bam_descriptor}.", prefix="")
 
 
+def rm_bam(bam_fp, bam_descriptor, do_removal, fancylog):
+    """Removes a temporary BAM file and its index.
+
+    Parameters
+    ----------
+    bam_fp: str
+        Location of the BAM file to be removed. We assume another file in the
+        same directory (with the same name, and ending in .bai) exists; we'll
+        remove this "index" file as well.
+
+    bam_descriptor: str
+        Description of the bam_fp file, to be used in the logging message.
+
+    do_removal: bool
+        If True, actually remove the BAM file and its index; if False, don't do
+        anything.
+
+    fancylog: function
+        Logging function.
+
+    Returns
+    -------
+    None
+    """
+    if do_removal:
+        fancylog(
+            f"Removing the {bam_descriptor} and its index to save space..."
+        )
+        os.remove(bam_fp)
+        os.remove(bam_fp + ".bai")
+        fancylog("Done removing these files.", prefix="")
+
+
 def get_coords(alnseg):
     """Returns a linear alignment's coordinates.
 
@@ -863,9 +896,7 @@ def run(
     # enough (e.g. upwards of 70 GB for the SheepGut dataset) that keeping all
     # three around at the same time might exceed the space limit on a user's
     # system.
-    if rm_tmp_bam:
-        os.remove(first_output_bam)
-        os.remove(first_output_bam + ".bai")
+    rm_bam(first_output_bam, "before-filtering BAM", rm_tmp_bam, fancylog)
 
     pm_filter_bam = os.path.join(output_dir, "final.bam")
     filter_pm_reads(graph, osa_filter_bam, pm_filter_bam, fancylog, verbose)
@@ -874,6 +905,4 @@ def run(
     # Similarly, we can remove the OSA-filtered (but not PM-filtered) BAM now.
     # The PM-filtered BAM represents the "final" BAM produced by the alignment
     # step, and is the one that should be used in downstream analyses.
-    if rm_tmp_bam:
-        os.remove(osa_filter_bam)
-        os.remove(osa_filter_bam + ".bai")
+    rm_bam(osa_filter_bam, "just-OSA-filtered BAM", rm_tmp_bam, fancylog)
