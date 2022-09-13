@@ -118,7 +118,7 @@ for some tips on getting started.
 Some of strainFlye's commands use Python's
 [`subprocess` module](https://docs.python.org/3/library/subprocess.html) to run
 non-Python software: minimap2, samtools, bcftools, Prodigal, LJA, etc.
-Most of the time, we do this using `subprocess.run()` with `shell=False` --
+Most of the time, we do this using `subprocess.run()` with `shell=False`:
 long story short, this helps prevent the problem of
 [shell injection](https://en.wikipedia.org/wiki/Code_injection#Shell_injection).
 
