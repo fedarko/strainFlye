@@ -3,7 +3,7 @@ import tempfile
 import pytest
 import numpy as np
 import pandas as pd
-from strainflye.errors import ParameterError, SequencingDataError
+from strainflye.errors import ParameterError
 from strainflye.call_utils import (
     get_alt_pos_info,
     get_pos_info_str,
@@ -296,6 +296,40 @@ def test_run_no_muts_called():
         )
 
 
+def verify_r2_muts(td):
+    # Check BCF
+    bcf_obj, tt, tm = parse_sf_bcf(os.path.join(td, "naive-calls.bcf"))
+    assert tt == "r"
+    assert tm == 2
+    # There should be exactly five mutations, three on c1 and two on c2.
+    # See the logging checks later on in this test for details. (Note that
+    # the positions here are 1-indexed, like the ones in the comments
+    # below.)
+    #
+    # These lists of expected values are in order for
+    # each of these mutations: so the first expected mutation is in c1, at
+    # position 3, with ref (consensus) G and alt T, coverage (MDP) 12x, and
+    # alt(pos) of 3
+    exp_contigs = ["c1", "c1", "c1", "c3", "c3"]
+    exp_pos = [4, 11, 13, 7, 8]
+    exp_ref = ["G", "G", "G", "A", "T"]
+    exp_mdp = [12, 12, 12, 13, 13]
+    exp_alt = ["T", "A", "A", "T", "C"]
+    exp_aad = [3, 5, 5, 6, 3]
+    for ri, rec in enumerate(bcf_obj.fetch()):
+        assert rec.contig == exp_contigs[ri]
+        assert rec.pos == exp_pos[ri]
+        assert rec.ref == exp_ref[ri]
+        assert rec.info.get("MDP") == exp_mdp[ri]
+
+        # Contingent upon the whole only-1-mut-at-a-position thing
+        assert len(rec.alts) == 1
+        assert rec.alts[0] == exp_alt[ri]
+        rec_aad = rec.info.get("AAD")
+        assert len(rec_aad) == 1
+        assert rec_aad[0] == exp_aad[ri]
+
+
 def test_run_small_dataset_r(capsys):
     # "Yeah integration tests are good I guess" -- Sun Tzu
     with tempfile.TemporaryDirectory() as td:
@@ -309,38 +343,7 @@ def test_run_small_dataset_r(capsys):
             div_index_r_list=[1, 2, 3, 4, 5, 6, 7],
             min_cov_factor=2,
         )
-
-        # Check BCF
-        bcf_obj, tt, tm = parse_sf_bcf(os.path.join(td, "naive-calls.bcf"))
-        assert tt == "r"
-        assert tm == 2
-        # There should be exactly five mutations, three on c1 and two on c2.
-        # See the logging checks later on in this test for details. (Note that
-        # the positions here are 1-indexed, like the ones in the comments
-        # below.)
-        #
-        # These lists of expected values are in order for
-        # each of these mutations: so the first expected mutation is in c1, at
-        # position 3, with ref (consensus) G and alt T, coverage (MDP) 12x, and
-        # alt(pos) of 3
-        exp_contigs = ["c1", "c1", "c1", "c3", "c3"]
-        exp_pos = [4, 11, 13, 7, 8]
-        exp_ref = ["G", "G", "G", "A", "T"]
-        exp_mdp = [12, 12, 12, 13, 13]
-        exp_alt = ["T", "A", "A", "T", "C"]
-        exp_aad = [3, 5, 5, 6, 3]
-        for ri, rec in enumerate(bcf_obj.fetch()):
-            assert rec.contig == exp_contigs[ri]
-            assert rec.pos == exp_pos[ri]
-            assert rec.ref == exp_ref[ri]
-            assert rec.info.get("MDP") == exp_mdp[ri]
-
-            # Contingent upon the whole only-1-mut-at-a-position thing
-            assert len(rec.alts) == 1
-            assert rec.alts[0] == exp_alt[ri]
-            rec_aad = rec.info.get("AAD")
-            assert len(rec_aad) == 1
-            assert rec_aad[0] == exp_aad[ri]
+        verify_r2_muts(td)
 
         # Check diversity index file
         obs_di_df = pd.read_csv(
@@ -765,30 +768,7 @@ def test_run_contig_with_no_alns_nonverbose_r(capsys):
             div_index_r_list=[1],
             min_cov_factor=2,
         )
-
-        # Check BCF
-        bcf_obj, tt, tm = parse_sf_bcf(os.path.join(td, "naive-calls.bcf"))
-        assert set(bcf_obj.header.contigs) == set(["c1", "c2", "c3", "c4"])
-        assert tt == "r"
-        assert tm == 2
-
-        exp_contigs = ["c1", "c1", "c1", "c3", "c3"]
-        exp_pos = [4, 11, 13, 7, 8]
-        exp_ref = ["G", "G", "G", "A", "T"]
-        exp_mdp = [12, 12, 12, 13, 13]
-        exp_alt = ["T", "A", "A", "T", "C"]
-        exp_aad = [3, 5, 5, 6, 3]
-        for ri, rec in enumerate(bcf_obj.fetch()):
-            assert rec.contig == exp_contigs[ri]
-            assert rec.pos == exp_pos[ri]
-            assert rec.ref == exp_ref[ri]
-            assert rec.info.get("MDP") == exp_mdp[ri]
-
-            assert len(rec.alts) == 1
-            assert rec.alts[0] == exp_alt[ri]
-            rec_aad = rec.info.get("AAD")
-            assert len(rec_aad) == 1
-            assert rec_aad[0] == exp_aad[ri]
+        verify_r2_muts(td)
 
         # Check diversity index file
         obs_di_df = pd.read_csv(
@@ -836,22 +816,22 @@ def test_run_contig_with_no_alns_nonverbose_r(capsys):
 
 def test_run_degen_nts():
     with tempfile.TemporaryDirectory() as td:
-        with pytest.raises(SequencingDataError) as ei:
-            run(
-                FASTA,
-                os.path.join(IN_DIR, "degen.bam"),
-                td,
-                mock_log,
-                True,
-                min_r=2,
-                div_index_r_list=[1, 2, 3, 4, 5, 6, 7],
-                min_cov_factor=2,
-            )
-        assert str(ei.value) == (
-            "Found a degenerate nucleotide aligned to contig c1 at "
-            "(1-indexed) position 9. Alignments including degenerate "
-            "nucleotides (e.g. N) are not supported."
+        run(
+            FASTA,
+            os.path.join(IN_DIR, "degen.bam"),
+            td,
+            mock_log,
+            True,
+            min_r=2,
+            div_index_r_list=[1, 2, 3],
+            min_cov_factor=2,
         )
+        # Since the degenerate nucleotides in degen.bam only occur at otherwise
+        # homogenous positions, the amount of mutated positions for r = 2
+        # should be the same as for the other tests for the ordinary BAM file.
+        # Degenerates shouldn't count towards mutations at all.
+        # (Probably worth adding more tests tho)
+        verify_r2_muts(td)
 
 
 def test_run_tie_in_mut_pos(tmp_path):

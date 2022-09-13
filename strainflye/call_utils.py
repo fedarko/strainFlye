@@ -6,7 +6,7 @@ import time
 import pysam
 import pysamstats
 from . import config
-from .errors import SequencingDataError, ParameterError, WeirdError
+from .errors import ParameterError, WeirdError
 from strainflye import (
     __version__,
     fasta_utils,
@@ -530,15 +530,6 @@ def run(
             ),
             1,
         ):
-            # Sanity checks
-            if rec["N"] > 0:
-                raise SequencingDataError(
-                    "Found a degenerate nucleotide aligned to contig "
-                    f"{contig} at (1-indexed) position {pos:,}. Alignments "
-                    "including degenerate nucleotides (e.g. N) are not "
-                    "supported."
-                )
-
             rpos = rec["pos"] + 1
             if rpos != pos:
                 raise WeirdError(

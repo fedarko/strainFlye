@@ -186,9 +186,10 @@ def align(
 def call():
     """[+] Call mutations in contigs na\u00efvely & compute diversity indices.
 
-    Consider a position "pos" in a contig. A given read with a (mis)match
-    operation at "pos" must have one of four nucleotides (A, C, G, T) aligned
-    to pos. We represent these nucleotides' counts at pos as follows:
+    Consider a position "pos" in a contig. Using the alignment, we can count
+    how many reads have a (mis)match operation to "pos" with one of the four
+    nucleotides (A, C, G, T). We represent these four nucleotides' counts at
+    pos as follows:
 
     \b
         N1 = # reads of the most-common aligned nucleotide at pos,
@@ -205,11 +206,12 @@ def call():
     -----------------------------------------------------
 
     This takes as input some percentage p in the range (0%, 50%].
-    Define freq(pos) = N2 / (N1 + N2 + N3 + N4). This value, constrained to
-    the range [0%, 50%], is an estimate of the mutation frequency of this
-    position. We classify pos as a p-mutation if freq(pos) \u2265 p, AND if
-    N2 \u2265 the --min-alt-pos parameter (an integer representing a minimum
-    number of reads that must support the alternate nucleotide).
+    Define freq(pos) = N2 / (N1 + N2 + N3 + N4). This value, which is
+    inherently constrained to the range [0%, 50%], is an estimate of the
+    mutation frequency of this position. We classify pos as a p-mutation
+    if freq(pos) \u2265 p, AND if N2 \u2265 the --min-alt-pos parameter
+    (an integer representing a minimum number of reads that must support
+    the alternate nucleotide).
 
     r-mutations (na\u00efve read-count-based mutation calling)
     -----------------------------------------------------
