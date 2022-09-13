@@ -111,6 +111,33 @@ If you're interested in making changes to strainFlye's code, please see
 [`CONTRIBUTING.md`](https://github.com/fedarko/strainFlye/blob/main/CONTRIBUTING.md)
 for some tips on getting started.
 
+## Miscellaneous notes about minor details you probably don't need to care about
+
+### Shell injection (only relevant if this is hosted on a web server)
+
+Some of strainFlye's commands use Python's
+[`subprocess` module](https://docs.python.org/3/library/subprocess.html) to run
+non-Python software: minimap2, samtools, bcftools, Prodigal, LJA, etc.
+Most of the time, we do this using `subprocess.run()` with `shell=False` --
+long story short, this helps prevent the problem of
+[shell injection](https://en.wikipedia.org/wiki/Code_injection#Shell_injection).
+
+However, as of writing, there are two places where strainFlye uses
+`subprocess.run()` with `shell=True`: in `strainFlye align` (when running
+minimap2 and samtools), and in `strainFlye smooth assemble` (when running LJA).
+This is for convenience's sake, since we allow the user to pass in extra
+parameters to these commands (the `--minimap2-params` option for `strainFlye
+align`, and the `--lja-params` option for `strainFlye smooth assemble`).
+
+Our use of `shell=True` in these two cases means that it's possible to make
+these commands do unexpected things (see
+[Python's documentation here](https://docs.python.org/3/library/subprocess.html#security-considerations) for details).
+*This should not be a problem if you are running strainFlye directly.* However,
+if you decide to host strainFlye on a server somewhere (and you allow users to
+upload files, specify parameters, etc.) then you should be careful about
+preventing shell injection in these cases. Feel free to open an issue if you
+have any questions about this.
+
 ## Acknowledgements
 
 ### Test data
