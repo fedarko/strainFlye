@@ -188,8 +188,8 @@ def call():
 
     Consider a position "pos" in a contig. Using the alignment, we can count
     how many reads have a (mis)match operation to "pos" with one of the four
-    nucleotides (A, C, G, T). We represent these four nucleotides' counts at
-    pos as follows:
+    nucleotides (A, C, G, T; we ignore degenerate nucleotides in reads).
+    We represent these four nucleotides' counts at pos as follows:
 
     \b
         N1 = # reads of the most-common aligned nucleotide at pos,
