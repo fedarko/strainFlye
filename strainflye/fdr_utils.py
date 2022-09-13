@@ -1940,6 +1940,55 @@ def compute_decoy_contig_mut_rates(
     return ctx2mr
 
 
+def get_unique_sorted_decoy_contexts(decoy_contexts):
+    """Returns a sorted list of unique decoy contexts, based on user input.
+
+    Parameters
+    ----------
+    decoy_contexts: list
+        List of decoy contexts (i.e. values in config.DCTX_ALL). This may
+        include a special value, config.DCTX_EVERYTHING, which doesn't actually
+        correspond to a context -- instead, it indicates that we should act as
+        if the user specified all decoy contexts. Notably, click allows the
+        user to specify the same option multiple times, so this list may
+        contain duplicates.
+
+    Returns
+    -------
+    list
+        A sorted list of unique decoy contexts.
+
+    Raises
+    ------
+    WeirdError
+        If decoy_contexts is empty.
+
+        If any of the values in decoy_contexts are not present in
+        config.DCTX_ALL.
+    """
+    if len(decoy_contexts) == 0:
+        raise WeirdError("At least one decoy context must be specified.")
+
+    unrecognized_ctxs = set(decoy_contexts) - set(config.DCTX_ALL)
+    if len(unrecognized_ctxs) > 0:
+        # Let's sort the "bad" contexts to make testing determinisitc
+        ucs = sorted(unrecognized_ctxs)
+        raise WeirdError(f"Unrecognized decoy context option(s): {ucs}")
+
+    if config.DCTX_EVERYTHING in decoy_contexts:
+        # ignore the other stuff in here -- because of the "everything" option
+        # being present, select all available contexts
+        ctxs = config.DECOY_CONTEXTS
+    else:
+        # Since "everything" wasn't specified, all we need to do is remove
+        # duplicates if they exist
+        ctxs = set(decoy_contexts)
+
+    # In any case, sort the list of contexts to ensure that processing is
+    # done in a consistent order (makes testing / etc. easier)
+    return sorted(ctxs)
+
+
 def run_estimate(
     contigs,
     bam,
@@ -2150,7 +2199,7 @@ def run_estimate(
     # mutation rates a gazillion times for some weird reason...
     # (Also, let's sort this list so that there is a consistent order we can
     # rely on.)
-    unique_ctxs = sorted(set(decoy_contexts))
+    unique_ctxs = get_unique_sorted_decoy_contexts(decoy_contexts)
 
     fancylog(
         f"Computing mutation rates for {used_decoy_contig} at these threshold "

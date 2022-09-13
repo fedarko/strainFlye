@@ -10,7 +10,7 @@ import strainflye.fdr_utils as fu
 import strainflye.bcf_utils as bu
 from io import StringIO
 from strainflye.errors import ParameterError, SequencingDataError, WeirdError
-from strainflye.config import DI_PREF
+from strainflye.config import DI_PREF, DECOY_CONTEXTS
 from .utils_for_testing import mock_log, write_indexed_bcf
 
 
@@ -1638,4 +1638,43 @@ def test_CodonPositionMutationCounts_messing_with_private_attrs_sanitycheck():
         mc._sanity_check_final()
     assert str(ei.value) == (
         "For positions in stop codons, NNSi and NSi must be None."
+    )
+
+
+def test_get_unique_sorted_decoy_contexts_good():
+    assert fu.get_unique_sorted_decoy_contexts(
+        ["Full", "CP2", "Tv", "Full"]
+    ) == ["CP2", "Full", "Tv"]
+    assert fu.get_unique_sorted_decoy_contexts(["Full"]) == ["Full"]
+
+    sorted_all = sorted(DECOY_CONTEXTS)
+    assert fu.get_unique_sorted_decoy_contexts(["Everything"]) == sorted_all
+    assert (
+        fu.get_unique_sorted_decoy_contexts(["Everything", "CP2Tv"])
+        == sorted_all
+    )
+
+
+def test_get_unique_sorted_decoy_contexts_bad():
+    with pytest.raises(WeirdError) as ei:
+        fu.get_unique_sorted_decoy_contexts([])
+    assert str(ei.value) == "At least one decoy context must be specified."
+
+    # CP2TvNonsyn shouldn't be in the list of decoy contexts
+    with pytest.raises(WeirdError) as ei:
+        fu.get_unique_sorted_decoy_contexts(["Full", "CP2TvNonsyn"])
+    assert str(ei.value) == (
+        "Unrecognized decoy context option(s): ['CP2TvNonsyn']"
+    )
+
+    with pytest.raises(WeirdError) as ei:
+        fu.get_unique_sorted_decoy_contexts(
+            ["Full", "CP2TvNonsyn", "CP2", "flibbity floobity"]
+        )
+
+    # The list of "bad" contexts is sorted, and Python sorts uppercase letters
+    # before lowercase letters (at least as far as i can tell)
+    assert str(ei.value) == (
+        "Unrecognized decoy context option(s): ['CP2TvNonsyn', "
+        "'flibbity floobity']"
     )

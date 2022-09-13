@@ -33,3 +33,10 @@ DECOY_CONTEXTS = [
     "TvNonsense",
     "CP2TvNonsense",
 ]
+
+# Optional value for the --decoy-contexts parameter for FDR estimation:
+# if this is given, we'll just use all decoy contexts (that way the user
+# doesn't have to write each option out).
+DCTX_EVERYTHING = "Everything"
+
+DCTX_ALL = DECOY_CONTEXTS + [DCTX_EVERYTHING]

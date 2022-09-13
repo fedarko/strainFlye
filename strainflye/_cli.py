@@ -527,11 +527,11 @@ strainflye.add_command(fdr)
 @click.option(
     "-dctx",
     "--decoy-contexts",
-    required=False,
+    required=True,
     default=["CP2"],
     show_default=True,
     multiple=True,
-    type=click.Choice(config.DECOY_CONTEXTS, case_sensitive=False),
+    type=click.Choice(config.DCTX_ALL, case_sensitive=False),
     help=(
         '"Context-dependent" types of positions and/or mutations to which '
         "the computation of mutation rates in the decoy contig will be "
@@ -543,7 +543,8 @@ strainflye.add_command(fdr)
         "mutations in these genes; Nonsense will focus on potential nonsense "
         "mutations in these genes; and Tv will focus on potential "
         "transversion mutations.) You can specify this option multiple times "
-        "to generate multiple sets of FDR estimates."
+        "to generate multiple sets of FDR estimates. (You can also specify "
+        f'"{config.DCTX_EVERYTHING}" to use all available contexts.)'
     ),
 )
 @click.option(
