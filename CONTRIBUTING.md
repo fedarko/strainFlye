@@ -27,6 +27,10 @@ conda activate strainflye
 pip install -e .[dev]
 ```
 
+If you want to work on `strainFlye smooth assemble` then you will also need to
+install [LJA](https://github.com/AntonBankevich/LJA), as discussed in the
+strainFlye README.
+
 ## Development commands
 
 strainFlye's
