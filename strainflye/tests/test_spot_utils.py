@@ -857,6 +857,8 @@ def test_get_coldspot_gaps_literal_docs_example():
 
 
 def test_get_coldspot_gap_pvalues_fisher1929():
+    # These are from the table in (Fisher 1929)
+    # see https://royalsocietypublishing.org/doi/abs/10.1098/rspa.1929.0151
     assert su.get_coldspot_gap_pvalues(5, 100, [68.377]) == [
         approx(0.05, abs=1e-4)
     ]

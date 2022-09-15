@@ -487,8 +487,8 @@ def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
     This corresponds to equation (6.4.4) on page 135 in the book
     Order Statistics, Third Edition (David & Nagarala 2003).
 
-    This equation, in turn, comes from (Fisher 1929) ("Tests of Significance in
-    Harmonic Analysis").
+    This equation, in turn, comes from the article "Tests of Significance in
+    Harmonic Analysis" (Fisher 1929).
 
     [TODO: notes about this being only for the largest gap; circular handling;
     errors; ...]
