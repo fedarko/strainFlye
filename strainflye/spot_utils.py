@@ -2,8 +2,9 @@
 
 
 import skbio
+from scipy.special import comb
 from strainflye import bcf_utils
-from strainflye.errors import ParameterError
+from strainflye.errors import ParameterError, WeirdError
 
 
 def run_hotspot_feature_detection(
@@ -365,9 +366,9 @@ def get_coldspot_gaps_in_contig(muts, contig_length, min_length, circular):
         Each entry in this list is a 3-tuple that describes a coldspot gap
         identified in this contig. The four entries of each tuple are:
 
-          2. Start position of the gap (1-indexed, inclusive)
-          3. End position of the gap (1-indexed, inclusive)
-          4. Length of the gap
+          1. Start position of the gap (1-indexed, inclusive)
+          2. End position of the gap (1-indexed, inclusive)
+          3. Length of the gap
     """
     coldspots = []
 
@@ -467,6 +468,75 @@ def get_coldspot_gaps_in_contig(muts, contig_length, min_length, circular):
     return coldspots
 
 
+def get_coldspot_gap_pvalues(muts, contig_length, coldspots):
+    """Computes p-values for coldspot gap lengths.
+
+    Parameters
+    ----------
+    muts: list
+        Sorted list of (1-indexed) mutated positions in a contig. We assume
+        that all of these are in the inclusive range [1, contig_length].
+
+    contig_length: int
+        Length of the contig.
+
+    coldspots: list of (int, int, int)
+        Each entry in this list is a 3-tuple that describes a coldspot gap
+        identified in this contig. Should match the output from
+        get_coldspot_gaps_in_contig(): (start, end, length).
+
+
+    References
+    ----------
+    This corresponds to equation (6.4.4) on page 135 in the book
+    Order Statistics, Third Edition (David & Nagarala 2003).
+
+    This equation, in turn, comes from (Fisher 1929) ("Tests of Significance in
+    Harmonic Analysis").
+
+    [TODO: notes about this being only for the largest gap; circular handling;
+    ...]
+    """
+    num_muts = len(muts)
+    pvals = []
+
+    # In the 0-mutation case, the probability we get is 0, I think -- since
+    # (1 - iv) = (1 - (1 * gap_len_unit)) = (1 - 1) = 0, we will never add any
+    # terms to the series.
+    #
+    # However, since there aren't *any* mutations on the contig at all, the
+    # assumption behind this equation (that some amount of points are dropped
+    # randomly onto an interval) does not hold. So, rather than report a
+    # p-value of 0 (which is vulnerable to people reading that and going "wow
+    # this contig has no mutations, Nature here i come!") I'm gonna just say
+    # "NA". (This method of writing "NA" instead of "N/A" matches how undefined
+    # diversity indices are output in the TSV from "strainFlye call.")
+    if num_muts == 0:
+        if len(coldspots) != 1:
+            raise WeirdError(
+                "A contig with 0 mutations has exactly 1 coldspot."
+            )
+        pvals.append("NA")
+
+    else:
+        for gap in coldspots:
+            gap_len_unit = gap[2] / contig_length
+            i = 1
+            p = 0
+            sign = 1
+            while (1 - (i * gap_len_unit)) > 0:
+                p += (
+                    sign
+                    * comb(num_muts, i)
+                    * ((1 - (i * gap_len_unit)) ** (num_muts - 1))
+                )
+                i += 1
+                # corresponds to (-1)**(i - 1)
+                sign = -sign
+            pvals.append(p)
+    return pvals
+
+
 def run_coldspot_gap_detection(
     bcf,
     min_length,
@@ -540,6 +610,11 @@ def run_coldspot_gap_detection(
     # gotta know the contig length, and it's a whole ordeal). Easier to just
     # be a little bit memory inefficient and store lengths from the get-go.
     contig2coldspots = {}
+
+    # Maps contig IDs to a list of p-values for each coldspot. Each list should
+    # have the same length as the corresponding list in contig2coldspots.
+    contig2coldspot_pvals = {}
+
     total_num_coldspots = 0
 
     fancylog("Going through contigs and identifying coldspot gaps...")
@@ -560,6 +635,15 @@ def run_coldspot_gap_detection(
             muts, contig_length, min_length, circular
         )
         contig2coldspots[contig] = contig_coldspots
+
+        # The p-value computation is a separate step, just to avoid making me
+        # update all of the other tests (it might be slightly faster to bundle
+        # this into one loop, but this would take more work)
+        coldspot_pvals = get_coldspot_gap_pvalues(
+            muts, contig_length, contig_coldspots
+        )
+        contig2coldspot_pvals[contig] = coldspot_pvals
+
         total_num_coldspots += len(contig_coldspots)
 
     fancylog(
@@ -573,9 +657,13 @@ def run_coldspot_gap_detection(
 
     with open(output_coldspot_gaps, "w") as of:
         of.write(
-            "Contig\tStart_1IndexedInclusive\tEnd_1IndexedInclusive\tLength\n"
+            "Contig\tStart_1IndexedInclusive\tEnd_1IndexedInclusive\tLength\t"
+            "P_Value\n"
         )
         for contig in contig2coldspots.keys():
-            for start, end, length in contig2coldspots[contig]:
-                of.write(f"{contig}\t{start}\t{end}\t{length}\n")
+            both_lists = zip(
+                contig2coldspots[contig], contig2coldspot_pvals[contig]
+            )
+            for (start, end, length), pval in both_lists:
+                of.write(f"{contig}\t{start}\t{end}\t{length}\t{pval}\n")
     fancylog("Done.", prefix="")

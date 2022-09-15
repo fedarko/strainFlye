@@ -16,6 +16,11 @@ dependencies:
 
     - numpy
 
+    # The main thing we use scipy for as of writing is scipy.special.comb();
+    # v1.0 is the version of scipy that deprecated using scipy.misc.comb().
+    # (This isn't a hard requirement, though.)
+    - scipy >= 1.0
+
     - samtools >= 1.7
 
     - bcftools
