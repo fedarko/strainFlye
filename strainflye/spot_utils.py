@@ -368,7 +368,7 @@ def get_coldspot_gaps_in_contig(muts, contig_length, min_length, circular):
 
           1. Start position of the gap (1-indexed, inclusive)
           2. End position of the gap (1-indexed, inclusive)
-          3. Length of the gap
+          3. Length of the gap (aka total number of positions in the gap)
     """
     coldspots = []
 
@@ -468,23 +468,19 @@ def get_coldspot_gaps_in_contig(muts, contig_length, min_length, circular):
     return coldspots
 
 
-def get_coldspot_gap_pvalues(muts, contig_length, coldspots):
+def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
     """Computes p-values for coldspot gap lengths.
 
     Parameters
     ----------
-    muts: list
-        Sorted list of (1-indexed) mutated positions in a contig. We assume
-        that all of these are in the inclusive range [1, contig_length].
+    num_muts: int
+        Number of mutated positions in a contig. Must be <= contig_length.
 
     contig_length: int
         Length of the contig.
 
-    coldspots: list of (int, int, int)
-        Each entry in this list is a 3-tuple that describes a coldspot gap
-        identified in this contig. Should match the output from
-        get_coldspot_gaps_in_contig(): (start, end, length).
-
+    coldspot_lengths: list of int
+        List of coldspot lengths.
 
     References
     ----------
@@ -495,14 +491,12 @@ def get_coldspot_gap_pvalues(muts, contig_length, coldspots):
     Harmonic Analysis").
 
     [TODO: notes about this being only for the largest gap; circular handling;
-    ...]
+    errors; ...]
     """
-    num_muts = len(muts)
     pvals = []
-
     # In the 0-mutation case, the probability we get is 0, I think -- since
-    # (1 - iv) = (1 - (1 * gap_len_unit)) = (1 - 1) = 0, we will never add any
-    # terms to the series.
+    # on the first iteration through the while loop, (1 - iv) = (1 - 1) = 0,
+    # we will never add any terms to the series.
     #
     # However, since there aren't *any* mutations on the contig at all, the
     # assumption behind this equation (that some amount of points are dropped
@@ -512,23 +506,24 @@ def get_coldspot_gap_pvalues(muts, contig_length, coldspots):
     # "NA". (This method of writing "NA" instead of "N/A" matches how undefined
     # diversity indices are output in the TSV from "strainFlye call.")
     if num_muts == 0:
-        if len(coldspots) != 1:
+        if len(coldspot_lengths) != 1 or coldspot_lengths[0] != contig_length:
             raise WeirdError(
-                "A contig with 0 mutations has exactly 1 coldspot."
+                "A contig with 0 mutations must have exactly 1 coldspot "
+                "covering the entire contig."
             )
         pvals.append("NA")
 
     else:
-        for gap in coldspots:
-            gap_len_unit = gap[2] / contig_length
+        for gap_length in coldspot_lengths:
+            v = gap_length / contig_length
             i = 1
             p = 0
             sign = 1
-            while (1 - (i * gap_len_unit)) > 0:
+            while (1 - (i * v)) > 0:
                 p += (
                     sign
                     * comb(num_muts, i)
-                    * ((1 - (i * gap_len_unit)) ** (num_muts - 1))
+                    * ((1 - (i * v)) ** (num_muts - 1))
                 )
                 i += 1
                 # corresponds to (-1)**(i - 1)
@@ -640,7 +635,7 @@ def run_coldspot_gap_detection(
         # update all of the other tests (it might be slightly faster to bundle
         # this into one loop, but this would take more work)
         coldspot_pvals = get_coldspot_gap_pvalues(
-            muts, contig_length, contig_coldspots
+            len(muts), contig_length, [cs[2] for cs in contig_coldspots]
         )
         contig2coldspot_pvals[contig] = coldspot_pvals
 

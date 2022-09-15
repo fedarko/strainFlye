@@ -4,7 +4,8 @@ import tempfile
 import pytest
 import pandas as pd
 import strainflye.spot_utils as su
-from strainflye.errors import ParameterError
+from pytest import approx
+from strainflye.errors import ParameterError, WeirdError
 from .utils_for_testing import mock_log
 
 
@@ -853,3 +854,32 @@ def test_get_coldspot_gaps_literal_docs_example():
         (1, 3, 3),
         (7, 9, 3),
     ]
+
+
+def test_get_coldspot_gap_pvalues_fisher1929():
+    assert su.get_coldspot_gap_pvalues(5, 100, [68.377]) == [
+        approx(0.05, abs=1e-4)
+    ]
+    assert su.get_coldspot_gap_pvalues(10, 100, [44.495]) == [
+        approx(0.05, abs=1e-4)
+    ]
+
+
+def test_get_coldspot_gap_pvalues_zero_muts():
+    assert su.get_coldspot_gap_pvalues(0, 100, [100]) == ["NA"]
+
+    # test case where there's exactly 1 coldspot but the length is weird
+    exp_err_msg = (
+        "A contig with 0 mutations must have exactly 1 coldspot covering the "
+        "entire contig."
+    )
+    for cl in list(range(-100, 100)) + list(range(101, 200)):
+        with pytest.raises(WeirdError) as ei:
+            su.get_coldspot_gap_pvalues(0, 100, [cl])
+        assert str(ei.value) == exp_err_msg
+
+    # test case where there's != 1 coldspot
+    for coldspot_list in ([100, 1], [99, 1], [5, 5, 5], [], [50]):
+        with pytest.raises(WeirdError) as ei:
+            su.get_coldspot_gap_pvalues(0, 100, coldspot_list)
+        assert str(ei.value) == exp_err_msg
