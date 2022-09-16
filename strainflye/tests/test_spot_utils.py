@@ -2,6 +2,7 @@ import io
 import os
 import tempfile
 import pytest
+import numpy as np
 import pandas as pd
 import strainflye.spot_utils as su
 from pytest import approx
@@ -664,9 +665,16 @@ def test_coldspot_good_nocircular(capsys):
                 "Start_1IndexedInclusive": [5, 14, 1, 1, 9],
                 "End_1IndexedInclusive": [10, 23, 12, 6, 16],
                 "Length": [6, 10, 12, 6, 8],
+                "P_Value": [
+                    approx(0.999999999),
+                    approx(0.907372400756),
+                    np.nan,
+                    1.0,
+                    1.0,
+                ],
             }
         )
-        pd.testing.assert_frame_equal(obs_df, exp_df)
+        pd.testing.assert_frame_equal(obs_df, exp_df, check_dtype=False)
     exp_out = (
         "PREFIX\nMockLog: Loading and checking the BCF file...\n"
         "MockLog: Looks good so far.\n"
@@ -701,9 +709,15 @@ def test_coldspot_good_circular(capsys):
                 "Start_1IndexedInclusive": [5, 14, 1, 9],
                 "End_1IndexedInclusive": [10, 3, 12, 6],
                 "Length": [6, 13, 12, 14],
+                "P_Value": [
+                    approx(0.999999999),
+                    approx(0.56710775047),
+                    np.nan,
+                    0.25,
+                ],
             }
         )
-        pd.testing.assert_frame_equal(obs_df, exp_df)
+        pd.testing.assert_frame_equal(obs_df, exp_df, check_dtype=False)
     exp_out = (
         "PREFIX\nMockLog: Loading and checking the BCF file...\n"
         "MockLog: Looks good so far.\n"
