@@ -528,6 +528,17 @@ def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
                 i += 1
                 # corresponds to (-1)**(i - 1)
                 sign = -sign
+
+            # account for silly floating-point issues -- ensure that the
+            # p-value is clamped to [0, 1]. (For some extremely tiny gaps, I've
+            # noticed that the reported p-values can be 1.0000000000000004 or
+            # something like that -- the actual probability is still less than
+            # 1, I think, but it makes sense to just clamp it to 1 to make it
+            # clear that this is a High P-Value (tm).)
+            if p < 0:
+                p = 0
+            elif p > 1:
+                p = 1
             pvals.append(p)
     return pvals
 
