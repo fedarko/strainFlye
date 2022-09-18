@@ -538,7 +538,9 @@ def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
 
     - We don't perform much validation on the number of coldspot gaps -- half
       to make testing easier, and half because this should never get messed up
-      in practice.
+      in practice. (Also, the number of gaps isn't straightforward to compute
+      from the number of mutations and contig length, due to things like
+      circular maybe being True.)
     """
     pvals = []
     if num_muts == 0:

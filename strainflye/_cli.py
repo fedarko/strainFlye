@@ -954,7 +954,12 @@ def hot_features(
     type=click.Path(dir_okay=False),
     help=(
         "Filepath to which an output tab-separated values (TSV) file "
-        "describing coldspots will be written."
+        "describing coldspots will be written. The longest gap in each "
+        "contig will also be given a p-value, indicating the probability "
+        "of the longest gap being at least this long (given the length of "
+        "and number of mutated positions in this contig, and assuming that "
+        "mutated positions are placed randomly). See (Barton & David 1959) "
+        "for details."
     ),
 )
 def cold_gaps(bcf, min_length, circular, output_coldspots):
