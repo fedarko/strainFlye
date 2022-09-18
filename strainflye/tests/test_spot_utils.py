@@ -848,6 +848,26 @@ def test_get_coldspot_gaps_many_mutations():
         (61, 49, 89)
     ]
 
+    # positions are [1, 2, 3, ..., 98, 99, 100].
+    # If each position is mutated, there are no coldspots.
+    assert su.get_coldspot_gaps_in_contig(range(1, 101), 100, 1, True) == []
+
+    # Try removing just the first mutated position -- creates a "gap" at this
+    # one position
+    assert su.get_coldspot_gaps_in_contig(range(2, 101), 100, 1, True) == [
+        (1, 1, 1)
+    ]
+
+    # same deal with the last position
+    assert su.get_coldspot_gaps_in_contig(range(1, 100), 100, 1, True) == [
+        (100, 100, 1)
+    ]
+
+    # circular of last + first
+    assert su.get_coldspot_gaps_in_contig(range(2, 100), 100, 1, True) == [
+        (100, 1, 2)
+    ]
+
 
 def test_get_coldspot_gaps_literal_docs_example():
     # "better safe than sorry" -- not the guy who designed the titanic
