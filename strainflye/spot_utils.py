@@ -563,6 +563,7 @@ def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
         max_gap_idx = max(
             range(0, num_gaps), key=lambda i: coldspot_lengths[i]
         )
+        max_gap_pval = "NA"
 
         # I'm going to use single-letter variable names here to make it easier
         # to connect this to the equation shown in (Barton & David 1959, page
@@ -592,9 +593,7 @@ def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
         # sure that we can't compute the probability even if we are just doing
         # Prob(M <= 1). So let's just report "NA" in this case.
         m = coldspot_lengths[max_gap_idx] - 1
-        if m == 0:
-            max_gap_pval = "NA"
-        else:
+        if m > 0:
             # For reference, both (Barton & David 1959) and
             # (David & Nagaraja 2003) refer to the lower bound here (as well as
             # one of the possible values for a) in square brackets. Apparently,

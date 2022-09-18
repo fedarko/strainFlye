@@ -666,11 +666,11 @@ def test_coldspot_good_nocircular(capsys):
                 "End_1IndexedInclusive": [10, 23, 12, 6, 16],
                 "Length": [6, 10, 12, 6, 8],
                 "P_Value": [
-                    approx(0.999999999),
-                    approx(0.907372400756),
                     np.nan,
-                    1.0,
-                    1.0,
+                    8 / 11,
+                    np.nan,
+                    np.nan,
+                    0.8,
                 ],
             }
         )
@@ -710,10 +710,10 @@ def test_coldspot_good_circular(capsys):
                 "End_1IndexedInclusive": [10, 3, 12, 6],
                 "Length": [6, 13, 12, 14],
                 "P_Value": [
-                    approx(0.999999999),
-                    approx(0.56710775047),
                     np.nan,
-                    0.25,
+                    approx(0.311688311688),
+                    np.nan,
+                    2 / 70,
                 ],
             }
         )
@@ -897,7 +897,9 @@ def test_get_coldspot_gap_pvalues():
         "NA",
         "NA",
     ]
+    # Cases where we can't compute a p-value for the largest gap
     assert su.get_coldspot_gap_pvalues(6, 100, [1, 1, 1, 1, 1]) == ["NA"] * 5
+    assert su.get_coldspot_gap_pvalues(98, 100, [2]) == ["NA"]
 
 
 def test_get_coldspot_gap_pvalues_zero_muts():
