@@ -665,7 +665,7 @@ def test_coldspot_good_nocircular(capsys):
                 "Start_1IndexedInclusive": [5, 14, 1, 1, 9],
                 "End_1IndexedInclusive": [10, 23, 12, 6, 16],
                 "Length": [6, 10, 12, 6, 8],
-                "P_Value_If_Largest": [
+                "P_Value": [
                     approx(0.999999999),
                     approx(0.907372400756),
                     np.nan,
@@ -709,7 +709,7 @@ def test_coldspot_good_circular(capsys):
                 "Start_1IndexedInclusive": [5, 14, 1, 9],
                 "End_1IndexedInclusive": [10, 3, 12, 6],
                 "Length": [6, 13, 12, 14],
-                "P_Value_If_Largest": [
+                "P_Value": [
                     approx(0.999999999),
                     approx(0.56710775047),
                     np.nan,
@@ -890,15 +890,14 @@ def test_get_coldspot_gaps_literal_docs_example():
     ]
 
 
-def test_get_coldspot_gap_pvalues_fisher1929():
-    # These are from the table in (Fisher 1929)
-    # see https://royalsocietypublishing.org/doi/abs/10.1098/rspa.1929.0151
-    assert su.get_coldspot_gap_pvalues(5, 100, [68.377]) == [
-        approx(0.05, abs=1e-4)
+def test_get_coldspot_gap_pvalues():
+    assert su.get_coldspot_gap_pvalues(5, 100, [17, 21, 19, 3]) == [
+        "NA",
+        approx(0.999257247, abs=1e-6),
+        "NA",
+        "NA",
     ]
-    assert su.get_coldspot_gap_pvalues(10, 100, [44.495]) == [
-        approx(0.05, abs=1e-4)
-    ]
+    assert su.get_coldspot_gap_pvalues(6, 100, [1, 1, 1, 1, 1]) == ["NA"] * 5
 
 
 def test_get_coldspot_gap_pvalues_zero_muts():
@@ -919,3 +918,13 @@ def test_get_coldspot_gap_pvalues_zero_muts():
         with pytest.raises(WeirdError) as ei:
             su.get_coldspot_gap_pvalues(0, 100, coldspot_list)
         assert str(ei.value) == exp_err_msg
+
+
+def test_get_coldspot_gap_pvalues_all_muts():
+    assert su.get_coldspot_gap_pvalues(100, 100, []) == []
+
+    with pytest.raises(WeirdError) as ei:
+        su.get_coldspot_gap_pvalues(100, 100, [1])
+    assert str(ei.value) == (
+        "There can't be any gaps if every position is mutated."
+    )
