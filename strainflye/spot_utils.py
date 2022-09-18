@@ -664,7 +664,7 @@ def run_coldspot_gap_detection(
     with open(output_coldspot_gaps, "w") as of:
         of.write(
             "Contig\tStart_1IndexedInclusive\tEnd_1IndexedInclusive\tLength\t"
-            "P_Value\n"
+            "P_Value_If_Largest\n"
         )
         for contig in contig2coldspots.keys():
             both_lists = zip(
