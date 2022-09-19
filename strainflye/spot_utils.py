@@ -469,7 +469,7 @@ def get_coldspot_gaps_in_contig(muts, contig_length, min_length, circular):
     return coldspots
 
 
-def longest_success_run_pvalue(n, m, p):
+def longest_success_run_pvalue(m, n, p):
     """Computes Prob(X >= m), where X is the longest run of "successes."
 
     "Success" is used here in terms of a Bernoulli trial. I'm just gonna
@@ -486,12 +486,12 @@ def longest_success_run_pvalue(n, m, p):
 
     Parameters
     ----------
-    n: int
-        The number of Bernoulli trials in our sequence.
-
     m: int
         The longest number of "successes" seen in a row in our sequence of
-        Bernoulli trials.
+        n Bernoulli trials.
+
+    n: int
+        The number of Bernoulli trials in our sequence.
 
     p: float
         The probability of success for each Bernoulli trial. Should be in the
@@ -699,7 +699,7 @@ def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
         # may be multiple gaps tied for the "longest.")
         pvals = ["NA"] * num_gaps
         pvals[max_gap_idx] = longest_success_run_pvalue(
-            contig_length, coldspot_lengths[max_gap_idx], p
+            coldspot_lengths[max_gap_idx], contig_length, p
         )
     return pvals
 
