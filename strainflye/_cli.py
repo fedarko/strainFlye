@@ -958,8 +958,8 @@ def hot_features(
         "contig will also be given a p-value, indicating the probability "
         "of the longest gap being at least this long (given the length of "
         "and number of mutated positions in this contig, and assuming that "
-        "mutated positions are placed randomly). See (Barton & David 1959) "
-        "for details."
+        "mutations occur with a constant probability at any position in the "
+        "contig). See (Naus 1982) for details."
     ),
 )
 def cold_gaps(bcf, min_length, circular, output_coldspots):
