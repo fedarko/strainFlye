@@ -470,11 +470,72 @@ def get_coldspot_gaps_in_contig(muts, contig_length, min_length, circular):
 
 
 def longest_success_run_pvalue(n, m, p):
+    """Computes Prob(X >= m), where X is the longest run of "successes."
+
+    "Success" is used here in terms of a Bernoulli trial. I'm just gonna
+    straight up copy from (Naus 1982):
+
+    "Given a sequence of n Bernoulli trials with probability of success
+    on a given trial p, and q = 1 - p, let X denote the length of the
+    longest success run."
+
+    We can think of Prob(X >= m) as a p-value: it's the probability that the
+    longest run of successes is at least m, under the null hypothesis that
+    successes and failures (in our sequence of n Bernoulli trials) are in
+    "random order." (This is detailed more in (Bateman 1948).)
+
+    Parameters
+    ----------
+    n: int
+        The number of Bernoulli trials in our sequence.
+
+    m: int
+        The longest number of "successes" seen in a row in our sequence of
+        Bernoulli trials.
+
+    p: float
+        The probability of success for each Bernoulli trial. Should be in the
+        range [0, 1].
+
+    Returns
+    -------
+    pval: float
+        The probability of the longest run of successes in our n Bernoulli
+        trials having a length of at least m, under the aforementioned null
+        hypothesis.
+
+    Raises
+    ------
+    WeirdError
+        If various things about the input numbers look wrong:
+        - m >= n
+        - m < 1
+        - p < 0 or p > 1
+
+    References
+    ----------
+    - Bateman, G. (1948). On the Power Function of the Longest Run as a Test
+      for Randomness in a Sequence of Alternatives. Biometrika, 35(1/2),
+      97-112.
+
+    - Glaz, J., Naus, J. I., Wallenstein, S., Wallenstein, S., & Naus, J. I.
+      (2001). Scan Statistics (pp. 243-259). New York: Springer.
+
+    - Naus, J. I. (1982). Approximations for Distributions of Scan Statistics.
+      Journal of the American Statistical Association, 77(377), 177-183.
+
+    We use equation (3.1), given in (Naus 1982). This particular equation
+    originates from (Bateman 1948). (And I found out about (Naus 1982) from the
+    book "Scan Statistics.")
+    """
     if m >= n:
         raise WeirdError("n must be greater than m.")
 
     if m < 1:
         raise WeirdError("m must be at least 1.")
+
+    if p < 0 or p > 1:
+        raise WeirdError("p must be in the range [0, 1].")
 
     q = 1 - p
     # So, we know that floor(n / m) must be at least 1. Since the endpoint
@@ -539,8 +600,7 @@ def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
         coldspot's length; all other coldspots won't have p-values given.
 
         What does this p-value represent? Define the "null hypothesis" as the
-        case where the locations of mutated positions (the boundaries between
-        which correspond to "gaps") are randomly placed on the contig. The
+        case where mutated positions are randomly placed on the contig. The
         p-value reported for a given gap, then, is the probability (given this
         null hypothesis) that the longest gap we would see in a contig is at
         least as long as this gap's length.
@@ -552,25 +612,11 @@ def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
 
     References
     ----------
-    - Bateman, G. (1948). On the Power Function of the Longest Run as a Test
-      for Randomness in a Sequence of Alternatives. Biometrika, 35(1/2),
-      97-112.
-
     - Geller, R., Domingo-Calap, P., Cuevas, J. M., Rossolillo, P., Negroni,
       M., & Sanjuán, R. (2015). The external domains of the HIV-1 envelope are
       a mutational cold spot. Nature Communications, 6(1), 1-9.
 
-    - Glaz, J., Naus, J. I., Wallenstein, S., Wallenstein, S., & Naus, J. I.
-      (2001). Scan Statistics (pp. 243-259). New York: Springer.
-
-    - Naus, J. I. (1982). Approximations for Distributions of Scan Statistics.
-      Journal of the American Statistical Association, 77(377), 177-183.
-
-    We use equation (3.1), given in (Naus 1982). This particular equation
-    originates from (Bateman 1948). (And I found out about (Naus 1982) from the
-    book "Scan Statistics.")
-
-    Also, the way that we estimate the probability of a given position being
+    The way that we estimate the probability of a given position being
     mutated (under the null hypothesis of randomly distributed mutations) is
     analogous to (Geller, Domingo-Calap, Cuevas et al., 2015) -- see
     https://www.nature.com/articles/ncomms9571#Sec13 (they use a different
@@ -578,14 +624,16 @@ def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
     the probability of mutation in the same way [at least, as far as I can
     tell]).
 
+    Also, see the references for longest_success_run_pvalue() for more details.
+
     Notes
     -----
     - It's probably possible to give p-values for the second-largest gap size,
       third-largest, etc. But I don't know how to do that and also I don't feel
       like doing it.
 
-    - We will report at most one p-value. If the longest gap length is shared
-      by multiple gaps, then which of these gets assigned a p-value is
+    - So, we will report at most one p-value. If the longest gap length is
+      shared by multiple gaps, then which of these gets assigned a p-value is
       arbitrary.
 
     - We implicitly make the assumption that, if the longest gap corresponds to
@@ -632,10 +680,10 @@ def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
             range(0, num_gaps), key=lambda i: coldspot_lengths[i]
         )
 
-        # This equation is for the longest run of "successes" in a sequence of
-        # n Bernoulli trials. We thus define a "success" as a position *not*
-        # being mutated (we could also define this as a failure, it doesn't
-        # really matter).
+        # The equation we will use is for the longest run of "successes" in
+        # a sequence of n Bernoulli trials. We thus define a "success" as a
+        # position *not* being mutated (we could also define this as a failure,
+        # it doesn't really matter).
         #
         # If the null hypothesis (mutations occur randomly on the sequence) is
         # true, then all positions have the same probability of being mutated.
