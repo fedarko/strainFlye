@@ -528,6 +528,10 @@ def longest_success_run_pvalue(m, n, p):
     originates from (Bateman 1948). (And I found out about (Naus 1982) from the
     book "Scan Statistics.")
     """
+    # In theory, I think we could compute this for m = n, but this should never
+    # happen in the context of how we use this function for the coldspot gap
+    # length stuff -- if m = n, then every position in the contig is a
+    # mutation, so there are by definition no gaps.
     if m >= n:
         raise WeirdError("n must be greater than m.")
 
