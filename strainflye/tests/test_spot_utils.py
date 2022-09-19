@@ -667,10 +667,10 @@ def test_coldspot_good_nocircular(capsys):
                 "Length": [6, 10, 12, 6, 8],
                 "P_Value": [
                     np.nan,
-                    8 / 11,
+                    approx(0.6392966, abs=1e-6),
                     np.nan,
                     np.nan,
-                    0.8,
+                    approx(0.6872178, abs=1e-6),
                 ],
             }
         )
@@ -711,9 +711,9 @@ def test_coldspot_good_circular(capsys):
                 "Length": [6, 13, 12, 14],
                 "P_Value": [
                     np.nan,
-                    approx(0.311688311688),
+                    approx(0.3745209, abs=1e-6),
                     np.nan,
-                    2 / 70,
+                    approx(0.19276259, abs=1e-6),
                 ],
             }
         )

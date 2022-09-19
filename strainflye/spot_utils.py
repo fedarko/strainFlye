@@ -495,7 +495,10 @@ def longest_success_run_pvalue(m, n, p):
 
     p: float
         The probability of success for each Bernoulli trial. Should be in the
-        range [0, 1].
+        range [0, 1]. (NOTE TO SELF: the way we currently use this function
+        defines "success" as "not mutated," so if p-values seem absurdly small
+        then probably I got them mixed up.) (This has happened twice already
+        and I'm not even finished testing this thing.) (Send help.)
 
     Returns
     -------
