@@ -469,6 +469,53 @@ def get_coldspot_gaps_in_contig(muts, contig_length, min_length, circular):
     return coldspots
 
 
+def longest_success_run_pvalue(n, m, p):
+    if m >= n:
+        raise WeirdError("n must be greater than m.")
+
+    if m < 1:
+        raise WeirdError("m must be at least 1.")
+
+    q = 1 - p
+    # So, we know that floor(n / m) must be at least 1. Since the endpoint
+    # of summations are inclusive (just, like, in general --
+    # http://www.columbia.edu/itc/sipa/math/summation.html -- I feel like
+    # an idiot looking this up but at least I'm a [probably] correct idiot)
+    # we know that we will update sum_term at least once, since
+    # list(range(1, 2)) == [1].
+    sign = 1
+    pval = 0
+    for j in range(1, floor(n / m) + 1):
+        jm = j * m
+        pval += (
+            sign
+            * (p + (((n - jm + 1) * q) / j))
+            * comb(n - jm, j - 1)
+            * (p**jm)
+            * (q ** (j - 1))
+        )
+        # Corresponds to (-1) ** (j + 1) in the equation.
+        sign = -sign
+
+    # Deal with potential precision silliness by clamping to [0, 1]
+    # I've seen that sum_term can exceed 1 in some cases (e.g. if
+    # num_muts == 5, contig_length == 100, and the max gap length == 2);
+    # not sure if it getting less than 0 is possible, but might as well
+    # prevent it.
+    #
+    # (This is probably a harbinger that it would be better to use e.g. log
+    # probabilities or something to try to limit precision problems. But
+    # these p-values are already a very basic, trivial implementation, and
+    # there are like 100 other things on my plate for just this project
+    # ._.)
+    if pval > 1:
+        pval = 1
+    elif pval < 0:
+        pval = 0
+
+    return pval
+
+
 def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
     """Computes a p-value for the longest coldspot gap in a contig.
 
@@ -584,17 +631,6 @@ def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
         max_gap_idx = max(
             range(0, num_gaps), key=lambda i: coldspot_lengths[i]
         )
-        # I'm going to use single-letter variable names here to make it easier
-        # to connect this to the equation shown in (Naus 1982).
-        n = contig_length
-        m = coldspot_lengths[max_gap_idx]
-
-        # This should never happen in practice -- let's catch it if it does.
-        if m <= 0:
-            raise WeirdError(
-                f"The largest gap is {m} positions long? Should be >= 1 "
-                "positions."
-            )
 
         # This equation is for the longest run of "successes" in a sequence of
         # n Bernoulli trials. We thus define a "success" as a position *not*
@@ -608,53 +644,15 @@ def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
         # positions in the contig -- this is analogous to how this probability
         # is set in Geller, Domingo-Calap, Cuevas et al., 2015 (see refs
         # above).
-        p = 1 - (num_muts / n)
-        q = 1 - p
-
-        sign = 1
-        sum_term = 0
-        # We know that n (contig length) must be > m (max gap length) -- if
-        # n == m, then we shouldn't have made it to this part of the code.
-        #
-        # So, we know that floor(n / m) must be at least 1. Since the endpoint
-        # of summations are inclusive (just, like, in general --
-        # http://www.columbia.edu/itc/sipa/math/summation.html -- I feel like
-        # an idiot looking this up but at least I'm a [probably] correct idiot)
-        # we know that we will update sum_term at least once, since
-        # list(range(1, 2)) == [1].
-        for j in range(1, floor(n / m) + 1):
-            jm = j * m
-            sum_term += (
-                sign
-                * (p + (((n - jm + 1) * q) / j))
-                * comb(n - jm, j - 1)
-                * (p**jm)
-                * (q ** (j - 1))
-            )
-            # Corresponds to (-1) ** (j + 1) in the equation.
-            sign = -sign
-
-        # Deal with potential precision silliness by clamping to [0, 1]
-        # I've seen that sum_term can exceed 1 in some cases (e.g. if
-        # num_muts == 5, contig_length == 100, and the max gap length == 2);
-        # not sure if it getting less than 0 is possible, but might as well
-        # prevent it.
-        #
-        # (This is probably a harbinger that it would be better to use e.g. log
-        # probabilities or something to try to limit precision problems. But
-        # these p-values are already a very basic, trivial implementation, and
-        # there are like 100 other things on my plate for just this project
-        # ._.)
-        if sum_term > 1:
-            sum_term = 1
-        elif sum_term < 0:
-            sum_term = 0
+        p = 1 - (num_muts / contig_length)
 
         # Say "NA" for all gaps but the longest one
         # (Since we break ties arbitrarily, this ignores the fact that there
         # may be multiple gaps tied for the "longest.")
         pvals = ["NA"] * num_gaps
-        pvals[max_gap_idx] = sum_term
+        pvals[max_gap_idx] = longest_success_run_pvalue(
+            contig_length, coldspot_lengths[max_gap_idx], p
+        )
     return pvals
 
 

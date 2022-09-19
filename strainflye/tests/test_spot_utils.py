@@ -898,9 +898,15 @@ def test_get_coldspot_gap_pvalues():
         "NA",
     ]
     assert su.get_coldspot_gap_pvalues(6, 100, [1, 1, 1, 1, 1]) == [
-        approx(1), "NA", "NA", "NA", "NA"
+        approx(1),
+        "NA",
+        "NA",
+        "NA",
+        "NA",
     ]
-    assert su.get_coldspot_gap_pvalues(98, 100, [2]) == [approx(0.0381085137, abs=1e-6)]
+    assert su.get_coldspot_gap_pvalues(98, 100, [2]) == [
+        approx(0.0381085137, abs=1e-6)
+    ]
 
 
 def test_get_coldspot_gap_pvalues_naus1982tables():
@@ -909,10 +915,12 @@ def test_get_coldspot_gap_pvalues_naus1982tables():
 
     # We use num_muts == 25 in order to represent the mutation rate (p) being
     # 1/2, given n == 50.
-    assert su.get_coldspot_gap_pvalues(25, 50, [7]) == [approx(0.1653, abs=1e-4)]
-    assert su.get_coldspot_gap_pvalues(25, 50, [10]) == [approx(0.0204,
-        abs=1e-4)]
-
+    assert su.get_coldspot_gap_pvalues(25, 50, [7]) == [
+        approx(0.1653, abs=1e-4)
+    ]
+    assert su.get_coldspot_gap_pvalues(25, 50, [10]) == [
+        approx(0.0204, abs=1e-4)
+    ]
 
 
 def test_get_coldspot_gap_pvalues_zero_muts():
