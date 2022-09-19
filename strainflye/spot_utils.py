@@ -505,12 +505,31 @@ def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
 
     References
     ----------
-    The textbook "Order Statistics," Third Edition (David & Nagaraja 2003)
-    discusses this sort of probability computation in Chapter 6. We initially
-    considered using equation (6.4.4), which is derived from (Fisher 1929), but
-    that equation is designed for a continuous interval -- not a discrete one.
-    So we used another equation (in exercise 6.4.10), which originates from
-    (Barton & David 1959).
+    - Bateman, G. (1948). On the Power Function of the Longest Run as a Test
+      for Randomness in a Sequence of Alternatives. Biometrika, 35(1/2),
+      97-112.
+
+    - Geller, R., Domingo-Calap, P., Cuevas, J. M., Rossolillo, P., Negroni,
+      M., & Sanjuán, R. (2015). The external domains of the HIV-1 envelope are
+      a mutational cold spot. Nature Communications, 6(1), 1-9.
+
+    - Glaz, J., Naus, J. I., Wallenstein, S., Wallenstein, S., & Naus, J. I.
+      (2001). Scan Statistics (pp. 243-259). New York: Springer.
+
+    - Naus, J. I. (1982). Approximations for Distributions of Scan Statistics.
+      Journal of the American Statistical Association, 77(377), 177-183.
+
+    We use equation (3.1), given in (Naus 1982). This particular equation
+    originates from (Bateman 1948). (And I found out about (Naus 1982) from the
+    book "Scan Statistics.")
+
+    Also, the way that we estimate the probability of a given position being
+    mutated (under the null hypothesis of randomly distributed mutations) is
+    analogous to (Geller, Domingo-Calap, Cuevas et al., 2015) -- see
+    https://www.nature.com/articles/ncomms9571#Sec13 (they use a different
+    method of defining coldspots with a sliding window approach, but they set
+    the probability of mutation in the same way [at least, as far as I can
+    tell]).
 
     Notes
     -----
@@ -525,10 +544,9 @@ def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
     - We implicitly make the assumption that, if the longest gap corresponds to
       the "loop-around" gap obtained by setting circular = True when
       identifying gaps in get_coldspot_gaps_in_contig(), that the contig just
-      loops around -- (Barton & David 1959) is formulated in terms of "this is
-      a line of N equal elements," so I guess we are kind of saying "ok but
-      let's just shift the circle's endpoints so that we can treat it like a
-      line."
+      loops around. I guess this is analogous to saying "let's just shift the
+      'endpoints' of the circle so that we can treat the section of it
+      containing the longest gap like a line."
 
     - So you know that null hypothesis we defined above, where mutations are
       placed randomly on a contig? That gets broken basically immediately.
@@ -549,6 +567,7 @@ def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
                 "A contig with 0 mutations must have exactly 1 coldspot "
                 "covering the entire contig."
             )
+        # We have no way to estimate the mutation rate of this contig.
         pvals.append("NA")
 
     elif num_muts == contig_length:
@@ -565,88 +584,77 @@ def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
         max_gap_idx = max(
             range(0, num_gaps), key=lambda i: coldspot_lengths[i]
         )
-        max_gap_pval = "NA"
-
         # I'm going to use single-letter variable names here to make it easier
-        # to connect this to the equation shown in (Barton & David 1959, page
-        # 66).
-        s = num_muts + 1
-        N = contig_length
-        # The original equation is for Prob(M <= m), i.e. for the cumulative
-        # distribution function of the length of the longest gap.
-        #
-        # Since we want Prob(M >= m) -- i.e., a p-value that the longest gap
-        # is of length m or larger -- we can get this by subtracting 1 from m,
-        # and then taking 1 - Prob(M <= (m - 1)).
-        #
-        # This works (and we need to do things in this hacky way) because this
-        # equation is for discrete values of m. If it were continuous, then
-        # Prob(M >= m) would roughly equal Prob(M <= m), because Prob(M = m)
-        # would be essentially zero.
-        #
-        # There is a slight problem with this, though: what if m = 1? (That is,
-        # what if the largest gap in this contig contains just one position?)
-        # In this case, m - 1 = 0, and we will never be able to compute the
-        # probability: lower_bound (computed below) must be positive (since at
-        # this point we know (s - 1) is in the range [1, N] and N is at least
-        # 2), so m will never be >= lower_bound.
-        #
-        # We could *try* to figure something out for this case, but I am pretty
-        # sure that we can't compute the probability even if we are just doing
-        # Prob(M <= 1). So let's just report "NA" in this case.
-        m = coldspot_lengths[max_gap_idx] - 1
-        if m > 0:
-            # For reference, both (Barton & David 1959) and
-            # (David & Nagaraja 2003) refer to the lower bound here (as well as
-            # one of the possible values for a) in square brackets. Apparently,
-            # going by the "Notation" section of (David & Nagaraja 2003)
-            # (page 6), this [x] notation refers to the "integral part of x".
-            # This is confirmed by this website --
-            # https://mathworld.wolfram.com/SquareBracket.html -- which says
-            # that [x] can indicate the floor function in certain cases.
-            #
-            # But does "integral part of x" mean "floor of x"? Well, it does
-            # for positive numbers, at least. And we know that, at least for
-            # both of these two cases where the [x] notation is used, the "x"
-            # should never be negative.
-            #
-            # (At this point the largest possible value of s is N -- since we
-            # know that num_muts < N, and s = num_muts + 1.)
-            lower_bound = floor((N + s - 1) / s)
-            upper_bound = N - s + 1
-            if m >= lower_bound and m <= upper_bound:
-                # We can actually compute this probability. (It seems like it
-                # isn't defined if m is outside of these bounds...?)
+        # to connect this to the equation shown in (Naus 1982).
+        n = contig_length
+        m = coldspot_lengths[max_gap_idx]
 
-                # Again, we have the square-bracket notation here for the
-                # (N - s)/m term. Since s <= N and m >= 1, this should never be
-                # negative.
-                a = min(s, floor((N - s) / m))
+        # This should never happen in practice -- let's catch it if it does.
+        if m <= 0:
+            raise WeirdError(
+                f"The largest gap is {m} positions long? Should be >= 1 "
+                "positions."
+            )
 
-                coeff = 1 / comb(N - 1, s - 1)
-                sum_term = 0
-                sign = 1
-                for i in range(0, a + 1):
-                    sum_term += (
-                        sign * comb(s, i) * comb(N - (m * i) - 1, s - 1)
-                    )
-                    # corresponds to (-1)**(i - 1)
-                    sign = -sign
+        # This equation is for the longest run of "successes" in a sequence of
+        # n Bernoulli trials. We thus define a "success" as a position *not*
+        # being mutated (we could also define this as a failure, it doesn't
+        # really matter).
+        #
+        # If the null hypothesis (mutations occur randomly on the sequence) is
+        # true, then all positions have the same probability of being mutated.
+        # We can "estimate" the probability of a position being mutated as
+        # the number of mutations in the contig divided by the total number of
+        # positions in the contig -- this is analogous to how this probability
+        # is set in Geller, Domingo-Calap, Cuevas et al., 2015 (see refs
+        # above).
+        p = 1 - (num_muts / n)
+        q = 1 - p
 
-                # (coeff * sum_term) is the probability that the length of the
-                # largest gap is <= m, where m is the length of the largest gap
-                # we saw minus 1.
-                #
-                # To get the probability that the length of the largest gap
-                # is at least as large as m + 1, we can take 1 - this
-                # probability.
-                max_gap_pval = 1 - (coeff * sum_term)
+        sign = 1
+        sum_term = 0
+        # We know that n (contig length) must be > m (max gap length) -- if
+        # n == m, then we shouldn't have made it to this part of the code.
+        #
+        # So, we know that floor(n / m) must be at least 1. Since the endpoint
+        # of summations are inclusive (just, like, in general --
+        # http://www.columbia.edu/itc/sipa/math/summation.html -- I feel like
+        # an idiot looking this up but at least I'm a [probably] correct idiot)
+        # we know that we will update sum_term at least once, since
+        # list(range(1, 2)) == [1].
+        for j in range(1, floor(n / m) + 1):
+            jm = j * m
+            sum_term += (
+                sign
+                * (p + (((n - jm + 1) * q) / j))
+                * comb(n - jm, j - 1)
+                * (p**jm)
+                * (q ** (j - 1))
+            )
+            # Corresponds to (-1) ** (j + 1) in the equation.
+            sign = -sign
+
+        # Deal with potential precision silliness by clamping to [0, 1]
+        # I've seen that sum_term can exceed 1 in some cases (e.g. if
+        # num_muts == 5, contig_length == 100, and the max gap length == 2);
+        # not sure if it getting less than 0 is possible, but might as well
+        # prevent it.
+        #
+        # (This is probably a harbinger that it would be better to use e.g. log
+        # probabilities or something to try to limit precision problems. But
+        # these p-values are already a very basic, trivial implementation, and
+        # there are like 100 other things on my plate for just this project
+        # ._.)
+        if sum_term > 1:
+            sum_term = 1
+        elif sum_term < 0:
+            sum_term = 0
 
         # Say "NA" for all gaps but the longest one
-        # (yeah, this ignores the fact that there may be multiple gaps tied for
-        # the longest)
+        # (Since we break ties arbitrarily, this ignores the fact that there
+        # may be multiple gaps tied for the "longest.")
         pvals = ["NA"] * num_gaps
-        pvals[max_gap_idx] = max_gap_pval
+        pvals[max_gap_idx] = sum_term
     return pvals
 
 

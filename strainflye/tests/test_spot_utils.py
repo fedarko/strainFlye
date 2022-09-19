@@ -893,13 +893,26 @@ def test_get_coldspot_gaps_literal_docs_example():
 def test_get_coldspot_gap_pvalues():
     assert su.get_coldspot_gap_pvalues(5, 100, [17, 21, 19, 3]) == [
         "NA",
-        approx(0.999257247, abs=1e-6),
+        approx(0.97316991876, abs=1e-6),
         "NA",
         "NA",
     ]
-    # Cases where we can't compute a p-value for the largest gap
-    assert su.get_coldspot_gap_pvalues(6, 100, [1, 1, 1, 1, 1]) == ["NA"] * 5
-    assert su.get_coldspot_gap_pvalues(98, 100, [2]) == ["NA"]
+    assert su.get_coldspot_gap_pvalues(6, 100, [1, 1, 1, 1, 1]) == [
+        approx(1), "NA", "NA", "NA", "NA"
+    ]
+    assert su.get_coldspot_gap_pvalues(98, 100, [2]) == [approx(0.0381085137, abs=1e-6)]
+
+
+def test_get_coldspot_gap_pvalues_naus1982tables():
+    # Values taken from the table on page 179 in Naus 1982:
+    # https://www.tandfonline.com/doi/abs/10.1080/01621459.1982.10477783
+
+    # We use num_muts == 25 in order to represent the mutation rate (p) being
+    # 1/2, given n == 50.
+    assert su.get_coldspot_gap_pvalues(25, 50, [7]) == [approx(0.1653, abs=1e-4)]
+    assert su.get_coldspot_gap_pvalues(25, 50, [10]) == [approx(0.0204,
+        abs=1e-4)]
+
 
 
 def test_get_coldspot_gap_pvalues_zero_muts():
