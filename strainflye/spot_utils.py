@@ -469,7 +469,7 @@ def get_coldspot_gaps_in_contig(muts, contig_length, min_length, circular):
     return coldspots
 
 
-def longest_success_run_pvalue(m, n, p):
+def longest_success_run_pvalue(m, n, p, exact=True):
     """Computes Prob(X >= m), where X is the longest run of "successes."
 
     "Success" is used here in terms of a Bernoulli trial. I'm just gonna
@@ -500,6 +500,16 @@ def longest_success_run_pvalue(m, n, p):
         then probably I got them mixed up.) (This has happened twice already
         and I'm not even finished testing this thing.) (Send help.)
 
+    exact: bool
+        If True, use the exact formula described in (Bateman 1948) -- this is
+        also equation (3.1) in (Naus 1982). Note that this may lead to
+        OverflowErrors or other weird results, especially due to our use of
+        scipy.special.comb() (which involves computing factorials -- and
+        computing factorials of big numbers is tough).
+
+        If False, use the approximation of this formula given as equation (3.3)
+        in (Naus 1982).
+
     Returns
     -------
     pval: float
@@ -527,9 +537,13 @@ def longest_success_run_pvalue(m, n, p):
     - Naus, J. I. (1982). Approximations for Distributions of Scan Statistics.
       Journal of the American Statistical Association, 77(377), 177-183.
 
-    We use equation (3.1), given in (Naus 1982). This particular equation
-    originates from (Bateman 1948). (And I found out about (Naus 1982) from the
-    book "Scan Statistics.")
+    - https://towardsdatascience.com/68213de30b87
+
+    For reference, I found out about (Naus 1982) from the book "Scan
+    Statistics."
+
+    Also, the towardsdatascience writeup (by Florin Andrei) is a really well-
+    written explanation of how to deal with large numbers in vanilla Python.
     """
     # In theory, I think we could compute this for m = n, but this should never
     # happen in the context of how we use this function for the coldspot gap
@@ -545,25 +559,39 @@ def longest_success_run_pvalue(m, n, p):
         raise WeirdError("p must be in the range [0, 1].")
 
     q = 1 - p
-    # So, we know that floor(n / m) must be at least 1. Since the endpoint
-    # of summations are inclusive (just, like, in general --
-    # http://www.columbia.edu/itc/sipa/math/summation.html -- I feel like
-    # an idiot looking this up but at least I'm a [probably] correct idiot)
-    # we know that we will update sum_term at least once, since
-    # list(range(1, 2)) == [1].
-    sign = 1
-    pval = 0
-    for j in range(1, floor(n / m) + 1):
-        jm = j * m
-        pval += (
-            sign
-            * (p + (((n - jm + 1) * q) / j))
-            * comb(n - jm, j - 1)
-            * (p**jm)
-            * (q ** (j - 1))
+    if exact:
+        # Equation (3.1) in Naus 1982
+        #
+        # So, we know that floor(n / m) must be at least 1. Since the endpoint
+        # of summations are inclusive (just, like, in general --
+        # http://www.columbia.edu/itc/sipa/math/summation.html -- I feel like
+        # an idiot looking this up but at least I'm a [probably] correct idiot)
+        # we know that we will update sum_term at least once, since
+        # list(range(1, 2)) == [1].
+        sign = 1
+        pval = 0
+        for j in range(1, floor(n / m) + 1):
+            jm = j * m
+            pval += (
+                sign
+                * (p + (((n - jm + 1) * q) / j))
+                * comb(n - jm, j - 1, exact=True)
+                * (p**jm)
+                * (q ** (j - 1))
+            )
+            # Corresponds to (-1) ** (j + 1) in the equation.
+            sign = -sign
+    else:
+        # Equation (3.3) in Naus 1982
+        ptom = p**m
+        mq = m * q
+        q2 = 1 - (ptom * (1 + mq))
+        q3 = (
+            1
+            - (ptom * (1 + (2 * mq)))
+            + (0.5 * (p ** (2 * m)) * ((2 * mq) + (m * (m - 1) * (q**2))))
         )
-        # Corresponds to (-1) ** (j + 1) in the equation.
-        sign = -sign
+        pval = 1 - (q2 * ((q3 / q2) ** ((n / m) - 2)))
 
     # Deal with potential precision silliness by clamping to [0, 1]
     # I've seen that sum_term can exceed 1 in some cases (e.g. if
