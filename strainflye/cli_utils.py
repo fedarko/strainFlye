@@ -74,7 +74,7 @@ def fancystart(
         None
         """
         t1 = time.time()
-        fancyprint(f"{prefix}{cmd_name} @ {t1 - t0:,.1f}s: {msg}")
+        fancyprint(f"{prefix}{cmd_name} @ {t1 - t0:,.2f}s: {msg}")
 
     if version:
         fancyprint(f'Using strainFlye version "{__version__}".')

@@ -13,7 +13,7 @@ def test_fancylogging(capsys):
     )
     fancylog = fancystart(*test_params, prefix="PREFIX ", version=False)
     exp_out = (
-        "PREFIX strainFlye testing @ 0.0s: Starting...\n"
+        "PREFIX strainFlye testing @ 0.00s: Starting...\n"
         "Input in1: Input #1\nInput in2: Input #2\nOutput out1: Output #1\n"
     )
     captured = capsys.readouterr()
@@ -21,7 +21,7 @@ def test_fancylogging(capsys):
 
     fancylog("howdy", prefix="")
     captured = capsys.readouterr()
-    assert captured.out == "strainFlye testing @ 0.0s: howdy\n"
+    assert captured.out == "strainFlye testing @ 0.00s: howdy\n"
 
 
 def test_fancylogging_extrainfo(capsys):
@@ -37,7 +37,7 @@ def test_fancylogging_extrainfo(capsys):
         version=False
     )
     exp_out = (
-        "PREFIX strainFlye testing @ 0.0s: Starting...\n"
+        "PREFIX strainFlye testing @ 0.00s: Starting...\n"
         "Input in1: Input #1\nInput in2: Input #2\n"
         "Verbose?: Yes\nSus?: Yeet\n"
         "Output out1: Output #1\n"
@@ -47,7 +47,7 @@ def test_fancylogging_extrainfo(capsys):
 
     fancylog("howdy", prefix="")
     captured = capsys.readouterr()
-    assert captured.out == "strainFlye testing @ 0.0s: howdy\n"
+    assert captured.out == "strainFlye testing @ 0.00s: howdy\n"
 
 
 def test_fancylogging_version(capsys):
@@ -59,7 +59,7 @@ def test_fancylogging_version(capsys):
     fancylog = fancystart(*test_params, prefix="PREFIX ")
     exp_out = (
         f"Using strainFlye version \"{__version__}\".\n"
-        "PREFIX strainFlye testing @ 0.0s: Starting...\n"
+        "PREFIX strainFlye testing @ 0.00s: Starting...\n"
         "Input in1: Input #1\n"
         "Input in2: Input #2\n"
         "Input in3: Input #3\n"
@@ -70,7 +70,7 @@ def test_fancylogging_version(capsys):
     assert captured.out == exp_out
     fancylog("howdy", prefix="")
     captured = capsys.readouterr()
-    assert captured.out == "strainFlye testing @ 0.0s: howdy\n"
+    assert captured.out == "strainFlye testing @ 0.00s: howdy\n"
 
 def test_b2y():
     assert b2y(True) == "Yes"
