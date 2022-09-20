@@ -956,8 +956,11 @@ def hot_features(
     help=(
         "If --exact-pvals is specified, we'll use the method for "
         "computing exact longest-gap p-values given in equation (3.1) of "
-        "(Naus 1982). Otherwise, we'll use equation (3.3) of that paper, "
-        "which produces an approximation."
+        "(Naus 1982). We use Python's decimal library with default parameters "
+        "to try to deal with large numbers, but we can't guarantee that this "
+        "won't cause the program to fail in certain cases. "
+        "If --exact-pvals is not specified, we'll use equation (3.3) of (Naus "
+        "1982), which gives an approximation of the p-value."
     ),
 )
 @click.option(

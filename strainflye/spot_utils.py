@@ -603,8 +603,8 @@ def longest_success_run_pvalue(m, n, p, exact=True):
                 sign
                 * (p + (((n - jm + one) * q) / j))
                 * comb(n - jm, j - one, exact=True)
-                * (p**jm)
-                * (q ** (j - one))
+                * ctx.power(p, jm)
+                * ctx.power(q, j - one)
             )
             # Corresponds to (-1) ** (j + 1) in the written equation.
             sign = -sign
@@ -623,8 +623,8 @@ def longest_success_run_pvalue(m, n, p, exact=True):
             - (ptom * (one + (two * mq)))
             + (
                 half
-                * (p ** (two * m))
-                * ((two * mq) + (m * (m - one) * (q**two)))
+                * ctx.power(p, two * m)
+                * ((two * mq) + (m * (m - one) * ctx.power(q, two)))
             )
         )
         pval = one - (q2 * (ctx.power(q3 / q2, ((n / m) - two))))
