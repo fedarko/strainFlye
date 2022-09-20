@@ -34,7 +34,7 @@ def test_fancylogging_extrainfo(capsys):
         *test_params,
         prefix="PREFIX ",
         extra_info=("Verbose?: Yes", "Sus?: Yeet"),
-        version=False
+        version=False,
     )
     exp_out = (
         "PREFIX strainFlye testing @ 0.00s: Starting...\n"
@@ -58,7 +58,7 @@ def test_fancylogging_version(capsys):
     )
     fancylog = fancystart(*test_params, prefix="PREFIX ")
     exp_out = (
-        f"Using strainFlye version \"{__version__}\".\n"
+        f'Using strainFlye version "{__version__}".\n'
         "PREFIX strainFlye testing @ 0.00s: Starting...\n"
         "Input in1: Input #1\n"
         "Input in2: Input #2\n"
@@ -71,6 +71,7 @@ def test_fancylogging_version(capsys):
     fancylog("howdy", prefix="")
     captured = capsys.readouterr()
     assert captured.out == "strainFlye testing @ 0.00s: howdy\n"
+
 
 def test_b2y():
     assert b2y(True) == "Yes"

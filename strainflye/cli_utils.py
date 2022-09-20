@@ -51,7 +51,8 @@ def fancystart(
     t0 = time.time()
 
     # definitely overkill
-    fancyprint = lambda text: print(text, flush=True)
+    def fancyprint(text):
+        print(text, flush=True)
 
     def fancylog(msg, prefix=prefix):
         """Logs a message.
