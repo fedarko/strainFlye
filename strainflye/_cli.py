@@ -2,7 +2,7 @@
 # This lets the user do things like "strainFlye align", "strainFlye call",
 # etc. See https://click.palletsprojects.com/en/8.0.x/commands/ for details.
 import click
-from . import (
+from strainflye import (
     cli_utils,
     align_utils,
     graph_utils,
@@ -11,8 +11,9 @@ from . import (
     spot_utils,
     smooth_utils,
     config,
+    __version__,
 )
-from . import param_descriptions as desc
+from strainflye import param_descriptions as desc
 
 
 # By default, Click's help info (shown when running e.g. "strainFlye -h")
@@ -41,6 +42,7 @@ cmd_params = {
 
 
 @click.group(**grp_params, **cmd_params)
+@click.version_option(__version__, "-v", "--version")
 def strainflye():
     """Pipeline for the analysis of rare mutations in metagenomes.
 
@@ -156,7 +158,7 @@ def align(
 
     # Get a snazzy logging function we can use
     fancylog = cli_utils.fancystart(
-        "strainFlye align",
+        "align",
         (
             ("file(s) of reads", reads_info),
             ("contig file", contigs),
@@ -336,7 +338,7 @@ def p_mutation(
     using the utilities contained in the "strainFlye fdr" module.
     """
     fancylog = cli_utils.fancystart(
-        "strainFlye call p-mutation",
+        "call p-mutation",
         (
             ("contig file", contigs),
             ("BAM file", bam),
@@ -444,7 +446,7 @@ def r_mutation(
     using the utilities contained in the "strainFlye fdr" module.
     """
     fancylog = cli_utils.fancystart(
-        "strainFlye call r-mutation",
+        "call r-mutation",
         (
             ("contig file", contigs),
             ("BAM file", bam),
@@ -648,7 +650,7 @@ def estimate(
     a given target contig's mutation calls.
     """
     fancylog = cli_utils.fancystart(
-        "strainFlye fdr estimate",
+        "fdr estimate",
         (
             ("contig file", contigs),
             ("BAM file", bam),
@@ -778,7 +780,7 @@ def fix(bcf, fdr_info, fdr, output_bcf, verbose):
     the fixed FDR given here.
     """
     fancylog = cli_utils.fancystart(
-        "strainFlye fdr fix",
+        "fdr fix",
         (
             ("BCF file", bcf),
             ("FDR estimate file", fdr_info),
@@ -884,7 +886,7 @@ def hot_features(
     label a feature as a hotspot.
     """
     fancylog = cli_utils.fancystart(
-        "strainFlye spot hot-features",
+        "spot hot-features",
         (
             ("BCF file", bcf),
             ("feature file", features),
@@ -1003,7 +1005,7 @@ def cold_gaps(bcf, min_length, circular, exact_pvals, output_coldspots):
     [5], and [7, 8, 9].
     """
     fancylog = cli_utils.fancystart(
-        "strainFlye spot cold-gaps",
+        "spot cold-gaps",
         (
             ("BCF file", bcf),
             ("minimum coldspot gap length", min_length),
@@ -1145,7 +1147,7 @@ def create(
 ):
     """Create smoothed and virtual reads for each contig."""
     fancylog = cli_utils.fancystart(
-        "strainFlye smooth create",
+        "smooth create",
         (
             ("contig file", contigs),
             ("BAM file", bam),
@@ -1253,7 +1255,7 @@ def assemble(reads_dir, lja_params, lja_bin, output_dir, verbose):
     details on installing LJA.
     """
     fancylog = cli_utils.fancystart(
-        "strainFlye smooth assemble",
+        "smooth assemble",
         (
             ("reads directory", reads_dir),
             ("LJA parameters", lja_params),
@@ -1338,7 +1340,7 @@ def gfa_to_fasta(graph, output_fasta):
     than a graph), and this is a small command that performs this conversion.
     """
     fancylog = cli_utils.fancystart(
-        "strainFlye utils gfa-to-fasta",
+        "utils gfa-to-fasta",
         (("GFA file", graph),),
         (("FASTA file", output_fasta),),
     )

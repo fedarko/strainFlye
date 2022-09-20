@@ -97,6 +97,7 @@ Usage: strainFlye [OPTIONS] COMMAND [ARGS]...
   questions, comments, etc. about strainFlye. Thank you for using this tool!
 
 Options:
+  --version   Show the version and exit.
   -h, --help  Show this message and exit.
 
 Commands:

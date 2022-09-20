@@ -1,10 +1,11 @@
 # Utilities for strainFlye's CLI.
 
 import time
+from strainflye import __version__
 
 
 def fancystart(
-    cmd_name, inputs, outputs, quiet=False, prefix="--------\n", extra_info=()
+    cmd_name, inputs, outputs, prefix="--------\n", extra_info=(), version=True
 ):
     """Starts logging things for a given strainFlye command.
 
@@ -25,14 +26,8 @@ def fancystart(
         how "inputs" is formatted. For example, a variant caller might use
         something like (("BCF file", bcf_filepath)).
 
-    quiet: bool
-        If this is True, then nothing will be logged from here, and calling
-        the returned logging function (fancylog) will not output anything.
-        This isn't used anywhere yet, but if folks ask for a "quiet" option we
-        can add it using this. (I know, I know, YAGNI...)
-
     prefix: str
-        Prefix to put before every logging message.
+        Prefix to put before every logging message, by default.
 
     extra_info: tuple of str
         A collection of extra parameter information; each str will be printed
@@ -40,6 +35,10 @@ def fancystart(
         newlines, but probably don't do that) after inputs but before outputs.
         Useful for adding info for flags, etc. An example:
         ("Check for circular coldspot gaps?: No", "Verbose?: Yes").
+
+    version: bool
+        If True, show a message before the starting text about the detected
+        strainFlye version; if False, don't.
 
     Returns
     -------
@@ -50,6 +49,9 @@ def fancystart(
         accurately, since fancystart() was called).
     """
     t0 = time.time()
+
+    # definitely overkill
+    fancyprint = lambda text: print(text, flush=True)
 
     def fancylog(msg, prefix=prefix):
         """Logs a message.
@@ -71,11 +73,11 @@ def fancystart(
         -------
         None
         """
-        if not quiet:
-            t1 = time.time()
-            print(
-                f"{prefix}{cmd_name} @ {t1 - t0:,.2f} sec: {msg}", flush=True
-            )
+        t1 = time.time()
+        fancyprint(f"{prefix}{cmd_name} @ {t1 - t0:,.1f}s: {msg}")
+
+    if version:
+        fancyprint(f'Using strainFlye version "{__version__}".')
 
     # Report to the user about the inputs, parameters / settings, and outputs.
     # ... This may be over-engineered.
