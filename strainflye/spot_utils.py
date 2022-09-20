@@ -3,7 +3,7 @@
 
 import skbio
 from math import floor
-from decimal import Decimal
+from decimal import Decimal, getcontext
 from scipy.special import comb
 from strainflye import bcf_utils
 from strainflye.errors import ParameterError, WeirdError
@@ -494,7 +494,7 @@ def longest_success_run_pvalue(m, n, p, exact=True):
     n: int
         The number of Bernoulli trials in our sequence.
 
-    p: float
+    p: float or Decimal
         The probability of success for each Bernoulli trial. Should be in the
         range [0, 1]. (NOTE TO SELF: the way we currently use this function
         defines "success" as "not mutated," so if p-values seem absurdly small
@@ -504,16 +504,20 @@ def longest_success_run_pvalue(m, n, p, exact=True):
     exact: bool
         If True, use the exact formula described in (Bateman 1948) -- this is
         also equation (3.1) in (Naus 1982). Note that this may lead to
-        OverflowErrors or other weird results, especially due to our use of
+        decimal.Overflow errors, especially due to our use of
         scipy.special.comb() (which involves computing factorials -- and
         computing factorials of big numbers is tough).
 
         If False, use the approximation of this formula given as equation (3.3)
         in (Naus 1982).
 
+        We try to mitigate the problems introduced when dealing with large
+        numbers by using Decimals (independent of whether or not exact=True),
+        but Overflows are still possible.
+
     Returns
     -------
-    pval: float
+    pval: Decimal
         The probability of the longest run of successes in our n Bernoulli
         trials having a length of at least m, under the aforementioned null
         hypothesis.
@@ -559,18 +563,17 @@ def longest_success_run_pvalue(m, n, p, exact=True):
     if p < 0 or p > 1:
         raise WeirdError("p must be in the range [0, 1].")
 
+    # Now, from the people who brought you such hits as "zero":
+    one = Decimal(1)
+
+    p = Decimal(p)
     q = 1 - p
+    m = Decimal(m)
+    n = Decimal(n)
+
     if exact:
         # Equation (3.1) in Naus 1982
         # Let's use Decimals to attempt to make this work for big numbers
-
-        # Now, from the people who brought you such hits as "zero":
-        one = Decimal(1)
-
-        q = Decimal(q)
-        p = Decimal(p)
-        m = Decimal(m)
-        n = Decimal(n)
         # So, we know that floor(n / m) must be at least 1. Since the endpoint
         # of summations are inclusive (just, like, in general --
         # http://www.columbia.edu/itc/sipa/math/summation.html -- I feel like
@@ -596,32 +599,25 @@ def longest_success_run_pvalue(m, n, p, exact=True):
             sign = -sign
     else:
         # Equation (3.3) in Naus 1982
-        # We don't use Decimals here, although I guess we could if desired.
-        ptom = p**m
-        mq = m * q
-        q2 = 1 - (ptom * (1 + mq))
-        q3 = (
-            1
-            - (ptom * (1 + (2 * mq)))
-            + (0.5 * (p ** (2 * m)) * ((2 * mq) + (m * (m - 1) * (q**2))))
-        )
-        pval = 1 - (q2 * ((q3 / q2) ** ((n / m) - 2)))
 
-    # Deal with potential precision silliness by clamping to [0, 1]
-    # I've seen that sum_term can exceed 1 in some cases (e.g. if
-    # num_muts == 5, contig_length == 100, and the max gap length == 2);
-    # not sure if it getting less than 0 is possible, but might as well
-    # prevent it.
-    #
-    # (This is probably a harbinger that it would be better to use e.g. log
-    # probabilities or something to try to limit precision problems. But
-    # these p-values are already a very basic, trivial implementation, and
-    # there are like 100 other things on my plate for just this project
-    # ._.)
-    if pval > 1:
-        pval = 1
-    elif pval < 0:
-        pval = 0
+        two = Decimal(2)
+        half = Decimal(0.5)
+
+        # https://towardsdatascience.com/68213de30b87
+        ctx = getcontext()
+        ptom = ctx.power(p, m)
+        mq = m * q
+        q2 = one - (ptom * (one + mq))
+        q3 = (
+            one
+            - (ptom * (one + (two * mq)))
+            + (
+                half
+                * (p ** (two * m))
+                * ((two * mq) + (m * (m - one) * (q**two)))
+            )
+        )
+        pval = one - (q2 * (ctx.power(q3 / q2, ((n / m) - two))))
 
     return pval
 
@@ -649,10 +645,11 @@ def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
         coldspot's length; all other coldspots won't have p-values given.
 
         What does this p-value represent? Define the "null hypothesis" as the
-        case where mutated positions are randomly placed on the contig. The
-        p-value reported for a given gap, then, is the probability (given this
-        null hypothesis) that the longest gap we would see in a contig is at
-        least as long as this gap's length.
+        case where mutated positions are randomly placed on the contig, with
+        each position having probability of mutation equal to (num_muts /
+        contig_length). The p-value reported for a given gap, then, is the
+        probability (given this null hypothesis) that the longest gap we would
+        see in a contig is at least as long as this gap's length.
 
     Raises
     ------
@@ -741,7 +738,7 @@ def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
         # positions in the contig -- this is analogous to how this probability
         # is set in Geller, Domingo-Calap, Cuevas et al., 2015 (see refs
         # above).
-        p = 1 - (num_muts / contig_length)
+        p = Decimal(1) - (Decimal(num_muts / Decimal(contig_length)))
 
         # Say "NA" for all gaps but the longest one
         # (Since we break ties arbitrarily, this ignores the fact that there

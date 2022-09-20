@@ -928,6 +928,25 @@ def test_longest_success_run_pvalue_naus1982():
     )
 
 
+def test_longest_success_run_pvalue_approximation_naus1982():
+    # Same table in Naus 1982, now using the "Our approx. (3.3)" column.
+    assert su.longest_success_run_pvalue(7, 50, 0.5, exact=False) == approx(
+        Decimal(0.1653), abs=1e-4
+    )
+    assert su.longest_success_run_pvalue(10, 50, 0.5, exact=False) == approx(
+        Decimal(0.0204), abs=1e-4
+    )
+    assert su.longest_success_run_pvalue(5, 50, 1 / 3, exact=False) == approx(
+        Decimal(0.1214), abs=1e-4
+    )
+    assert su.longest_success_run_pvalue(4, 40, 1 / 3, exact=False) == approx(
+        Decimal(0.2739), abs=1e-4
+    )
+    assert su.longest_success_run_pvalue(2, 16, 0.2, exact=False) == approx(
+        Decimal(0.4106), abs=1e-4
+    )
+
+
 def test_get_coldspot_gap_pvalues_naus1982():
     # Using the first two values from the aforementioned table in Naus 1982.
     # We use num_muts == 25 in order to represent the mutation rate (p) being
@@ -935,10 +954,10 @@ def test_get_coldspot_gap_pvalues_naus1982():
     # (We could in theory use floating-point num_muts values, but that wouldn't
     # make sense -- and these cases are already tested above anyway.)
     assert su.get_coldspot_gap_pvalues(25, 50, [7]) == [
-        approx(0.1653, abs=1e-4)
+        approx(Decimal(0.1653), abs=1e-4)
     ]
     assert su.get_coldspot_gap_pvalues(25, 50, [10]) == [
-        approx(0.0204, abs=1e-4)
+        approx(Decimal(0.0204), abs=1e-4)
     ]
 
 
@@ -950,7 +969,7 @@ def test_get_coldspot_gap_pvalues_more():
         "NA",
     ]
     assert su.get_coldspot_gap_pvalues(6, 100, [1, 1, 1, 1, 1]) == [
-        1,
+        approx(Decimal(1)),
         "NA",
         "NA",
         "NA",
