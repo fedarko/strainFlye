@@ -911,40 +911,40 @@ def test_longest_success_run_pvalue_bad():
 def test_longest_success_run_pvalue_naus1982():
     # Values taken from the table on page 179 in Naus 1982:
     # https://www.tandfonline.com/doi/abs/10.1080/01621459.1982.10477783
-    assert su.longest_success_run_pvalue(7, 50, 0.5) == approx(
-        Decimal(0.1653), abs=1e-4
-    )
-    assert su.longest_success_run_pvalue(10, 50, 0.5) == approx(
-        Decimal(0.0204), abs=1e-4
-    )
-    assert su.longest_success_run_pvalue(5, 50, 1 / 3) == approx(
-        Decimal(0.1214), abs=1e-4
-    )
-    assert su.longest_success_run_pvalue(4, 40, 1 / 3) == approx(
-        Decimal(0.2739), abs=1e-4
-    )
-    assert su.longest_success_run_pvalue(2, 16, 0.2) == approx(
-        Decimal(0.4107), abs=1e-4
-    )
+    assert su.longest_success_run_pvalue(
+        7, 50, Decimal(1) / Decimal(2)
+    ) == approx(Decimal(0.1653), abs=1e-4)
+    assert su.longest_success_run_pvalue(
+        10, 50, Decimal(1) / Decimal(2)
+    ) == approx(Decimal(0.0204), abs=1e-4)
+    assert su.longest_success_run_pvalue(
+        5, 50, Decimal(1) / Decimal(3)
+    ) == approx(Decimal(0.1214), abs=1e-4)
+    assert su.longest_success_run_pvalue(
+        4, 40, Decimal(1) / Decimal(3)
+    ) == approx(Decimal(0.2739), abs=1e-4)
+    assert su.longest_success_run_pvalue(
+        2, 16, Decimal(1) / Decimal(5)
+    ) == approx(Decimal(0.4107), abs=1e-4)
 
 
 def test_longest_success_run_pvalue_approximation_naus1982():
     # Same table in Naus 1982, now using the "Our approx. (3.3)" column.
-    assert su.longest_success_run_pvalue(7, 50, 0.5, exact=False) == approx(
-        Decimal(0.1653), abs=1e-4
-    )
-    assert su.longest_success_run_pvalue(10, 50, 0.5, exact=False) == approx(
-        Decimal(0.0204), abs=1e-4
-    )
-    assert su.longest_success_run_pvalue(5, 50, 1 / 3, exact=False) == approx(
-        Decimal(0.1214), abs=1e-4
-    )
-    assert su.longest_success_run_pvalue(4, 40, 1 / 3, exact=False) == approx(
-        Decimal(0.2739), abs=1e-4
-    )
-    assert su.longest_success_run_pvalue(2, 16, 0.2, exact=False) == approx(
-        Decimal(0.4106), abs=1e-4
-    )
+    assert su.longest_success_run_pvalue(
+        7, 50, Decimal(1) / Decimal(2), exact=False
+    ) == approx(Decimal(0.1653), abs=1e-4)
+    assert su.longest_success_run_pvalue(
+        10, 50, Decimal(1) / Decimal(2), exact=False
+    ) == approx(Decimal(0.0204), abs=1e-4)
+    assert su.longest_success_run_pvalue(
+        5, 50, Decimal(1) / Decimal(3), exact=False
+    ) == approx(Decimal(0.1214), abs=1e-4)
+    assert su.longest_success_run_pvalue(
+        4, 40, Decimal(1) / Decimal(3), exact=False
+    ) == approx(Decimal(0.2739), abs=1e-4)
+    assert su.longest_success_run_pvalue(
+        2, 16, Decimal(1) / Decimal(5), exact=False
+    ) == approx(Decimal(0.4106), abs=1e-4)
 
 
 def test_get_coldspot_gap_pvalues_naus1982():

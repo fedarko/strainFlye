@@ -1,9 +1,10 @@
 # Utilities for strainFlye spot.
 
 
+import decimal
 import skbio
 from math import floor
-from decimal import Decimal, getcontext
+from decimal import Decimal as D
 from scipy.special import comb
 from strainflye import bcf_utils
 from strainflye.errors import ParameterError, WeirdError
@@ -494,7 +495,7 @@ def longest_success_run_pvalue(m, n, p, exact=True):
     n: int
         The number of Bernoulli trials in our sequence.
 
-    p: float or Decimal
+    p: Decimal
         The probability of success for each Bernoulli trial. Should be in the
         range [0, 1]. (NOTE TO SELF: the way we currently use this function
         defines "success" as "not mutated," so if p-values seem absurdly small
@@ -563,13 +564,23 @@ def longest_success_run_pvalue(m, n, p, exact=True):
     if p < 0 or p > 1:
         raise WeirdError("p must be in the range [0, 1].")
 
-    # Now, from the people who brought you such hits as "zero":
-    one = Decimal(1)
+    ctx = decimal.getcontext()
 
-    p = Decimal(p)
-    q = 1 - p
-    m = Decimal(m)
-    n = Decimal(n)
+    # Be paranoid, and fail loudly when most things go wrong (e.g. we don't
+    # have enough precision).
+    # Ideally we'd fail loudly when seeing Inexact and Rounded too, but it
+    # seems difficult to completely avoid causing those at all. This is already
+    # probably overkill as is.
+    for trap in ctx.traps:
+        if trap != decimal.Inexact and trap != decimal.Rounded:
+            ctx.traps[trap] = True
+
+    # Now, from the people who brought you such hits as "zero":
+    one = D(1)
+
+    q = one - p
+    m = D(m)
+    n = D(n)
 
     if exact:
         # Equation (3.1) in Naus 1982
@@ -580,13 +591,13 @@ def longest_success_run_pvalue(m, n, p, exact=True):
         # an idiot looking this up but at least I'm a [probably] correct idiot)
         # we know that we will update sum_term at least once, since
         # list(range(1, 2)) == [1].
-        sign = Decimal(1)
-        pval = Decimal(0)
+        sign = D(1)
+        pval = D(0)
         # floor(n / m) where n and m are Decimals works, and produces an int.
         # This is good, since otherwise range() would complain about seeing a
         # Decimal instead of an int.
         for jj in range(1, floor(n / m) + 1):
-            j = Decimal(jj)
+            j = D(jj)
             jm = j * m
             pval += (
                 sign
@@ -600,11 +611,10 @@ def longest_success_run_pvalue(m, n, p, exact=True):
     else:
         # Equation (3.3) in Naus 1982
 
-        two = Decimal(2)
-        half = Decimal(0.5)
+        two = D(2)
+        half = one / two
 
         # https://towardsdatascience.com/68213de30b87
-        ctx = getcontext()
         ptom = ctx.power(p, m)
         mq = m * q
         q2 = one - (ptom * (one + mq))
@@ -618,6 +628,15 @@ def longest_success_run_pvalue(m, n, p, exact=True):
             )
         )
         pval = one - (q2 * (ctx.power(q3 / q2, ((n / m) - two))))
+
+    # reset the "context" for which signals trigger failures. (If we don't do
+    # this, it messes up the tests.)
+    #
+    # My way of thinking about this is that the interior of this one function
+    # is really serious about precision, but it's the responsibility of the
+    # other parts of the code that call this function to have their own
+    # standards.
+    decimal.setcontext(decimal.DefaultContext)
 
     return pval
 
@@ -738,7 +757,7 @@ def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
         # positions in the contig -- this is analogous to how this probability
         # is set in Geller, Domingo-Calap, Cuevas et al., 2015 (see refs
         # above).
-        p = Decimal(1) - (Decimal(num_muts / Decimal(contig_length)))
+        p = D(1) - (D(num_muts) / D(contig_length))
 
         # Say "NA" for all gaps but the longest one
         # (Since we break ties arbitrarily, this ignores the fact that there
