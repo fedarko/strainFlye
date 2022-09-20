@@ -12,15 +12,19 @@ in metagenome-assembled genomes produced from HiFi sequencing data.
 
 This repository is under active development; we're working on porting our code
 from a set of ad hoc analyses (https://github.com/fedarko/sheepgut) to an
-easier-to-use pipeline. In the meantime, if you have any questions,
-please feel free to open an issue.
+easier-to-use pipeline.
+
+As of writing, the steps of the pipeline shown in the
+main text of the paper are all implemented in the pipeline; the remaining
+tasks (see progress [here](https://github.com/fedarko/strainFlye/issues/1))
+are computing mutation matrices, link graphs, and PTR values.
+In the meantime, if you have any questions, please feel free to open an issue.
 
 ## Installation
 
 Long story short, strainFlye is an ordinary Python package. However, it
 dependends on a few external non-Python tools (e.g. minimap2, Prodigal,
-SAMtools); almost all of these can be installed using
-[conda](https://conda.io).
+SAMtools); most of these can be installed using [conda](https://conda.io).
 
 Assuming that you already have conda installed, the following installation
 instructions should work for most Linux or macOS systems. (However, please feel
