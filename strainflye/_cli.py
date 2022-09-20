@@ -1268,24 +1268,24 @@ def assemble(reads_dir, lja_params, lja_bin, output_dir, verbose):
     fancylog("Done.")
 
 
-@click.group(name="link", **grp_params, **cmd_params)
-def link():
-    """[+] Create link graphs in order to show mutations' co-occurrences."""
-
-
-strainflye.add_command(link)
-
-
-@link.command(**cmd_params)
-def cooccur():
-    """Compute co-occurrence data for pairs of mutations on each contig."""
-    print("LG")
-
-
-@link.command(**cmd_params)
-def graph():
-    """Convert co-occurrence data into link graph structures."""
-    print("LG")
+# @click.group(name="link", **grp_params, **cmd_params)
+# def link():
+#     """[+] Create link graphs in order to show mutations' co-occurrences."""
+#
+#
+# strainflye.add_command(link)
+#
+#
+# @link.command(**cmd_params)
+# def cooccur():
+#     """Compute co-occurrence data for pairs of mutations on each contig."""
+#     print("LG")
+#
+#
+# @link.command(**cmd_params)
+# def graph():
+#     """Convert co-occurrence data into link graph structures."""
+#     print("LG")
 
 
 # @strainflye.command(**cmd_params)
