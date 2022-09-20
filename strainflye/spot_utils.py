@@ -641,7 +641,9 @@ def longest_success_run_pvalue(m, n, p, exact=True):
     return pval
 
 
-def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
+def get_coldspot_gap_pvalues(
+    num_muts, contig_length, coldspot_lengths, exact=True
+):
     """Computes a p-value for the longest coldspot gap in a contig.
 
     Parameters
@@ -654,6 +656,10 @@ def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
 
     coldspot_lengths: list of int
         List of coldspot lengths.
+
+    exact: bool
+        If True, compute exact p-values; if False, use an approximation.
+        See longest_success_run_pvalue() for details.
 
     Returns
     -------
@@ -764,7 +770,7 @@ def get_coldspot_gap_pvalues(num_muts, contig_length, coldspot_lengths):
         # may be multiple gaps tied for the "longest.")
         pvals = ["NA"] * num_gaps
         pvals[max_gap_idx] = longest_success_run_pvalue(
-            coldspot_lengths[max_gap_idx], contig_length, p
+            coldspot_lengths[max_gap_idx], contig_length, p, exact=exact
         )
     return pvals
 
@@ -773,6 +779,7 @@ def run_coldspot_gap_detection(
     bcf,
     min_length,
     circular,
+    exact_pvals,
     output_coldspot_gaps,
     fancylog,
 ):
@@ -802,6 +809,10 @@ def run_coldspot_gap_detection(
         circular -- ideally, we'd handle this on a contig-by-contig basis,
         maybe by consulting the assembly graph to see which contigs actually
         are circular.)
+
+    exact_pvals: bool
+        Passed to longest_success_run_pvalue() as the "exact" parameter there.
+        See that function's documentation for details.
 
     output_coldspot_gaps: str
         Filepath to which we'll write a TSV file describing identified
@@ -872,7 +883,10 @@ def run_coldspot_gap_detection(
         # update all of the other tests (it might be slightly faster to bundle
         # this into one loop, but this would take more work)
         coldspot_pvals = get_coldspot_gap_pvalues(
-            len(muts), contig_length, [cs[2] for cs in contig_coldspots]
+            len(muts),
+            contig_length,
+            [cs[2] for cs in contig_coldspots],
+            exact=exact_pvals,
         )
         contig2coldspot_pvals[contig] = coldspot_pvals
 

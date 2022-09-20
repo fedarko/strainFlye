@@ -652,6 +652,7 @@ def test_coldspot_good_nocircular(capsys):
             TEST_BCF_PATH,
             5,
             False,
+            True,
             out_fh.name,
             mock_log,
         )
@@ -696,6 +697,7 @@ def test_coldspot_good_circular(capsys):
             TEST_BCF_PATH,
             5,
             True,
+            True,
             out_fh.name,
             mock_log,
         )
@@ -739,6 +741,7 @@ def test_coldspot_zero_min_length():
             su.run_coldspot_gap_detection(
                 TEST_BCF_PATH,
                 0,
+                True,
                 True,
                 out_fh.name,
                 mock_log,

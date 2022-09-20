@@ -948,6 +948,19 @@ def hot_features(
     ),
 )
 @click.option(
+    "--exact-pvals/--no-exact-pvals",
+    is_flag=True,
+    default=True,
+    show_default=True,
+    required=False,
+    help=(
+        "If --exact-pvals is specified, we'll use the method for "
+        "computing exact longest-gap p-values given in equation (3.1) of "
+        "(Naus 1982). Otherwise, we'll use equation (3.3) of that paper, "
+        "which produces an approximation."
+    ),
+)
+@click.option(
     "-o",
     "--output-coldspots",
     required=True,
@@ -962,7 +975,7 @@ def hot_features(
         "contig). See (Naus 1982) for details."
     ),
 )
-def cold_gaps(bcf, min_length, circular, output_coldspots):
+def cold_gaps(bcf, min_length, circular, exact_pvals, output_coldspots):
     """Identify long coldspot "gaps" without any mutations.
 
     To clarify, we define a "gap" of length L on a contig as
@@ -995,10 +1008,14 @@ def cold_gaps(bcf, min_length, circular, output_coldspots):
         (("file describing coldspot gaps", output_coldspots),),
         extra_info=(
             f"Check for circular coldspot gaps?: {cli_utils.b2y(circular)}",
+            (
+                "Compute exact longest-gap p-values?: "
+                f"{cli_utils.b2y(exact_pvals)}"
+            ),
         ),
     )
     spot_utils.run_coldspot_gap_detection(
-        bcf, min_length, circular, output_coldspots, fancylog
+        bcf, min_length, circular, exact_pvals, output_coldspots, fancylog
     )
     fancylog("Done.")
 
