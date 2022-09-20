@@ -3,6 +3,7 @@
 
 import skbio
 from math import floor
+from decimal import Decimal
 from scipy.special import comb
 from strainflye import bcf_utils
 from strainflye.errors import ParameterError, WeirdError
@@ -561,28 +562,41 @@ def longest_success_run_pvalue(m, n, p, exact=True):
     q = 1 - p
     if exact:
         # Equation (3.1) in Naus 1982
-        #
+        # Let's use Decimals to attempt to make this work for big numbers
+
+        # Now, from the people who brought you such hits as "zero":
+        one = Decimal(1)
+
+        q = Decimal(q)
+        p = Decimal(p)
+        m = Decimal(m)
+        n = Decimal(n)
         # So, we know that floor(n / m) must be at least 1. Since the endpoint
         # of summations are inclusive (just, like, in general --
         # http://www.columbia.edu/itc/sipa/math/summation.html -- I feel like
         # an idiot looking this up but at least I'm a [probably] correct idiot)
         # we know that we will update sum_term at least once, since
         # list(range(1, 2)) == [1].
-        sign = 1
-        pval = 0
-        for j in range(1, floor(n / m) + 1):
+        sign = Decimal(1)
+        pval = Decimal(0)
+        # floor(n / m) where n and m are Decimals works, and produces an int.
+        # This is good, since otherwise range() would complain about seeing a
+        # Decimal instead of an int.
+        for jj in range(1, floor(n / m) + 1):
+            j = Decimal(jj)
             jm = j * m
             pval += (
                 sign
-                * (p + (((n - jm + 1) * q) / j))
-                * comb(n - jm, j - 1, exact=True)
+                * (p + (((n - jm + one) * q) / j))
+                * comb(n - jm, j - one, exact=True)
                 * (p**jm)
-                * (q ** (j - 1))
+                * (q ** (j - one))
             )
-            # Corresponds to (-1) ** (j + 1) in the equation.
+            # Corresponds to (-1) ** (j + 1) in the written equation.
             sign = -sign
     else:
         # Equation (3.3) in Naus 1982
+        # We don't use Decimals here, although I guess we could if desired.
         ptom = p**m
         mq = m * q
         q2 = 1 - (ptom * (1 + mq))

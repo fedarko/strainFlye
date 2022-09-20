@@ -5,6 +5,7 @@ import pytest
 import numpy as np
 import pandas as pd
 import strainflye.spot_utils as su
+from decimal import Decimal
 from pytest import approx
 from strainflye.errors import ParameterError, WeirdError
 from .utils_for_testing import mock_log
@@ -911,19 +912,19 @@ def test_longest_success_run_pvalue_naus1982():
     # Values taken from the table on page 179 in Naus 1982:
     # https://www.tandfonline.com/doi/abs/10.1080/01621459.1982.10477783
     assert su.longest_success_run_pvalue(7, 50, 0.5) == approx(
-        0.1653, abs=1e-4
+        Decimal(0.1653), abs=1e-4
     )
     assert su.longest_success_run_pvalue(10, 50, 0.5) == approx(
-        0.0204, abs=1e-4
+        Decimal(0.0204), abs=1e-4
     )
     assert su.longest_success_run_pvalue(5, 50, 1 / 3) == approx(
-        0.1214, abs=1e-4
+        Decimal(0.1214), abs=1e-4
     )
     assert su.longest_success_run_pvalue(4, 40, 1 / 3) == approx(
-        0.2739, abs=1e-4
+        Decimal(0.2739), abs=1e-4
     )
     assert su.longest_success_run_pvalue(2, 16, 0.2) == approx(
-        0.4107, abs=1e-4
+        Decimal(0.4107), abs=1e-4
     )
 
 
@@ -944,19 +945,19 @@ def test_get_coldspot_gap_pvalues_naus1982():
 def test_get_coldspot_gap_pvalues_more():
     assert su.get_coldspot_gap_pvalues(5, 100, [17, 21, 19, 3]) == [
         "NA",
-        approx(0.97316991876, abs=1e-6),
+        approx(Decimal(0.97316991876), abs=1e-6),
         "NA",
         "NA",
     ]
     assert su.get_coldspot_gap_pvalues(6, 100, [1, 1, 1, 1, 1]) == [
-        approx(1),
+        1,
         "NA",
         "NA",
         "NA",
         "NA",
     ]
     assert su.get_coldspot_gap_pvalues(98, 100, [2]) == [
-        approx(0.0381085137, abs=1e-6)
+        approx(Decimal(0.0381085137), abs=1e-6)
     ]
 
 
