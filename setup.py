@@ -53,6 +53,7 @@ setup(
     setup_requires=[
         "cython",
         "numpy",
+        "scipy",
         "pysam",
         "pysamstats",
     ],
