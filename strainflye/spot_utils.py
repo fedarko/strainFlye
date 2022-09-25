@@ -727,51 +727,61 @@ def get_coldspot_gap_pvalues(
       circular maybe being True.)
     """
     pvals = []
-    if num_muts == 0:
-        if len(coldspot_lengths) != 1 or coldspot_lengths[0] != contig_length:
-            raise WeirdError(
-                "A contig with 0 mutations must have exactly 1 coldspot "
-                "covering the entire contig."
-            )
-        # We have no way to estimate the mutation rate of this contig.
-        pvals.append("NA")
+    num_gaps = len(coldspot_lengths)
 
-    elif num_muts == contig_length:
-        if len(coldspot_lengths) != 0:
+    # If num_gaps is 0, then there aren't any gaps that were long enough. Just
+    # return an empty list.
+    if num_gaps > 0:
+        if num_muts == 0:
+            if num_gaps != 1 or coldspot_lengths[0] != contig_length:
+                raise WeirdError(
+                    "A contig with 0 mutations must have exactly 1 coldspot "
+                    "covering the entire contig."
+                )
+            # We have no way to estimate the mutation rate of this contig.
+            pvals.append("NA")
+
+        elif num_muts == contig_length:
+            # In this case, num_gaps should have been zero.
             raise WeirdError(
                 "There can't be any gaps if every position is mutated."
             )
-    else:
-        # Get the index of the largest gap (breaking ties arbitrarily)
-        # this is probably a bit inefficient (could bundle the computation of
-        # index and len into one iteration through coldspot_lengths) but
-        # whatevs
-        num_gaps = len(coldspot_lengths)
-        max_gap_idx = max(
-            range(0, num_gaps), key=lambda i: coldspot_lengths[i]
-        )
 
-        # The equation we will use is for the longest run of "successes" in
-        # a sequence of n Bernoulli trials. We thus define a "success" as a
-        # position *not* being mutated (we could also define this as a failure,
-        # it doesn't really matter).
-        #
-        # If the null hypothesis (mutations occur randomly on the sequence) is
-        # true, then all positions have the same probability of being mutated.
-        # We can "estimate" the probability of a position being mutated as
-        # the number of mutations in the contig divided by the total number of
-        # positions in the contig -- this is analogous to how this probability
-        # is set in Geller, Domingo-Calap, Cuevas et al., 2015 (see refs
-        # above).
-        p = D(1) - (D(num_muts) / D(contig_length))
+        else:
+            # At this point, we can safely start testing coldspots for
+            # significance: we know that there is at least one gap (well, at
+            # least one gap that met the minimum length requirement) and at
+            # least one mutation in this contig.
 
-        # Say "NA" for all gaps but the longest one
-        # (Since we break ties arbitrarily, this ignores the fact that there
-        # may be multiple gaps tied for the "longest.")
-        pvals = ["NA"] * num_gaps
-        pvals[max_gap_idx] = longest_success_run_pvalue(
-            coldspot_lengths[max_gap_idx], contig_length, p, exact=exact
-        )
+            # Get the index of the largest gap (breaking ties arbitrarily).
+            # This is probably a bit inefficient (could bundle the computation
+            # of index and len into one iteration through coldspot_lengths) but
+            # whatevs
+            max_gap_idx = max(
+                range(0, num_gaps), key=lambda i: coldspot_lengths[i]
+            )
+
+            # The equation we will use is for the longest run of "successes" in
+            # a sequence of n Bernoulli trials. We thus define a "success" as a
+            # position *not* being mutated (we could also define this as a
+            # failure, it doesn't really matter).
+            #
+            # If the null hypothesis (mutations occur randomly on the sequence)
+            # is true, then all positions have the same probability of being
+            # mutated. # We can "estimate" the probability of a position being
+            # mutated as the number of mutations in the contig divided by the
+            # total number of positions in the contig -- this is analogous to
+            # how this probability is set in Geller, Domingo-Calap, Cuevas
+            # et al., 2015 (see refs above).
+            p = D(1) - (D(num_muts) / D(contig_length))
+
+            # Say "NA" for all gaps but the longest one
+            # (Since we break ties arbitrarily, this ignores the fact that
+            # there may be multiple gaps tied for the "longest.")
+            pvals = ["NA"] * num_gaps
+            pvals[max_gap_idx] = longest_success_run_pvalue(
+                coldspot_lengths[max_gap_idx], contig_length, p, exact=exact
+            )
     return pvals
 
 
