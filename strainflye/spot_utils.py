@@ -333,9 +333,10 @@ def run_hotspot_feature_detection(
             # to be consistent with the input GFF3 start and end
             start = feature.bounds[0][0] + 1
             end = feature.bounds[0][1]
+            # Don't include percent signs, because it makes Pandas get angry
             of.write(
                 f"{contig}\t{feature.metadata['ID']}\t{start}\t{end}\t"
-                f"{num_mp}\t{perc_mp:.2f}%\n"
+                f"{num_mp}\t{perc_mp:.2f}\n"
             )
     fancylog("Done.", prefix="")
 

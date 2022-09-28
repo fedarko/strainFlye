@@ -161,7 +161,7 @@ c9	marcus	gene	6	7	100	-	.	ID=sus_feature"""
                 "FeatureStart_1IndexedInclusive": [1],
                 "FeatureEnd_1IndexedInclusive": [5],
                 "NumberMutatedPositions": [1],
-                "PercentMutatedPositions": ["20.00%"],
+                "PercentMutatedPositions": [20.00],
             }
         )
         pd.testing.assert_frame_equal(obs_df, exp_df)
@@ -344,7 +344,7 @@ c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
                 "FeatureStart_1IndexedInclusive": [5, 1, 8],
                 "FeatureEnd_1IndexedInclusive": [19, 5, 8],
                 "NumberMutatedPositions": [2, 1, 1],
-                "PercentMutatedPositions": ["13.33%", "20.00%", "100.00%"],
+                "PercentMutatedPositions": [13.33, 20.00, 100.00],
             }
         )
         pd.testing.assert_frame_equal(obs_df, exp_df)
@@ -450,7 +450,7 @@ c3	marcus	exon	8	8	.	+	.	ID=single_nt_feature"""
                 "FeatureStart_1IndexedInclusive": [1, 8],
                 "FeatureEnd_1IndexedInclusive": [5, 8],
                 "NumberMutatedPositions": [1, 1],
-                "PercentMutatedPositions": ["20.00%", "100.00%"],
+                "PercentMutatedPositions": [20.00, 100.00],
             }
         )
         pd.testing.assert_frame_equal(obs_df, exp_df)
@@ -537,7 +537,7 @@ c3	marcus	exon	8	8	.	+	.	ID=doppelganger"""
                 "FeatureStart_1IndexedInclusive": [5, 8],
                 "FeatureEnd_1IndexedInclusive": [19, 8],
                 "NumberMutatedPositions": [2, 1],
-                "PercentMutatedPositions": ["13.33%", "100.00%"],
+                "PercentMutatedPositions": [13.33, 100.00],
             }
         )
         pd.testing.assert_frame_equal(obs_df, exp_df)
@@ -582,7 +582,7 @@ c3	marcus	exon	16	16	.	+	.	ID=f2"""
                 "FeatureStart_1IndexedInclusive": [5],
                 "FeatureEnd_1IndexedInclusive": [19],
                 "NumberMutatedPositions": [2],
-                "PercentMutatedPositions": ["13.33%"],
+                "PercentMutatedPositions": [13.33],
             }
         )
         pd.testing.assert_frame_equal(obs_df, exp_df)
@@ -628,7 +628,7 @@ c2	marcus	gene	2	12	100	-	.	ID=worlds_shittiest_gene"""
                 "FeatureStart_1IndexedInclusive": [5],
                 "FeatureEnd_1IndexedInclusive": [19],
                 "NumberMutatedPositions": [2],
-                "PercentMutatedPositions": ["13.33%"],
+                "PercentMutatedPositions": [13.33],
             }
         )
         pd.testing.assert_frame_equal(obs_df, exp_df)
