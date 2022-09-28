@@ -390,7 +390,7 @@ def p_mutation(
 )
 @click.option(
     "--div-index-r-list",
-    default="5,10,20,50,100,250,500",
+    default="2,3,4,5,10,20,50,100,250,500",
     required=False,
     show_default=True,
     type=click.STRING,
