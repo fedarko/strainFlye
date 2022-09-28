@@ -334,7 +334,7 @@ def p_mutation(
 
     The primary parameter for this command is the lower bound of p, defined by
     --min-p. The BCF output will include "mutations" for all positions that
-    pass this (likely very low) threshold, but this BCF should be adjusted
+    pass this (likely very low) threshold; this BCF can be filtered
     using the utilities contained in the "strainFlye fdr" module.
     """
     fancylog = cli_utils.fancystart(
@@ -442,7 +442,7 @@ def r_mutation(
 
     The primary parameter for this command is the lower bound of r, defined by
     --min-r. The BCF output will include "mutations" for all positions that
-    pass this (likely very low) threshold, but this BCF should be adjusted
+    pass this (likely very low) threshold; this BCF can be filtered
     using the utilities contained in the "strainFlye fdr" module.
     """
     fancylog = cli_utils.fancystart(
@@ -736,8 +736,8 @@ def estimate(
     help=(
         "False discovery rate at which identified mutations will be fixed. "
         "This is interpreted as a percentage: the default of 1 corresponds "
-        "to an FDR of 1%. No upper limit is imposed, since estimated FDRs can "
-        "technically exceed 100%."
+        "to an FDR of 1%. We do not restrict this to an upper limit, since "
+        "estimated FDRs can technically exceed 100%."
     ),
 )
 @click.option(
