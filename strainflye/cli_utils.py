@@ -48,6 +48,13 @@ def fancystart(
         name and the time (in seconds) since this command started (or, more
         accurately, since fancystart() was called).
     """
+    # This is the "starting" time, that we'll use as a reference point for all
+    # logs afterwards. fancystart() should thus be one of the first functions
+    # an arbitrary command should call. (That said, there probably will be some
+    # delay before the logging starts due to, e.g., Click taking time to
+    # process inputs -- or in the case of "align", the need to process files
+    # of reads. We could try to start the timer before these things, but it
+    # shouldn't be a huge deal.)
     t0 = time.time()
 
     # definitely overkill

@@ -9,7 +9,7 @@ utility functions.)
 import os
 
 
-__version__ = "0.1.0"
+__version__ = "0.1.0-dev"
 
 # Kind of a hack -- make it so that all python files in this directory, except
 # those starting with _, can be imported when we say "from strainflye import *"

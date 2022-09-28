@@ -800,7 +800,7 @@ def spot():
     Many methods exist for identifying these sorts of hotspots or coldspots;
     so, strainFlye's implementations of these methods are intended mostly
     as a quick proof-of-concept for replicating the results shown in our
-    paper, and are not extremely robust quite yet.
+    paper, and are not extremely "feature-rich" quite yet.
     """
 
 

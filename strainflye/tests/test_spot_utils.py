@@ -981,6 +981,9 @@ def test_get_coldspot_gap_pvalues_more():
     assert su.get_coldspot_gap_pvalues(98, 100, [2]) == [
         approx(Decimal(0.0381085137), abs=1e-6)
     ]
+    # Maybe none of the gaps were long enough (e.g. the user set min_length as
+    # 5000)
+    assert su.get_coldspot_gap_pvalues(5, 100, []) == []
 
 
 def test_get_coldspot_gap_pvalues_zero_muts():
@@ -997,8 +1000,9 @@ def test_get_coldspot_gap_pvalues_zero_muts():
         assert str(ei.value) == exp_err_msg
 
     # test case where there's != 1 coldspot
-    for coldspot_list in ([100, 1], [99, 1], [5, 5, 5], [], [50]):
+    for coldspot_list in ([100, 1], [99, 1], [5, 5, 5], [50]):
         with pytest.raises(WeirdError) as ei:
+            # 0 mutations; contig length of 100 bp; coldspot length(s) in list
             su.get_coldspot_gap_pvalues(0, 100, coldspot_list)
         assert str(ei.value) == exp_err_msg
 
