@@ -773,7 +773,7 @@ def fix(bcf, fdr_info, fdr, output_bcf, verbose):
     these mutations are considered "indisputable."
 
     We include indisputable mutations from the decoy contig and from all
-    target contigs our output BCF file. We will only consider including
+    target contigs in our output BCF file. We will only consider including
     non-indisputable mutations from the target contigs: the decision of
     which non-indisputable mutations will be included is based on the lowest
     p or r parameter for a target contig that yields an estimated FDR \u2264
