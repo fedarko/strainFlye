@@ -225,10 +225,11 @@ def call():
     Diversity indices
     -----------------
 
-    Later on in the pipeline, we'll need to select a decoy contig in order
-    to perform FDR estimation for our called mutations. Contigs with low
-    diversity indices may indicate promising decoy contigs; so, for the sake of
-    convenience, both commands output this information.
+    Later on in the pipeline, if we perform FDR estimation on these called
+    mutations using the "strainFlye fdr" module, we will need to select
+    a "decoy contig." Contigs with low diversity indices may be promising
+    decoy contigs; so, for the sake of convenience, both commands output
+    this information.
     """
     pass
 
@@ -444,6 +445,12 @@ def r_mutation(
     --min-r. The BCF output will include "mutations" for all positions that
     pass this (likely very low) threshold; this BCF can be filtered
     using the utilities contained in the "strainFlye fdr" module.
+
+    (However, as discussed in the Supplemental Material of the strainFlye
+    paper, we note that FDR estimation using r-mutations can be problematic
+    due to coverage variations between contigs. So, if you plan to make use of
+    the FDR estimation / fixing utilities in strainFlye, we suggest using
+    p-mutations instead.)
     """
     fancylog = cli_utils.fancystart(
         "call r-mutation",
@@ -648,6 +655,12 @@ def estimate(
     threshold given here). Using this information (and information about the
     numbers of mutations called per megabase), we can plot an FDR curve for
     a given target contig's mutation calls.
+
+    This command accepts an input BCF file of p- or r-mutations; however, in
+    general we recommend using p-mutations (rather than r-mutations) for FDR
+    estimation / fixing. Please see the Supplemental Material of the strainFlye
+    paper named "Identifying mutations based solely on read counts" for
+    details.
     """
     fancylog = cli_utils.fancystart(
         "fdr estimate",
@@ -1270,24 +1283,24 @@ def assemble(reads_dir, lja_params, lja_bin, output_dir, verbose):
     fancylog("Done.")
 
 
-# @click.group(name="link", **grp_params, **cmd_params)
-# def link():
-#     """[+] Create link graphs in order to show mutations' co-occurrences."""
-#
-#
-# strainflye.add_command(link)
-#
-#
-# @link.command(**cmd_params)
-# def cooccur():
-#     """Compute co-occurrence data for pairs of mutations on each contig."""
-#     print("LG")
-#
-#
-# @link.command(**cmd_params)
-# def graph():
-#     """Convert co-occurrence data into link graph structures."""
-#     print("LG")
+@click.group(name="link", **grp_params, **cmd_params)
+def link():
+    """[+] Create link graphs in order to show mutations' co-occurrences."""
+
+
+strainflye.add_command(link)
+
+
+@link.command(**cmd_params)
+def cooccur():
+    """Compute co-occurrence data for pairs of mutations on each contig."""
+    print("LG")
+
+
+@link.command(**cmd_params)
+def graph():
+    """Convert co-occurrence data into link graph structures."""
+    print("LG")
 
 
 # @strainflye.command(**cmd_params)
