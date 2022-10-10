@@ -225,8 +225,8 @@ def call():
     Diversity indices
     -----------------
 
-    Later on in the pipeline, we'll need to select a decoy contig in order
-    to perform FDR estimation for our called mutations. Contigs with low
+    Later on in the pipeline, we may select a decoy contig in order
+    to perform FDR estimation for these called mutations. Contigs with low
     diversity indices may indicate promising decoy contigs; so, for the sake of
     convenience, both commands output this information.
     """
