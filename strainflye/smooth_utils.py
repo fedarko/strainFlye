@@ -128,10 +128,7 @@ def get_smooth_aln_replacements(aln, mutated_positions, mp2ra):
     #
     # If refpos >  mutpos, increment mpi until refpos <= mutpos
     #                      (stopping as early as possible).
-    # If refpos == mutpos, we have a match! Update
-    #                      readname2mutpos2ismutated[mutpos] based on
-    #                      comparing the read to the reference at the
-    #                      aligned positions.
+    # If refpos == mutpos, we have a match! Update replacements_to_make.
     # If refpos <  mutpos, continue to the next pair.
 
     for pair in ap:

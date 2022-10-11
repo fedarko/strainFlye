@@ -40,3 +40,8 @@ DECOY_CONTEXTS = [
 DCTX_EVERYTHING = "Everything"
 
 DCTX_ALL = DECOY_CONTEXTS + [DCTX_EVERYTHING]
+
+# Used in the "strainFlye link" module. Probably not an important optimization
+# but humor me here, ok?
+N2I = {"A": 0, "C": 1, "G": 2, "T": 3}
+I2N = "ACGT"
