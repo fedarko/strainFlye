@@ -658,9 +658,9 @@ def estimate(
 
     This command accepts an input BCF file of p- or r-mutations; however, in
     general we recommend using p-mutations (rather than r-mutations) for FDR
-    estimation / fixing. Please see the Supplemental Material of the strainFlye
-    paper named "Identifying mutations based solely on read counts" for
-    details.
+    estimation / fixing. Please see the Supplemental Material section of the
+    strainFlye paper named "Identifying mutations based solely on read
+    counts" for details.
     """
     fancylog = cli_utils.fancystart(
         "fdr estimate",
