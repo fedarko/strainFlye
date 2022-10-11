@@ -481,7 +481,11 @@ def r_mutation(
 
 @click.group(name="fdr", **grp_params, **cmd_params)
 def fdr():
-    """[+] Estimate and fix FDRs for contigs' na\u00efve mutation calls."""
+    """[+] Estimate and fix FDRs for contigs' na\u00efve mutation calls.
+
+    The "estimate" command should be run before the "fix" command, since "fix"
+    takes as input the FDR estimates produced by "estimate".
+    """
 
 
 strainflye.add_command(fdr)
@@ -812,8 +816,8 @@ def spot():
     """[+] Identify putative mutational hotspots or coldspots in contigs.
 
     Many methods exist for identifying these sorts of hotspots or coldspots;
-    so, strainFlye's implementations of these methods are intended mostly
-    as a quick proof-of-concept for replicating the results shown in our
+    strainFlye's implementations of these methods are intended mostly as a
+    quick proof-of-concept for replicating the results shown in our
     paper, and are not extremely "feature-rich" quite yet.
     """
 
@@ -1041,7 +1045,12 @@ def cold_gaps(bcf, min_length, circular, exact_pvals, output_coldspots):
 
 @click.group(name="smooth", **grp_params, **cmd_params)
 def smooth():
-    """[+] Create and assemble smoothed and virtual reads."""
+    """[+] Create and assemble smoothed and virtual reads.
+
+    The "create" command should be run before the "assemble" command, since
+    "assemble" takes as input the smoothed and virtual reads produced by
+    "create".
+    """
 
 
 strainflye.add_command(smooth)
@@ -1286,7 +1295,19 @@ def assemble(reads_dir, lja_params, lja_bin, output_dir, verbose):
 
 @click.group(name="link", **grp_params, **cmd_params)
 def link():
-    """[+] Create link graphs in order to show mutations' co-occurrences."""
+    """[+] Create link graphs in order to show mutations' co-occurrences.
+
+    The "nt" command should be run first; this generates information about
+    the counts and co-occurrences of nucleotides at mutated positions in a
+    contig.
+
+    The "graph" command takes as input the information produced by "nt" and
+    creates link graphs (one link graph per contig) from it. There are many
+    parameters that impact the graph creation, so we have split this into
+    two steps in order to make it easy to rerun the "graph" step with different
+    parameter settings if needed (the "nt" command should usually take much
+    longer to run).
+    """
 
 
 strainflye.add_command(link)
