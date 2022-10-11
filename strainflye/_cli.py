@@ -1358,7 +1358,7 @@ strainflye.add_command(link)
 def nt(contigs, bam, bcf, output_dir, verbose):
     """Compute (co-)occurrence information for mutations on a contig."""
     fancylog = cli_utils.fancystart(
-        "link pos",
+        "link nt",
         (
             ("contig file", contigs),
             ("BAM file", bam),
