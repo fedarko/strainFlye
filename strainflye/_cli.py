@@ -298,12 +298,12 @@ strainflye.add_command(call)
     default=5,
     required=False,
     show_default=True,
-    type=click.IntRange(min=1),
+    type=click.FloatRange(min=0, min_open=True),
     help=(
         "Parameter that impacts the minimum (mis)match coverage needed in "
         'order to consider "counting" a position / mutation towards the '
         "diversity index. Given a value of p (converted to the range "
-        "[0, 0.5)), a position must have a coverage of at least "
+        "(0, 0.5]), a position must have a coverage of at least "
         ' (--min-read-number / p) in order to be "sufficiently covered" and '
         "thus counted towards the diversity index."
     ),
