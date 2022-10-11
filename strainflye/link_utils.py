@@ -51,6 +51,11 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
     Returns
     -------
     None
+
+    Raises
+    ------
+    Various errors are raised by misc_utils.load_triplet() if the input files
+    are problematic.
     """
     verboselog = cli_utils.get_verboselog(fancylog, verbose)
     # Load and check the FASTA, BAM, and BCF files.
@@ -73,6 +78,10 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
 
     # TODO add logs
 
+    fancylog(
+        "Going through contigs and computing nucleotide (co-)occurrence "
+        "information..."
+    )
     for ci, contig in enumerate(contig_name2len, 1):
         clen = contig_name2len[contig]
         cli_utils.proglog(contig, ci, num_contigs, verboselog, contig_len=clen)
@@ -92,15 +101,18 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
         verboselog(
             (
                 f"Contig {contig} has {len(mutated_positions):,} mutated "
-                "position(s)."
+                "position(s). Going through linear alignments to it..."
             ),
             prefix="",
         )
 
         # Part 1: build up readname2mutpos2nt (exactly what it says on the tin)
         readname2mutpos2nt = defaultdict(dict)
-        # Similar song and dance to smooth_utils.get_smooth_aln_replacements()
-        # (TODO: abstract shared code...?)
+
+        # Similar song and dance to smooth_utils.get_smooth_aln_replacements(),
+        # but we set matches_only=True (we don't care about deletions seen at a
+        # mutated position). It might be worth abstracting this shared code to
+        # a utility function, but probs not worth the trouble right now.
         for aln in bam_obj.fetch(contig):
             ap = aln.get_aligned_pairs(matches_only=True)
 
@@ -163,11 +175,18 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
 
                 # (Convert the nucleotide at this position on this read
                 # to an integer in the range [0, 3] using N2I)
-                readval = config.N2I[aln.query_sequence[readpos]]
+                readval = config.N2I[aln.query_sequence[readpos].upper()]
 
                 # Record this specific "allele" for this read.
                 readname2mutpos2nt[readname][mutpos] = readval
 
+        verboselog(
+            (
+                "Now computing (co-)occurrence information for contig "
+                f"{contig}..."
+            ),
+            prefix="",
+        )
         # Part 2: convert readname2mutpos2nt into the actual nucleotide
         # (co-)occurrence information we're going to output from here
 
@@ -269,3 +288,9 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
             "wb",
         ) as dumpster:
             pickle.dump(pospair2ntpair2freq, dumpster)
+
+        verboselog(
+            f"Wrote out (co-)occurrence information for contig {contig}.",
+            prefix="",
+        )
+    fancylog("Done.", prefix="")

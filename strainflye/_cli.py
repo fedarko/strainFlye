@@ -1356,7 +1356,7 @@ strainflye.add_command(link)
     help="Display extra details for each contig while generating reads.",
 )
 def nt(contigs, bam, bcf, output_dir, verbose):
-    """Compute (co-)occurrence information for nucleotides at mutations."""
+    """Compute (co-)occurrence information for mutations' nucleotides."""
     fancylog = cli_utils.fancystart(
         "link nt",
         (
