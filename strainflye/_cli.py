@@ -1340,11 +1340,12 @@ strainflye.add_command(link)
     type=click.Path(dir_okay=True, file_okay=False),
     help=(
         "Directory to which information about nucleotide frequencies at the "
-        "mutated positions in each contig (as well as co-occurrence "
-        "information between pairs of mutated positions) will be written. "
+        "mutated positions in each contig, as well as co-occurrence "
+        "information between pairs of mutated positions, will be written. "
         "Each contig will be represented by one subdirectory within this "
-        "directory, named [contig]; each of these subdirectories will contain "
-        "two *.pickle files."
+        "directory, named to match the corresponding contig; each of these "
+        'subdirectories will contain two "pickle" files that can be loaded '
+        'with python\'s "pickle" module.'
     ),
 )
 @click.option(
