@@ -10,6 +10,7 @@ from strainflye import (
     fdr_utils,
     spot_utils,
     smooth_utils,
+    link_utils,
     config,
     __version__,
 )
@@ -1238,7 +1239,7 @@ def create(
     ),
     help=(
         'Location of LJA\'s "lja" binary file, which can be used to run LJA. '
-        "This should be located in the bin/ folder constructed when you "
+        "This should be located in the bin/ directory constructed when you "
         "compiled LJA. If this is not provided, we will check to see if LJA "
         "is available in your $PATH."
     ),
@@ -1249,8 +1250,8 @@ def create(
     required=True,
     type=click.Path(dir_okay=True, file_okay=False),
     help=(
-        "Directory to which output LJA assemblies (one top-level folder per "
-        "*.fasta.gz file in the input --reads-dir) will be written."
+        "Directory to which output LJA assemblies (one top-level directory "
+        " per *.fasta.gz file in the input --reads-dir) will be written."
     ),
 )
 @click.option(
@@ -1292,14 +1293,68 @@ strainflye.add_command(link)
 
 
 @link.command(**cmd_params)
-def cooccur():
-    """Compute co-occurrence data for pairs of mutations on each contig."""
-    print("LG")
+@click.option(
+    "-c",
+    "--contigs",
+    required=True,
+    type=click.Path(exists=True),
+    help=desc.INPUT_CONTIGS,
+)
+@click.option(
+    "--bam",
+    required=True,
+    type=click.Path(exists=True),
+    help=desc.INPUT_BAM,
+)
+@click.option(
+    "--bcf",
+    required=True,
+    type=click.Path(exists=True),
+    help=desc.INPUT_BCF_DOWNSTREAM,
+)
+@click.option(
+    "-o",
+    "--output-dir",
+    required=True,
+    type=click.Path(dir_okay=True, file_okay=False),
+    help=(
+        "Directory to which information about nucleotide frequencies at the "
+        "mutated positions in each contig (as well as co-occurrence "
+        "information between pairs of mutated positions) will be written. "
+        "Each contig will be represented by one subdirectory within this "
+        "directory, named [contig]; each of these subdirectories will contain "
+        "two *.pickle files."
+    ),
+)
+@click.option(
+    "--verbose/--no-verbose",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Display extra details for each contig while generating reads.",
+)
+def nt(contigs, bam, bcf, output_dir, verbose):
+    """Compute (co-)occurrence information for mutations on a contig."""
+    fancylog = cli_utils.fancystart(
+        "link pos",
+        (
+            ("contig file", contigs),
+            ("BAM file", bam),
+            ("BCF file", bcf),
+        ),
+        (("directory", output_dir),),
+        extra_info=(f"Verbose?: {cli_utils.b2y(verbose)}",),
+    )
+    link_utils.run_nt(contigs, bam, bcf, verbose, fancylog)
+    fancylog("Done.")
 
 
 @link.command(**cmd_params)
 def graph():
-    """Convert co-occurrence data into link graph structures."""
+    """Convert (co-)occurrence information into link graph structures."""
+    # TODO need output dir from pos, minnodect, minspan, minlink; output dir
+    # from this contains one nx graph (?) / dot file / other representation per
+    # contig
     print("LG")
 
 
