@@ -1342,10 +1342,11 @@ strainflye.add_command(link)
         "Directory to which information about nucleotide frequencies at the "
         "mutated positions in each contig, as well as co-occurrence "
         "information between pairs of mutated positions, will be written. "
-        "Each contig will be represented by one subdirectory within this "
-        "directory, named to match the corresponding contig; each of these "
-        'subdirectories will contain two "pickle" files that can be loaded '
-        'with python\'s "pickle" module.'
+        'Each contig will be represented by two "pickle" files within this '
+        "directory, one describing nucleotide frequencies at each position "
+        "and one describing nucleotide pair frequencies at pairs of "
+        "positions; each file's name will be prefixed with the corresponding "
+        "contig name."
     ),
 )
 @click.option(
@@ -1353,7 +1354,7 @@ strainflye.add_command(link)
     is_flag=True,
     default=False,
     show_default=True,
-    help="Display extra details for each contig while generating reads.",
+    help="Display extra details for each contig while running.",
 )
 def nt(contigs, bam, bcf, output_dir, verbose):
     """Compute (co-)occurrence information for mutations' nucleotides."""
@@ -1372,12 +1373,154 @@ def nt(contigs, bam, bcf, output_dir, verbose):
 
 
 @link.command(**cmd_params)
-def graph():
-    """Convert (co-)occurrence information into link graph structures."""
-    # TODO need output dir from pos, minnodect, minspan, minlink; output dir
-    # from this contains one nx graph (?) / dot file / other representation per
-    # contig
-    print("LG")
+@click.option(
+    "-n",
+    "--nt-dir",
+    required=True,
+    type=click.Path(exists=True, dir_okay=True, file_okay=False),
+    help=(
+        'Directory produced by "strainFlye link nt" containing "pickle" files '
+        "describing nucleotide (co-)occurrence information."
+    ),
+)
+@click.option(
+    "--min-nt-ct",
+    required=False,
+    default=2,
+    show_default=True,
+    type=click.IntRange(min=1),
+    help=(
+        "We will only create a node representing a given nucleotide at a "
+        "mutated position if this nucleotide is supported by at least this "
+        "many reads at this position."
+    ),
+)
+@click.option(
+    "--min-span",
+    required=False,
+    default=501,
+    show_default=True,
+    type=click.IntRange(min=1),
+    help=(
+        "One of the prerequisites for creating an edge between two nodes "
+        "(representing nucleotides Ni, Nj at mutated positions i and j) is "
+        "that the total number of reads spanning both i and j, across all "
+        "combinations of nucleotides at both i and j, is at least this "
+        "parameter."
+    ),
+)
+@click.option(
+    "--low-link",
+    required=False,
+    default=0,
+    show_default=True,
+    type=click.FloatRange(min=0),
+    help=(
+        "The other prerequisite for creating an edge between two nodes "
+        "(representing nucleotides Ni, Nj at mutated positions i and j) is "
+        "that link(i, j, Ni, Nj) > this parameter. Note this check is not "
+        "inclusive (i.e. the default of 0 means that we do not connect nodes "
+        "of which we do not see any co-occurrences)."
+    ),
+)
+@click.option(
+    "-f",
+    "--output-format",
+    required=False,
+    type=click.Choice(["dot", "nx"], case_sensitive=False),
+    default="dot",
+    show_default=True,
+    help=(
+        'Format in which to write out each contig\'s link graph. "dot" will '
+        'write out graphs in Graphviz\' DOT file format; "nx" will write out '
+        '"pickle" files containing representations of the graph loaded in '
+        "NetworkX."
+    ),
+)
+@click.option(
+    "-o",
+    "--output-dir",
+    required=True,
+    type=click.Path(dir_okay=True, file_okay=False),
+    help=(
+        "Directory to which graphs will be written. We'll write one graph "
+        "per contig."
+    ),
+)
+@click.option(
+    "--verbose/--no-verbose",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Display extra details for each contig while generating reads.",
+)
+def graph(
+    nt_dir, min_nt_ct, min_span, low_link, output_format, output_dir, verbose
+):
+    """Convert (co-)occurrence information into link graph structures.
+
+    A node in this graph (i, Ni) represents an allele: or, the occurrence of
+    nucleotide Ni (one of {A, C, G, T}) at position i (1-indexed).
+
+    Let's define reads(i, Ni) as the number of reads at which Ni is aligned to
+    i. Next, let's define reads(i, j, Ni, Nj) as the number of reads at which
+    Ni is aligned to i, and Nj is aligned to j.
+
+    Given these definitions, we define the link weight between two alleles (i,
+    Ni) and (j, Nj) as
+
+    \b
+                                 reads(i, j, Ni, Nj)
+     link(i, j, Ni, Nj) = -----------------------------------
+                            max(reads(i, Ni), reads(j, Nj))
+
+    We create an edge between nodes (i, Ni) and (j, Nj) if both of the
+    following conditions hold:
+
+    1. The number of reads spanning both i and j (regardless of the actual
+       nucleotides aligned to i and j in these reads; this quantity is also
+       referred to as spanCount(i, j)) is \u2265 the --min-span parameter.
+
+    2. link(i, j, Ni, Nj) > the --low-link parameter.
+    """
+    fancylog = cli_utils.fancystart(
+        "link graph",
+        (
+            ("nucleotide information directory", nt_dir),
+            ("To make a node (i, Ni): reads(i, Ni) must be \u2265", min_nt_ct),
+            (
+                (
+                    "To make an edge btwn (i, Ni) & (j, Nj): "
+                    "spanCount(i, j) must be \u2265"
+                ),
+                min_span,
+            ),
+            (
+                (
+                    "To make an edge btwn (i, Ni) & (j, Nj): "
+                    "link(i, j, Ni, Nj) must be >"
+                ),
+                low_link,
+            ),
+            (
+                ("Output file format"),
+                output_format,
+            ),
+        ),
+        (("directory", output_dir),),
+        extra_info=(f"Verbose?: {cli_utils.b2y(verbose)}",),
+    )
+    link_utils.run_graph(
+        nt_dir,
+        min_nt_ct,
+        min_span,
+        low_link,
+        output_format,
+        output_dir,
+        verbose,
+        fancylog,
+    )
+    fancylog("Done.")
 
 
 # @strainflye.command(**cmd_params)

@@ -28,6 +28,10 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
     "strainFlye link nt" step is boring, straightforward, and relatively
     time-consuming, so it makes sense to separate it.
 
+    For each contig, writes out two "pickle" files to the output directory: one
+    file named [contig]_pos2nt2freq.pickle, and one file named
+    [contig]_pospair2ntpair2freq.pickle.
+
     Parameters
     ----------
     contigs: str
@@ -76,8 +80,6 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
 
     misc_utils.make_output_dir(output_dir)
 
-    # TODO add logs
-
     fancylog(
         "Going through contigs and computing nucleotide (co-)occurrence "
         "information..."
@@ -86,6 +88,9 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
         clen = contig_name2len[contig]
         cli_utils.proglog(contig, ci, num_contigs, verboselog, contig_len=clen)
 
+        # note that mutated positions here are zero-indexed; this makes it
+        # easier to compare stuff with pysam fetch() output below, which also
+        # uses zero-indexing.
         mp2ra = bcf_utils.get_mutated_position_details_in_contig(
             bcf_obj, contig
         )
@@ -96,7 +101,7 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
             )
             continue
 
-        # (These positions are zero-indexed.)
+        # (still zero-indexed)
         mutated_positions = sorted(mp2ra.keys())
         verboselog(
             (
@@ -256,7 +261,10 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
             # the same position multiple times. Easiest for my sanity to just
             # be a bit inefficient and make this two separate loops.
             for mutpos in mutated_positions_covered_in_read:
-                pos2nt2freq[mutpos][readname2mutpos2nt[readname][mutpos]] += 1
+                # Convert to one-indexing
+                pos2nt2freq[mutpos + 1][
+                    readname2mutpos2nt[readname][mutpos]
+                ] += 1
 
             for (i, j) in combinations(mutated_positions_covered_in_read, 2):
 
@@ -276,7 +284,12 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
                 # We know these mutated positions were observed on the same
                 # read, and we know the exact nucleotides this read had at both
                 # positions -- update this in pospair2ntpair2freq
-                pospair2ntpair2freq[(i, j)][(i_nt, j_nt)] += 1
+                #
+                # Also, convert to one-indexing for these output files. The
+                # main motivation is that the output of "graph" will use
+                # one-indexing also, so we may as well be consistent with the
+                # outputs of these commands.
+                pospair2ntpair2freq[(i + 1, j + 1)][(i_nt, j_nt)] += 1
 
         with open(
             os.path.join(output_dir, f"{contig}_pos2nt2freq.pickle"), "wb"
@@ -293,4 +306,18 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
             f"Wrote out (co-)occurrence information for contig {contig}.",
             prefix="",
         )
+    fancylog("Done.", prefix="")
+
+
+def run_graph(
+    nt_dir,
+    min_nt_ct,
+    min_span,
+    low_link,
+    output_format,
+    output_dir,
+    verbose,
+    fancylog,
+):
+    fancylog("Creating link graphs...")
     fancylog("Done.", prefix="")
