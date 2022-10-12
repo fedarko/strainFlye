@@ -164,10 +164,10 @@ def align(
             ("file(s) of reads", reads_info),
             ("contig file", contigs),
             ("graph file", graph),
-            ("minimap2 parameters", minimap2_params),
         ),
         (("directory", output_dir),),
         extra_info=(
+            f"minimap2 parameters: {minimap2_params}",
             f"Remove temporary BAM files?: {cli_utils.b2y(rm_tmp_bam)}",
             f"Verbose?: {cli_utils.b2y(verbose)}",
         ),
@@ -344,13 +344,21 @@ def p_mutation(
         (
             ("contig file", contigs),
             ("BAM file", bam),
-            ("minimum p", min_p),
-            ("--min-alt-pos", min_alt_pos),
-            ("--div-index-p-list", div_index_p_list),
-            ("minimum read number", min_read_number),
         ),
         (("directory", output_dir),),
-        extra_info=(f"Verbose?: {cli_utils.b2y(verbose)}",),
+        extra_info=(
+            f"Minimum p: {min_p:,}",
+            f"--min-alt-pos: {min_alt_pos:,}",
+            (
+                "Values of p for which we'll compute diversity indices: "
+                f"{div_index_p_list}"
+            ),
+            (
+                "Minimum read number (used in diversity index computation): "
+                f"{min_read_number:,}"
+            ),
+            f"Verbose?: {cli_utils.b2y(verbose)}",
+        ),
     )
     di_list = call_utils.parse_di_list(div_index_p_list, param="p")
     call_utils.run(
@@ -458,12 +466,20 @@ def r_mutation(
         (
             ("contig file", contigs),
             ("BAM file", bam),
-            ("minimum r", min_r),
-            ("--div-index-r-list", div_index_r_list),
-            ("minimum coverage factor", min_coverage_factor),
         ),
         (("directory", output_dir),),
-        extra_info=(f"Verbose?: {cli_utils.b2y(verbose)}",),
+        extra_info=(
+            f"Minimum r: {min_r:,}",
+            (
+                "Values of r for which we'll compute diversity indices: "
+                f"{div_index_r_list}"
+            ),
+            (
+                "Minimum coverage factor (used in diversity index "
+                f"computation): {min_coverage_factor:,.2f}"
+            ),
+            f"Verbose?: {cli_utils.b2y(verbose)}",
+        ),
     )
     di_list = call_utils.parse_di_list(div_index_r_list, param="r")
     call_utils.run(
@@ -674,41 +690,32 @@ def estimate(
             ("BAM file", bam),
             ("BCF file", bcf),
             ("diversity indices file", diversity_indices),
-            ("manually-set decoy contig", decoy_contig),
-            (
-                "decoy contig context-dependent position / mutation type(s)",
-                decoy_contexts,
-            ),
-            (
-                (
-                    "high p threshold (only used if the BCF describes "
-                    "p-mutations)"
-                ),
-                high_p,
-            ),
-            (
-                (
-                    "high r threshold (only used if the BCF describes "
-                    "r-mutations)"
-                ),
-                high_r,
-            ),
-            (
-                (
-                    "min length of a potential decoy contig (only used if "
-                    "diversity indices are specified)"
-                ),
-                decoy_min_length,
-            ),
-            (
-                (
-                    "min average coverage of a potential decoy contig (only "
-                    "used if diversity indices are specified)"
-                ),
-                decoy_min_average_coverage,
-            ),
         ),
         (("directory", output_dir),),
+        extra_info=(
+            f"Manually-set decoy contig: {decoy_contig}",
+            (
+                "Decoy contig context-dependent position / mutation type(s): "
+                f"{decoy_contexts}"
+            ),
+            (
+                "High p threshold (only used if the BCF describes "
+                f"p-mutations): {high_p:,}"
+            ),
+            (
+                "High r threshold (only used if the BCF describes "
+                f"r-mutations): {high_r:,}"
+            ),
+            (
+                "Minimum length of a potential decoy contig (only used if "
+                f"diversity indices are specified): {decoy_min_length:,}"
+            ),
+            (
+                "Minimum average coverage of a potential decoy contig (only "
+                "used if diversity indices are specified): "
+                f"{decoy_min_average_coverage:,}"
+            ),
+        ),
     )
     fdr_utils.run_estimate(
         contigs,
@@ -802,10 +809,12 @@ def fix(bcf, fdr_info, fdr, output_bcf, verbose):
         (
             ("BCF file", bcf),
             ("FDR estimate file", fdr_info),
-            ("FDR to fix mutation calls at", fdr),
         ),
         (("BCF file with mutation calls at the fixed FDR", output_bcf),),
-        extra_info=(f"Verbose?: {cli_utils.b2y(verbose)}",),
+        extra_info=(
+            f"FDR to fix mutation calls at: {fdr:.2f}%",
+            f"Verbose?: {cli_utils.b2y(verbose)}",
+        ),
     )
     fdr_utils.run_fix(bcf, fdr_info, fdr, output_bcf, fancylog, verbose)
     fancylog("Done.")
@@ -908,19 +917,18 @@ def hot_features(
         (
             ("BCF file", bcf),
             ("feature file", features),
-            (
-                (
-                    "minimum number of mutations needed to call a feature a "
-                    "hotspot"
-                ),
-                min_num_mutations,
-            ),
-            (
-                "minimum % of mutations needed to call a feature a hotspot",
-                min_perc_mutations,
-            ),
         ),
         (("file describing hotspot features", output_hotspots),),
+        extra_info=(
+            (
+                "Minimum number of mutations needed to call a feature a "
+                f"hotspot: {min_num_mutations:,}"
+            ),
+            (
+                "Minimum % of mutations needed to call a feature a hotspot: "
+                f"{min_perc_mutations:.2f}%"
+            ),
+        ),
     )
     spot_utils.run_hotspot_feature_detection(
         bcf,
@@ -1024,12 +1032,10 @@ def cold_gaps(bcf, min_length, circular, exact_pvals, output_coldspots):
     """
     fancylog = cli_utils.fancystart(
         "spot cold-gaps",
-        (
-            ("BCF file", bcf),
-            ("minimum coldspot gap length", min_length),
-        ),
+        (("BCF file", bcf),),
         (("file describing coldspot gaps", output_coldspots),),
         extra_info=(
+            f"Minimum coldspot gap length: {min_length:,}",
             f"Check for circular coldspot gaps?: {cli_utils.b2y(circular)}",
             (
                 "Compute exact longest-gap p-values?: "
@@ -1176,14 +1182,17 @@ def create(
             ("BAM file", bam),
             ("BCF file", bcf),
             ("diversity indices file", diversity_indices),
-            (
-                'virtual read "well-covered" percentage',
-                virtual_read_well_covered_perc,
-            ),
-            ("virtual read flank", virtual_read_flank),
         ),
         (("directory", output_dir),),
         extra_info=(
+            (
+                '"Well-covered" percentage used for virtual read creation: '
+                f"{virtual_read_well_covered_perc:.2f}%"
+            ),
+            (
+                "Flank parameter used for virtual read creation: "
+                f"{virtual_read_flank:,}"
+            ),
             f"Add virtual reads?: {cli_utils.b2y(virtual_reads)}",
             f"Verbose?: {cli_utils.b2y(verbose)}",
         ),
@@ -1279,13 +1288,13 @@ def assemble(reads_dir, lja_params, lja_bin, output_dir, verbose):
     """
     fancylog = cli_utils.fancystart(
         "smooth assemble",
-        (
-            ("reads directory", reads_dir),
-            ("LJA parameters", lja_params),
-            ("LJA binary (if None, we'll look in $PATH)", lja_bin),
-        ),
+        (("reads directory", reads_dir),),
         (("directory", output_dir),),
-        extra_info=(f"Verbose?: {cli_utils.b2y(verbose)}",),
+        extra_info=(
+            f"LJA parameters: {lja_params}",
+            f"LJA binary (if None, we'll look in $PATH): {lja_bin}",
+            f"Verbose?: {cli_utils.b2y(verbose)}",
+        ),
     )
     smooth_utils.run_assemble(
         reads_dir, lja_params, lja_bin, output_dir, verbose, fancylog
@@ -1485,30 +1494,24 @@ def graph(
     """
     fancylog = cli_utils.fancystart(
         "link graph",
-        (
-            ("nucleotide information directory", nt_dir),
-            ("To make a node (i, Ni): reads(i, Ni) must be \u2265", min_nt_ct),
-            (
-                (
-                    "To make an edge btwn (i, Ni) & (j, Nj): "
-                    "spanCount(i, j) must be \u2265"
-                ),
-                min_span,
-            ),
-            (
-                (
-                    "To make an edge btwn (i, Ni) & (j, Nj): "
-                    "link(i, j, Ni, Nj) must be >"
-                ),
-                low_link,
-            ),
-            (
-                ("Output file format"),
-                output_format,
-            ),
-        ),
+        (("nucleotide information directory", nt_dir),),
         (("directory", output_dir),),
-        extra_info=(f"Verbose?: {cli_utils.b2y(verbose)}",),
+        extra_info=(
+            (
+                "To make a node (i, Ni): reads(i, Ni) must be \u2265 "
+                f"{min_nt_ct:,}"
+            ),
+            (
+                "To make an edge btwn (i, Ni) & (j, Nj): spanCount(i, j) must "
+                f"be \u2265 {min_span:,}"
+            ),
+            (
+                "To make an edge btwn (i, Ni) & (j, Nj): link(i, j, Ni, Nj) "
+                f"must be > {low_link:,.2f}"
+            ),
+            f"Output file format: {output_format}",
+            f"Verbose?: {cli_utils.b2y(verbose)}",
+        ),
     )
     link_utils.run_graph(
         nt_dir,

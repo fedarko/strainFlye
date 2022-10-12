@@ -33,7 +33,7 @@ def fancystart(
         A collection of extra parameter information; each str will be printed
         on its own line (well, maybe multiple lines if these strings contain
         newlines, but probably don't do that) after inputs but before outputs.
-        Useful for adding info for flags, etc. An example:
+        Useful for adding info for flags, parameters, etc. An example:
         ("Check for circular coldspot gaps?: No", "Verbose?: Yes").
 
     version: bool
