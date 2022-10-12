@@ -1472,7 +1472,8 @@ def graph(
     """Convert (co-)occurrence information into link graph structures.
 
     A node in this graph (i, Ni) represents an allele: in other words, the
-    occurrence of nucleotide Ni (one of {A, C, G, T}) at position i (1-indexed).
+    occurrence of nucleotide Ni (one of {A, C, G, T}) at position i
+    (1-indexed).
 
     To explain this graph a bit: let's define reads(i, Ni) as the number of
     reads at which Ni is aligned to i. Let's also define reads(i, j, Ni, Nj) as
