@@ -448,6 +448,12 @@ def run_graph(
                 ) as dotfile:
                     dotfile.write(f"graph {contig} {{\n")
 
+                    # We represent node names in the DOT file by just putting
+                    # their "real" name (from networkx) in double-quotes.
+                    # Graphviz *can* support things like integers as node
+                    # names, but just treating all node names as strings from
+                    # the start of developing this should save us a lot of
+                    # headaches. (Knock on wood.)
                     for n in g.nodes:
                         node_lbl = (
                             f"{n[0]:,} ({config.I2N[n[1]]})\\n"
@@ -457,6 +463,15 @@ def run_graph(
                         dotfile.write(f'  "{n}" [label="{node_lbl}"];\n')
 
                     for e in g.edges:
+                        # In theory, an edge's "link" value could be anywhere
+                        # in the range (0, 1] (the requirement that --low-link
+                        # is at least 0 forces link to be positive, if we have
+                        # created an edge in the first place). So doing
+                        # interpolation to scale these values into (0,
+                        # MAX_PENWIDTH] isn't too challenging.
+                        #
+                        # However, since a very tiny link value implies a very
+                        # tiny penwidth, we clamp the min penwidth.
                         lw = g.edges[e]["link"] * config.MAX_PENWIDTH
                         if lw < config.MIN_PENWIDTH:
                             lw = config.MIN_PENWIDTH

@@ -1428,8 +1428,8 @@ def nt(contigs, bam, bcf, output_dir, verbose):
         "The other prerequisite for creating an edge between two nodes "
         "(representing nucleotides Ni, Nj at mutated positions i and j) is "
         "that link(i, j, Ni, Nj) > this parameter. Note this check is not "
-        "inclusive (i.e. the default of 0 means that we do not connect nodes "
-        "of which we do not see any co-occurrences)."
+        "inclusive (i.e. the default of 0 means that, if reads(i, j, Ni, Nj) "
+        "= 0, we will never create an edge between (i, Ni) and (j, Nj)."
     ),
 )
 @click.option(
@@ -1468,12 +1468,12 @@ def graph(
 ):
     """Convert (co-)occurrence information into link graph structures.
 
-    A node in this graph (i, Ni) represents an allele: or, the occurrence of
-    nucleotide Ni (one of {A, C, G, T}) at position i (1-indexed).
+    A node in this graph (i, Ni) represents an allele: in other words, the
+    occurrence of nucleotide Ni (one of {A, C, G, T}) at position i (1-indexed).
 
-    Let's define reads(i, Ni) as the number of reads at which Ni is aligned to
-    i. Next, let's define reads(i, j, Ni, Nj) as the number of reads at which
-    Ni is aligned to i, and Nj is aligned to j.
+    To explain this graph a bit: let's define reads(i, Ni) as the number of
+    reads at which Ni is aligned to i. Let's also define reads(i, j, Ni, Nj) as
+    the number of reads at which Ni is aligned to i, and Nj is aligned to j.
 
     Given these definitions, we define the link weight between two alleles (i,
     Ni) and (j, Nj) as
