@@ -1509,7 +1509,7 @@ def graph(
                 "To make an edge btwn (i, Ni) & (j, Nj): link(i, j, Ni, Nj) "
                 f"must be > {low_link:,.2f}"
             ),
-            f"Output file format: {output_format}",
+            f"Output graph file format: {output_format}",
             f"Verbose?: {cli_utils.b2y(verbose)}",
         ),
     )

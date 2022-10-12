@@ -3,10 +3,11 @@
 
 import os
 import pickle
+import networkx as nx
 from itertools import combinations
 from collections import defaultdict
 from strainflye import bcf_utils, cli_utils, misc_utils, config
-from strainflye.errors import WeirdError
+from strainflye.errors import WeirdError, ParameterError
 
 
 def gen_ddi():
@@ -29,8 +30,8 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
     time-consuming, so it makes sense to separate it.
 
     For each contig, writes out two "pickle" files to the output directory: one
-    file named [contig]_pos2nt2freq.pickle, and one file named
-    [contig]_pospair2ntpair2freq.pickle.
+    file named [contig]_pos2nt2ct.pickle, and one file named
+    [contig]_pospair2ntpair2ct.pickle.
 
     Parameters
     ----------
@@ -198,7 +199,7 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
         # Maps mutated position -> nucleotide seen at this position, summed
         # across all reads included here -> freq. This corresponds to
         # Reads(i, N) as described in the paper.
-        pos2nt2freq = defaultdict(gen_ddi)
+        pos2nt2ct = defaultdict(gen_ddi)
 
         # This defaultdict has two levels:
         # OUTER: Keys are sorted (in ascending order) 0-indexed pairs (tuples)
@@ -235,7 +236,7 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
         # - 3     reads with a C at position 100 and a T at position 500
         # - 1     read  with a G at position 100 and a T at position 500
         #
-        # ... then pospair2ntpair2freq would look like
+        # ... then pospair2ntpair2ct would look like
         # {
         #     (100, 500): {
         #         {
@@ -248,7 +249,7 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
         #         }
         #     }
         # }
-        pospair2ntpair2freq = defaultdict(gen_ddi)
+        pospair2ntpair2ct = defaultdict(gen_ddi)
         for ri, readname in enumerate(readname2mutpos2nt, 1):
             # TODO: see if we can avoid sorting here: inefficient
             # when done once for every read, maybe?
@@ -262,7 +263,7 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
             # be a bit inefficient and make this two separate loops.
             for mutpos in mutated_positions_covered_in_read:
                 # Convert to one-indexing
-                pos2nt2freq[mutpos + 1][
+                pos2nt2ct[mutpos + 1][
                     readname2mutpos2nt[readname][mutpos]
                 ] += 1
 
@@ -283,24 +284,24 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
 
                 # We know these mutated positions were observed on the same
                 # read, and we know the exact nucleotides this read had at both
-                # positions -- update this in pospair2ntpair2freq
+                # positions -- update this in pospair2ntpair2ct
                 #
                 # Also, convert to one-indexing for these output files. The
                 # main motivation is that the output of "graph" will use
                 # one-indexing also, so we may as well be consistent with the
                 # outputs of these commands.
-                pospair2ntpair2freq[(i + 1, j + 1)][(i_nt, j_nt)] += 1
+                pospair2ntpair2ct[(i + 1, j + 1)][(i_nt, j_nt)] += 1
 
         with open(
-            os.path.join(output_dir, f"{contig}_pos2nt2freq.pickle"), "wb"
+            os.path.join(output_dir, f"{contig}_pos2nt2ct.pickle"), "wb"
         ) as dumpster:
-            pickle.dump(pos2nt2freq, dumpster)
+            pickle.dump(pos2nt2ct, dumpster)
 
         with open(
-            os.path.join(output_dir, f"{contig}_pospair2ntpair2freq.pickle"),
+            os.path.join(output_dir, f"{contig}_pospair2ntpair2ct.pickle"),
             "wb",
         ) as dumpster:
-            pickle.dump(pospair2ntpair2freq, dumpster)
+            pickle.dump(pospair2ntpair2ct, dumpster)
 
         verboselog(
             f"Wrote out (co-)occurrence information for contig {contig}.",
@@ -319,5 +320,162 @@ def run_graph(
     verbose,
     fancylog,
 ):
-    fancylog("Creating link graphs...")
+    verboselog = cli_utils.get_verboselog(fancylog, verbose)
+    havent_created_first_graph_yet = True
+
+    pnf_suffix = "_pos2nt2ct.pickle"
+    pair_suffix = "_pospair2ntpair2ct.pickle"
+
+    fancylog(
+        "Going through co-occurrence information and creating link graphs..."
+    )
+
+    # Sorting os.listdir() makes this deterministic. We use this same trick in
+    # "strainFlye smooth assemble", also.
+    #
+    # (We could also take the FASTA file of contigs as input, but it isn't
+    # necessary so let's not bother)
+    for fp in sorted(os.listdir(nt_dir)):
+        if fp.lower().endswith(pnf_suffix):
+            pnf_abs_fp = os.path.join(nt_dir, fp)
+            with open(pnf_abs_fp, "rb") as loadster:
+                pos2nt2ct = pickle.load(loadster)
+
+            contig = fp[: -len(pnf_suffix)]
+            corresponding_pair_abs_fp = os.path.join(
+                nt_dir, contig + pair_suffix
+            )
+            if not os.path.exists(corresponding_pair_abs_fp):
+                raise FileNotFoundError(
+                    f"Found file {pnf_abs_fp}, but not file "
+                    f"{corresponding_pair_abs_fp}."
+                )
+            with open(corresponding_pair_abs_fp, "rb") as loadster:
+                pospair2ntpair2ct = pickle.load(loadster)
+
+            # we don't have enough information about the available contigs to
+            # easily use cli_utils.proglog(). We could try to get around this
+            # but ehhhh easier to just hack a one-off solution here
+            verboselog(
+                (
+                    f"Found both info files for contig {contig}; adding nodes "
+                    "to its link graph..."
+                ),
+                prefix="",
+            )
+
+            # Alright, now create the graph
+            g = nx.Graph()
+
+            # Add nodes to the graph
+            for pos in pos2nt2ct.keys():
+
+                pos_cov = sum(pos2nt2ct[pos].values())
+
+                # Since this data structure is a defaultdict, this will only
+                # iterate over the defined (i.e. seen) nucleotide indices
+                # (integers in the range [0, 3]).
+                for nt in pos2nt2ct[pos].keys():
+                    # Set the "ct" attribute of this allele node to the
+                    # number of times this nucleotide was seen at this position
+                    # in the reads. This corresponds to Reads(i, Ni) for
+                    # position i and nucleotide Ni.
+                    ct = pos2nt2ct[pos][nt]
+
+                    if ct >= min_nt_ct:
+                        # Also, set the "freq" attribute to ct divided by
+                        # the total number of matching operations at this
+                        # nucleotide -- so we can see what percentage of reads
+                        # at this position had a given nucleotide.
+                        g.add_node((pos, nt), ct=ct, freq=(ct / pos_cov))
+
+            verboselog(
+                (
+                    f"The link graph for contig {contig} has {len(g.nodes):,} "
+                    "node(s). Adding edges..."
+                ),
+                prefix="",
+            )
+
+            for pospair in pospair2ntpair2ct:
+                i = pospair[0]
+                j = pospair[1]
+
+                # NOTE: possible to speed this up by bundling this computation
+                # into the for loop below, maybe also note that "num spanning
+                # reads" only includes reads that meet criteria about not
+                # having skips/indels at either position, etc.
+                num_spanning_reads = sum(pospair2ntpair2ct[pospair].values())
+
+                if num_spanning_reads >= min_span:
+                    for ntpair in pospair2ntpair2ct[pospair]:
+                        # these are still ints in the range [0, 3]
+                        i_nt = ntpair[0]
+                        j_nt = ntpair[1]
+                        # if one or both of the nodes failed the Reads(i, N)
+                        # check above due to min_nt_ct, definitely don't create
+                        # an edge adjacent to them!
+                        if g.has_node((i, i_nt)) and g.has_node((j, j_nt)):
+                            link = pospair2ntpair2ct[pospair][ntpair] / max(
+                                pos2nt2ct[i][i_nt], pos2nt2ct[j][j_nt]
+                            )
+                            if link > low_link:
+                                # Yay, add an edge between these alleles!
+                                g.add_edge((i, i_nt), (j, j_nt), link=link)
+
+            verboselog(
+                (
+                    f"The link graph for contig {contig} has {len(g.edges):,} "
+                    "edge(s)."
+                ),
+                prefix="",
+            )
+
+            if havent_created_first_graph_yet:
+                misc_utils.make_output_dir(output_dir)
+                havent_created_first_graph_yet = False
+
+            # TODO abstract to another function that you can test easier
+            if output_format == "nx":
+                with open(
+                    os.path.join(output_dir, f"{contig}_linkgraph.pickle"),
+                    "wb",
+                ) as dumpster:
+                    dumpster.write(pickle.dumps(g))
+            elif output_format == "dot":
+                with open(
+                    os.path.join(output_dir, f"{contig}_linkgraph.gv"), "w"
+                ) as dotfile:
+                    dotfile.write(f"graph {contig} {{\n")
+
+                    for n in g.nodes:
+                        node_lbl = (
+                            f"{n[0]:,} ({config.I2N[n[1]]})\\n"
+                            f"{g.nodes[n]['ct']:,}x "
+                            f"({(100 * g.nodes[n]['freq']):.2f}%)"
+                        )
+                        dotfile.write(f'  "{n}" [label="{node_lbl}"];\n')
+
+                    for e in g.edges:
+                        lw = g.edges[e]["link"] * config.MAX_PENWIDTH
+                        if lw < config.MIN_PENWIDTH:
+                            lw = config.MIN_PENWIDTH
+                        dotfile.write(
+                            f'  "{e[0]}" -- "{e[1]}" ' f"[penwidth={lw}];\n"
+                        )
+
+                    dotfile.write("}")
+            else:
+                raise WeirdError("Unrecognized output format: {output_format}")
+
+            verboselog(
+                f"Wrote out the link graph for contig {contig}.",
+                prefix="",
+            )
+
+    if havent_created_first_graph_yet:
+        raise ParameterError(
+            f"Didn't find any (co-)occurrence information in {nt_dir}."
+        )
+
     fancylog("Done.", prefix="")

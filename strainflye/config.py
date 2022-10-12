@@ -45,3 +45,6 @@ DCTX_ALL = DECOY_CONTEXTS + [DCTX_EVERYTHING]
 # but humor me here, ok?
 N2I = {"A": 0, "C": 1, "G": 2, "T": 3}
 I2N = "ACGT"
+
+MIN_PENWIDTH = 0.01
+MAX_PENWIDTH = 5
