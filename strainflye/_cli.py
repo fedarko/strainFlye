@@ -348,7 +348,10 @@ def p_mutation(
         (("directory", output_dir),),
         extra_info=(
             f"Minimum p: {min_p:,}",
-            f"--min-alt-pos: {min_alt_pos:,}",
+            (
+                "Minimum number of supporting reads needed to call a "
+                f"p-mutation: {min_alt_pos:,}"
+            ),
             (
                 "Values of p for which we'll compute diversity indices: "
                 f"{div_index_p_list}"
@@ -812,7 +815,7 @@ def fix(bcf, fdr_info, fdr, output_bcf, verbose):
         ),
         (("BCF file with mutation calls at the fixed FDR", output_bcf),),
         extra_info=(
-            f"FDR to fix mutation calls at: {fdr:.2f}%",
+            f"FDR at which to fix mutation calls: {fdr:.2f}%",
             f"Verbose?: {cli_utils.b2y(verbose)}",
         ),
     )
@@ -1185,15 +1188,15 @@ def create(
         ),
         (("directory", output_dir),),
         extra_info=(
+            f"Create virtual reads?: {cli_utils.b2y(virtual_reads)}",
             (
                 '"Well-covered" percentage used for virtual read creation: '
                 f"{virtual_read_well_covered_perc:.2f}%"
             ),
             (
-                "Flank parameter used for virtual read creation: "
-                f"{virtual_read_flank:,}"
+                'Create "flanks" of this length on either side of each '
+                f"virtual read: {virtual_read_flank:,}"
             ),
-            f"Add virtual reads?: {cli_utils.b2y(virtual_reads)}",
             f"Verbose?: {cli_utils.b2y(verbose)}",
         ),
     )
