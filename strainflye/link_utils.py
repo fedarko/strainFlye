@@ -657,7 +657,7 @@ def run_graph(
 
             verboselog(
                 (
-                    f"Wrote out the link graph (format: \"{output_format}\") "
+                    f'Wrote out the link graph (format: "{output_format}") '
                     f"for contig {contig}."
                 ),
                 prefix="",
