@@ -397,14 +397,15 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
         )
         if len(mutated_positions) == 0:
             verboselog(
-                f"Contig {contig} has no mutations; ignoring it.", prefix=""
+                f"Contig {contig} has no mutations; ignoring this contig.",
+                prefix="",
             )
             continue
         else:
             verboselog(
                 (
                     f"Contig {contig} has {len(mutated_positions):,} mutated "
-                    "position(s). Going through linear alignments to it..."
+                    "position(s). Going through alignments to this contig..."
                 ),
                 prefix="",
             )
@@ -412,14 +413,28 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
         readname2mutpos2nt = get_readname2pos2nt(
             bam_obj, contig, mutated_positions
         )
-
-        verboselog(
-            (
-                "Done with that; now computing (co-)occurrence information "
-                f"for contig {contig}..."
-            ),
-            prefix="",
-        )
+        num_reads_spanning_muts = len(readname2mutpos2nt)
+        if num_reads_spanning_muts == 0:
+            # use fancylog() not verboselog() because this is a very weird
+            # situation (if the contig has 0x coverage, it shouldn't have any
+            # mutations???)
+            fancylog(
+                (
+                    f"Warning: Contig {contig} has no reads spanning any of "
+                    "its mutations; ignoring this contig."
+                ),
+                prefix="",
+            )
+            continue
+        else:
+            verboselog(
+                (
+                    f"Found {num_reads_spanning_muts:,} read(s) spanning "
+                    f"\u2265 1 mutated position in contig {contig}. Computing "
+                    "(co-)occurrence info..."
+                ),
+                prefix="",
+            )
 
         pos2nt2ct, pospair2ntpair2ct = get_pos_nt_info(readname2mutpos2nt)
 
@@ -429,10 +444,7 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
         )
 
         verboselog(
-            (
-                "Done with that; wrote out (co-)occurrence information for "
-                f"contig {contig}."
-            ),
+            f"Wrote out (co-)occurrence info for contig {contig}.",
             prefix="",
         )
     fancylog("Done.", prefix="")
