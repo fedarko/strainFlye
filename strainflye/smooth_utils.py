@@ -198,6 +198,11 @@ def get_smooth_aln_replacements(aln, mutated_positions, mp2ra):
         # For arbitrary mutations, this isn't necessarily true; we
         # leave things up to the discretion of however these mutations
         # were called.
+        #
+        # Note that this check implicitly ignores reads containing degenerate
+        # nucleotides aligned to mutated positions, since the BCF parser should
+        # have guaranteed that no mutated positions have ref/alt nucleotides
+        # that are not in A / C / G / T.
         if read_nt != mp2ra[mutpos][0] and read_nt != mp2ra[mutpos][1]:
             ignoring_this_aln = True
             break

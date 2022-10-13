@@ -958,8 +958,16 @@ def compute_specific_mutation_decoy_contig_mut_rates(
     stems, ultimately, from whom I am as a person, and I can only hope that no
     other soul must be brought to madness by needing to understand this code.
 
+    ...
 
     (that's a joke i'm just tired lmao)
+
+
+    Also, note that since we've loaded this BCF using strainFlye's BCF parsing
+    utilities (and since strainFlye should have produced it!), we know at this
+    point that the ref/alt nucleotides for all of the mutated positions in this
+    BCF are in {A, C, G, T}. So, we don't need to worry about degenerate
+    nucleotides messing with this analysis.
     """
     min_val, high_val = extract_and_verify_thresh_vals(thresh_vals)
     num_muts = [0] * len(thresh_vals)
