@@ -289,9 +289,32 @@ def get_pos_nt_info(readname2pos2nt):
     return pos2nt2ct, pospair2ntpair2ct
 
 
-def write_pickle(obj, output_dir, contig_name, obj_name):
-    output_file = os.path.join(output_dir, f"{contig_name}_{obj_name}.pickle")
-    with open(output_file, "wb") as dumpster:
+def write_obj_to_pickle(obj, output_dir, contig_name, obj_name):
+    """Writes out an object to a pickle file.
+
+    This file will be named [contig_name]_[obj_name].pickle, and will be
+    located in the directory [output_dir].
+
+    Parameters
+    ----------
+    obj: object
+        Something to write out to a pickle file.
+
+    output_dir: str
+        Directory to which we'll write this pickle file. Should already exist.
+
+    contig_name: str
+        Used as the first part of the filename.
+
+    obj_name: str
+        Used as the second part of the filename.
+
+    Returns
+    -------
+    None
+    """
+    fp = os.path.join(output_dir, f"{contig_name}_{obj_name}.pickle")
+    with open(fp, "wb") as dumpster:
         pickle.dump(obj, dumpster)
 
 
@@ -400,8 +423,8 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
 
         pos2nt2ct, pospair2ntpair2ct = get_pos_nt_info(readname2mutpos2nt)
 
-        write_pickle(pos2nt2ct, output_dir, contig, config.POS_FILE_LBL)
-        write_pickle(
+        write_obj_to_pickle(pos2nt2ct, output_dir, contig, config.POS_FILE_LBL)
+        write_obj_to_pickle(
             pospair2ntpair2ct, output_dir, contig, config.POSPAIR_FILE_LBL
         )
 
@@ -413,6 +436,74 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
             prefix="",
         )
     fancylog("Done.", prefix="")
+
+
+def write_linkgraph_to_dot(g, output_dir, contig_name):
+    """Writes out a NetworkX link graph to a DOT file.
+
+    This file will be named [contig_name]_linkgraph.gv, and will be
+    located in the directory [output_dir].
+
+    Parameters
+    ----------
+    g: nx.Graph
+        Link graph to write out. This should actually be a link graph (i.e.
+        containing the extra node/edge attributes like "link" for edges), not
+        just an arbitrary NetworkX graph.
+
+    output_dir: str
+        Directory to which we'll write this DOT file. Should already exist.
+
+    contig_name: str
+        Used in the name of the DOT file to be created.
+
+    Returns
+    -------
+    None
+    """
+    fp = os.path.join(output_dir, f"{contig_name}_linkgraph.gv")
+    with open(fp, "w") as df:
+        # We could name this graph according to the contig, or something, but I
+        # don't wanna have to worry about Graphviz breaking due to contigs
+        # containing weird characters (using these as part of filenames is
+        # enough of a headache already). So let's just omit a name for now.
+        # (This is consistent with DOT files from LJA at the moment, at least
+        # as far as I can tell)
+        df.write("graph {\n")
+
+        # We represent node names in the DOT file by just putting their "real"
+        # name (from networkx) in double-quotes. Graphviz *can* support things
+        # like integers as node names, but just treating all node names as
+        # strings from the start of developing this should save us some
+        # headaches. (Knock on wood.)
+        for n in g.nodes:
+            node_lbl = (
+                f"{n[0]:,} ({config.I2N[n[1]]})\\n"
+                f"{g.nodes[n]['ct']:,}x "
+                f"({(100 * g.nodes[n]['freq']):.2f}%)"
+            )
+            # we use two spaces of indentation for node lines and edge lines,
+            # matching https://www.graphviz.org/doc/info/lang.html, although
+            # this doesn't actually matter and the time that i spent writing
+            # this comment is probably now wasted to the sands of time wait why
+            # am i still writing this on aodsfih dofhid ofuhasd foudhf odufhod
+            df.write(f'  "{n}" [label="{node_lbl}"];\n')
+
+        for e in g.edges:
+            # In theory, an edge's "link" value could be anywhere in the range
+            # (0, 1] (the requirement that --low-link is at least 0 forces link
+            # to be positive, if we have created an edge in the first place).
+            # So doing interpolation to scale these values into
+            # (0, MAX_PENWIDTH] isn't too challenging.
+            #
+            # However, since a very tiny link value implies a very tiny
+            # penwidth, we clamp the min penwidth.
+            lw = g.edges[e]["link"] * config.MAX_PENWIDTH
+            if lw < config.MIN_PENWIDTH:
+                lw = config.MIN_PENWIDTH
+            df.write(f'  "{e[0]}" -- "{e[1]}" ' f"[penwidth={lw}];\n")
+
+        df.write("}")
 
 
 def run_graph(
@@ -540,51 +631,10 @@ def run_graph(
                 misc_utils.make_output_dir(output_dir)
                 havent_created_first_graph_yet = False
 
-            # TODO abstract to another function that you can test easier
             if output_format == "nx":
-                with open(
-                    os.path.join(output_dir, f"{contig}_linkgraph.pickle"),
-                    "wb",
-                ) as dumpster:
-                    dumpster.write(pickle.dumps(g))
+                write_obj_to_pickle(g, output_dir, contig, "linkgraph")
             elif output_format == "dot":
-                with open(
-                    os.path.join(output_dir, f"{contig}_linkgraph.gv"), "w"
-                ) as dotfile:
-                    dotfile.write(f"graph {contig} {{\n")
-
-                    # We represent node names in the DOT file by just putting
-                    # their "real" name (from networkx) in double-quotes.
-                    # Graphviz *can* support things like integers as node
-                    # names, but just treating all node names as strings from
-                    # the start of developing this should save us a lot of
-                    # headaches. (Knock on wood.)
-                    for n in g.nodes:
-                        node_lbl = (
-                            f"{n[0]:,} ({config.I2N[n[1]]})\\n"
-                            f"{g.nodes[n]['ct']:,}x "
-                            f"({(100 * g.nodes[n]['freq']):.2f}%)"
-                        )
-                        dotfile.write(f'  "{n}" [label="{node_lbl}"];\n')
-
-                    for e in g.edges:
-                        # In theory, an edge's "link" value could be anywhere
-                        # in the range (0, 1] (the requirement that --low-link
-                        # is at least 0 forces link to be positive, if we have
-                        # created an edge in the first place). So doing
-                        # interpolation to scale these values into (0,
-                        # MAX_PENWIDTH] isn't too challenging.
-                        #
-                        # However, since a very tiny link value implies a very
-                        # tiny penwidth, we clamp the min penwidth.
-                        lw = g.edges[e]["link"] * config.MAX_PENWIDTH
-                        if lw < config.MIN_PENWIDTH:
-                            lw = config.MIN_PENWIDTH
-                        dotfile.write(
-                            f'  "{e[0]}" -- "{e[1]}" ' f"[penwidth={lw}];\n"
-                        )
-
-                    dotfile.write("}")
+                write_linkgraph_to_dot(g, output_dir, contig)
             else:
                 raise WeirdError("Unrecognized output format: {output_format}")
 
