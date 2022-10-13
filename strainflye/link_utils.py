@@ -506,6 +506,87 @@ def write_linkgraph_to_dot(g, output_dir, contig_name):
         df.write("}")
 
 
+def make_linkgraph(
+    contig,
+    pos2nt2ct,
+    pospair2ntpair2ct,
+    min_nt_ct,
+    min_span,
+    low_link,
+    verboselog,
+):
+    g = nx.Graph()
+
+    verboselog(
+        f"Adding node(s) to the link graph for contig {contig}...", prefix=""
+    )
+    # Add nodes to the graph
+    for pos in pos2nt2ct.keys():
+
+        pos_cov = sum(pos2nt2ct[pos].values())
+
+        # Since this data structure is a defaultdict, this will only
+        # iterate over the defined (i.e. seen) nucleotide indices
+        # (integers in the range [0, 3]).
+        for nt in pos2nt2ct[pos].keys():
+            # Set the "ct" attribute of this allele node to the
+            # number of times this nucleotide was seen at this position
+            # in the reads. This corresponds to reads(i, Ni) for
+            # position i and nucleotide Ni.
+            ct = pos2nt2ct[pos][nt]
+
+            if ct >= min_nt_ct:
+                # Also, set the "freq" attribute to ct divided by
+                # the total number of matching operations at this
+                # nucleotide -- so we can see what percentage of reads
+                # at this position had a given nucleotide.
+                g.add_node((pos, nt), ct=ct, freq=(ct / pos_cov))
+
+    verboselog(
+        (
+            f"The link graph for contig {contig} has {len(g.nodes):,} "
+            "node(s). Adding edge(s)..."
+        ),
+        prefix="",
+    )
+
+    for pospair in pospair2ntpair2ct:
+        i = pospair[0]
+        j = pospair[1]
+
+        # NOTE: possible to speed this up by bundling this computation
+        # into the for loop below, maybe also note that "num spanning
+        # reads" only includes reads that meet criteria about not
+        # having skips/indels at either position, etc.
+        num_spanning_reads = sum(pospair2ntpair2ct[pospair].values())
+
+        if num_spanning_reads >= min_span:
+            for ntpair in pospair2ntpair2ct[pospair]:
+                # these are still ints in the range [0, 3]
+                i_nt = ntpair[0]
+                j_nt = ntpair[1]
+                # if one or both of the nodes failed the reads(i, N)
+                # check above due to min_nt_ct, definitely don't create
+                # an edge adjacent to them!
+                if g.has_node((i, i_nt)) and g.has_node((j, j_nt)):
+                    link = pospair2ntpair2ct[pospair][ntpair] / max(
+                        pos2nt2ct[i][i_nt], pos2nt2ct[j][j_nt]
+                    )
+                    if link > low_link:
+                        # Yay, add an edge between these alleles!
+                        g.add_edge((i, i_nt), (j, j_nt), link=link)
+
+    verboselog(
+        (
+            f"The link graph for contig {contig} has {len(g.edges):,} "
+            "edge(s)."
+        ),
+        prefix="",
+    )
+
+    return g
+
+
 def run_graph(
     nt_dir,
     min_nt_ct,
@@ -549,82 +630,14 @@ def run_graph(
             with open(corresponding_pair_abs_fp, "rb") as loadster:
                 pospair2ntpair2ct = pickle.load(loadster)
 
-            # we don't have enough information about the available contigs to
-            # easily use cli_utils.proglog(). We could try to get around this
-            # but ehhhh easier to just hack a one-off solution here
-            verboselog(
-                (
-                    f"Found both info files for contig {contig}; adding nodes "
-                    "to its link graph..."
-                ),
-                prefix="",
-            )
-
-            # Alright, now create the graph
-            g = nx.Graph()
-
-            # Add nodes to the graph
-            for pos in pos2nt2ct.keys():
-
-                pos_cov = sum(pos2nt2ct[pos].values())
-
-                # Since this data structure is a defaultdict, this will only
-                # iterate over the defined (i.e. seen) nucleotide indices
-                # (integers in the range [0, 3]).
-                for nt in pos2nt2ct[pos].keys():
-                    # Set the "ct" attribute of this allele node to the
-                    # number of times this nucleotide was seen at this position
-                    # in the reads. This corresponds to reads(i, Ni) for
-                    # position i and nucleotide Ni.
-                    ct = pos2nt2ct[pos][nt]
-
-                    if ct >= min_nt_ct:
-                        # Also, set the "freq" attribute to ct divided by
-                        # the total number of matching operations at this
-                        # nucleotide -- so we can see what percentage of reads
-                        # at this position had a given nucleotide.
-                        g.add_node((pos, nt), ct=ct, freq=(ct / pos_cov))
-
-            verboselog(
-                (
-                    f"The link graph for contig {contig} has {len(g.nodes):,} "
-                    "node(s). Adding edges..."
-                ),
-                prefix="",
-            )
-
-            for pospair in pospair2ntpair2ct:
-                i = pospair[0]
-                j = pospair[1]
-
-                # NOTE: possible to speed this up by bundling this computation
-                # into the for loop below, maybe also note that "num spanning
-                # reads" only includes reads that meet criteria about not
-                # having skips/indels at either position, etc.
-                num_spanning_reads = sum(pospair2ntpair2ct[pospair].values())
-
-                if num_spanning_reads >= min_span:
-                    for ntpair in pospair2ntpair2ct[pospair]:
-                        # these are still ints in the range [0, 3]
-                        i_nt = ntpair[0]
-                        j_nt = ntpair[1]
-                        # if one or both of the nodes failed the reads(i, N)
-                        # check above due to min_nt_ct, definitely don't create
-                        # an edge adjacent to them!
-                        if g.has_node((i, i_nt)) and g.has_node((j, j_nt)):
-                            link = pospair2ntpair2ct[pospair][ntpair] / max(
-                                pos2nt2ct[i][i_nt], pos2nt2ct[j][j_nt]
-                            )
-                            if link > low_link:
-                                # Yay, add an edge between these alleles!
-                                g.add_edge((i, i_nt), (j, j_nt), link=link)
-
-            verboselog(
-                (
-                    f"The link graph for contig {contig} has {len(g.edges):,} "
-                    "edge(s)."
-                ),
-                prefix="",
+            g = make_linkgraph(
+                contig,
+                pos2nt2ct,
+                pospair2ntpair2ct,
+                min_nt_ct,
+                min_span,
+                low_link,
+                verboselog,
             )
 
             if havent_created_first_graph_yet:
