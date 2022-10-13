@@ -18,8 +18,8 @@ def gen_ddi():
     return defaultdict(int)
 
 
-def get_readname2mutpos2nt(bam_obj, contig, mutated_positions):
-    """Returns an object mapping read name -> mutated position -> nucleotide.
+def get_readname2pos2nt(bam_obj, contig, positions):
+    """Returns an object mapping read name -> position -> nucleotide.
 
     Because we should have already filtered secondary alignments and
     overlapping supplementary alignments from the alignment, we are guaranteed
@@ -35,28 +35,35 @@ def get_readname2mutpos2nt(bam_obj, contig, mutated_positions):
     contig: str
         Name of a contig for which we will compute the mapping.
 
-    mutated_positions: list
-        List of all (zero-indexed) mutated positions in this contig. This must
-        be in sorted order.
+    positions: list
+        List of (zero-indexed) "positions of interest" in this contig for which
+        we will retrieve nucleotide information. (In practice, this will
+        probably be a list of mutated positions.)
 
     Returns
     -------
-    readname2mutpos2nt: defaultdict
+    readname2pos2nt: defaultdict
         Maps the names of reads aligned to this contig to another defaultdict,
-        which in turn maps all zero-indexed mutated positions spanned by this
-        read (with a (mis)match operation in the alignment) to the nucleotide
-        aligned to this mutated position. The nucleotide is encoded as an
-        integer using config.N2I.
+        which in turn maps all (zero-indexed) positions in "positions" spanned
+        by this read to the nucleotide aligned to this position at this read.
+        Nucleotides are encoded as integers using config.N2I.
+        Note that we only consider a read to "span" a position if it has a
+        nucleotide aligned to this position using a match/mismatch operation.
+
+    Raises
+    ------
+    WeirdError
+        If things go wrong during iteration.
     """
     # We have already guaranteed (earlier in run_nt()) that this contig is
     # present in the BAM, so checking for that here would probs be overkill.
 
-    # Part 1: build up readname2mutpos2nt (exactly what it says on the tin)
-    readname2mutpos2nt = defaultdict(dict)
+    # Part 1: build up readname2pos2nt (exactly what it says on the tin)
+    readname2pos2nt = defaultdict(dict)
 
     # Similar song and dance to smooth_utils.get_smooth_aln_replacements(),
     # but we set matches_only=True (we don't care about deletions seen at a
-    # mutated position). It might be worth abstracting this shared code to
+    # position of interest). It might be worth abstracting this shared code to
     # a utility function, but probs not worth the trouble right now.
     for aln in bam_obj.fetch(contig):
         ap = aln.get_aligned_pairs(matches_only=True)
@@ -65,55 +72,55 @@ def get_readname2mutpos2nt(bam_obj, contig, mutated_positions):
         # lengths are generally in the thousands to tens of thousands of
         # bp (which is much less than the > 1 million bp length of most
         # bacterial genomes), we set things up so that we only iterate
-        # through the aligned pairs once. We maintain an integer, mpi,
-        # that is a poor man's "pointer" to an index in mutated_positions.
+        # through the aligned pairs once. We maintain an integer, pi,
+        # that is a poor man's "pointer" to an index in positions.
 
-        mpi = 0
+        pi = 0
 
         # Go through this aln's aligned pairs. As we see each pair, compare
-        # the pair's reference position (refpos) to the mpi-th mutated
-        # position (herein referred to as "mutpos").
+        # the pair's reference position (refpos) to the pi-th position (herein
+        # referred to as "pos").
         #
-        # If refpos >  mutpos, increment mpi until refpos <= mutpos
+        # If refpos >  pos, increment pi until refpos <= pos
         #                      (stopping as early as possible).
-        # If refpos == mutpos, we have a match! Update readname2mutpos2nt.
-        # If refpos <  mutpos, continue to the next pair.
+        # If refpos == pos, we have a match! Update readname2pos2nt.
+        # If refpos <  pos, continue to the next pair.
 
         readname = aln.query_name
         for pair in ap:
 
             readpos, refpos = pair
-            mutpos = mutated_positions[mpi]
+            pos = positions[pi]
 
-            no_mutations_to_right_of_here = False
+            no_positions_of_interest_to_right_of_here = False
 
-            # Increment mpi until we get to the next mutated position at or
-            # after the reference pos for this aligned pair (or until we
-            # run out of mutated positions).
-            while refpos > mutpos:
-                mpi += 1
-                if mpi < len(mutated_positions):
-                    mutpos = mutated_positions[mpi]
+            # Increment pi until we get to the next position at or after
+            # after the reference position for this aligned pair (or until we
+            # run out of positions in "positions").
+            while refpos > pos:
+                pi += 1
+                if pi < len(positions):
+                    pos = positions[pi]
                 else:
-                    no_mutations_to_right_of_here = True
+                    no_positions_of_interest_to_right_of_here = True
                     break
 
             # I expect this should happen only for reads aligned near the
             # right end of the genome.
-            if no_mutations_to_right_of_here:
+            if no_positions_of_interest_to_right_of_here:
                 break
 
-            # If the next mutation occurs after this aligned pair, continue
-            # on to a later pair.
-            if refpos < mutpos:
+            # If the next position of interest occurs after this aligned pair,
+            # continue on to a later pair.
+            if refpos < pos:
                 continue
 
-            # If we've made it here, refpos == mutpos!
+            # If we've made it here, refpos == pos!
             # (...unless I messed something up in how I wrote this code.)
-            if refpos != mutpos:
+            if refpos != pos:
                 raise WeirdError(
-                    f"refpos = {refpos:,}, but mutpos = {mutpos:,}. "
-                    "refpos and mutpos should match. This "
+                    f"refpos = {refpos:,}, but pos = {pos:,}. "
+                    "refpos and pos should match. This "
                     "should never happen; please, open an issue on GitHub "
                     "so you can yell at Marcus."
                 )
@@ -123,8 +130,8 @@ def get_readname2mutpos2nt(bam_obj, contig, mutated_positions):
             readval = config.N2I[aln.query_sequence[readpos].upper()]
 
             # Record this specific "allele" for this read.
-            readname2mutpos2nt[readname][mutpos] = readval
-    return readname2mutpos2nt
+            readname2pos2nt[readname][pos] = readval
+    return readname2pos2nt
 
 
 def get_pos_nt_info(readname2mutpos2nt):
@@ -325,7 +332,7 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
                 prefix="",
             )
 
-        readname2mutpos2nt = get_readname2mutpos2nt(
+        readname2mutpos2nt = get_readname2pos2nt(
             bam_obj, contig, mutated_positions
         )
 
