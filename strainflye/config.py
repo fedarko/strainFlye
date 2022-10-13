@@ -46,5 +46,13 @@ DCTX_ALL = DECOY_CONTEXTS + [DCTX_EVERYTHING]
 N2I = {"A": 0, "C": 1, "G": 2, "T": 3}
 I2N = "ACGT"
 
+# Used in "strainFlye link", both when naming info files and when later
+# searching for these files in a directory (so, please don't change this unless
+# you really need to, because that'd make old "strainFlye link nt" outputs
+# incompatible with future versions of "strainFlye link graph"...)
+POS_FILE_LBL = "pos2nt2ct"
+POSPAIR_FILE_LBL = "pospair2ntpair2ct"
+
+# Used when writing DOT files of link graphs in "strainFlye link graph"
 MIN_PENWIDTH = 0.01
 MAX_PENWIDTH = 5

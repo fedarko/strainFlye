@@ -258,8 +258,10 @@ def get_pos_nt_info(readname2pos2nt):
 
         # NOTE: it may be possible to include this in the combinations()
         # loop below, but we'd need some snazzy logic to prevent updating
-        # the same position multiple times. Easiest for my sanity to just
-        # be a bit inefficient and make this two separate loops.
+        # the same position multiple times. Also, this would cause problems if
+        # there is exactly one position of interest covered in a read. Easiest
+        # for my sanity to just be a bit inefficient and make this two separate
+        # loops.
         for pos in positions_of_interest_covered_in_read:
             # Convert to one-indexing
             pos2nt2ct[pos + 1][readname2pos2nt[readname][pos]] += 1
@@ -305,8 +307,8 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
     time-consuming, so it makes sense to separate it.
 
     For each contig, writes out two "pickle" files to the output directory: one
-    file named [contig]_pos2nt2ct.pickle, and one file named
-    [contig]_pospair2ntpair2ct.pickle.
+    file named [contig]_[config.POS_FILE_LBL].pickle, and one file named
+    [contig]_[config.POSPAIR_FILE_LBL].pickle.
 
     Parameters
     ----------
@@ -398,9 +400,9 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
 
         pos2nt2ct, pospair2ntpair2ct = get_pos_nt_info(readname2mutpos2nt)
 
-        write_pickle(pos2nt2ct, output_dir, contig, "pos2nt2ct")
+        write_pickle(pos2nt2ct, output_dir, contig, config.POS_FILE_LBL)
         write_pickle(
-            pospair2ntpair2ct, output_dir, contig, "pospair2ntpair2ct"
+            pospair2ntpair2ct, output_dir, contig, config.POSPAIR_FILE_LBL
         )
 
         verboselog(
@@ -426,8 +428,8 @@ def run_graph(
     verboselog = cli_utils.get_verboselog(fancylog, verbose)
     havent_created_first_graph_yet = True
 
-    pnf_suffix = "_pos2nt2ct.pickle"
-    pair_suffix = "_pospair2ntpair2ct.pickle"
+    pnf_suffix = f"_{config.POS_FILE_LBL}.pickle"
+    pair_suffix = "f_{config.POSPAIR_FILE_LBL}.pickle"
 
     fancylog(
         "Going through co-occurrence information and creating link graphs..."
