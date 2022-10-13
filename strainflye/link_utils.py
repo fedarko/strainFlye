@@ -213,14 +213,12 @@ def get_pos_nt_info(readname2mutpos2nt):
     # ... then pospair2ntpair2ct would look like
     # {
     #     (100, 500): {
-    #         {
-    #             (0, 0): 30,
-    #             (0, 3): 1000,
-    #             (3, 0): 5,
-    #             (3, 3): 100,
-    #             (1, 3): 3,
-    #             (2, 3): 1
-    #         }
+    #         (0, 0): 30,
+    #         (0, 3): 1000,
+    #         (3, 0): 5,
+    #         (3, 3): 100,
+    #         (1, 3): 3,
+    #         (2, 3): 1
     #     }
     # }
     pospair2ntpair2ct = defaultdict(gen_ddi)
