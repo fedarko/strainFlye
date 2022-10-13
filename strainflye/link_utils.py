@@ -529,9 +529,7 @@ def make_linkgraph(
 ):
     g = nx.Graph()
 
-    verboselog(
-        f"Adding node(s) to the link graph for contig {contig}...", prefix=""
-    )
+    verboselog(f"Creating the link graph for contig {contig}...", prefix="")
     # Add nodes to the graph
     for pos in pos2nt2ct.keys():
 
@@ -555,10 +553,7 @@ def make_linkgraph(
                 g.add_node((pos, nt), ct=ct, freq=(ct / pos_cov))
 
     verboselog(
-        (
-            f"The link graph for contig {contig} has {len(g.nodes):,} "
-            "node(s). Adding edge(s)..."
-        ),
+        f"The link graph for contig {contig} has {len(g.nodes):,} node(s).",
         prefix="",
     )
 
@@ -589,10 +584,7 @@ def make_linkgraph(
                         g.add_edge((i, i_nt), (j, j_nt), link=link)
 
     verboselog(
-        (
-            f"The link graph for contig {contig} has {len(g.edges):,} "
-            "edge(s)."
-        ),
+        f"The link graph for contig {contig} has {len(g.edges):,} edge(s).",
         prefix="",
     )
 
@@ -613,7 +605,7 @@ def run_graph(
     havent_created_first_graph_yet = True
 
     pnf_suffix = f"_{config.POS_FILE_LBL}.pickle"
-    pair_suffix = "f_{config.POSPAIR_FILE_LBL}.pickle"
+    pair_suffix = f"_{config.POSPAIR_FILE_LBL}.pickle"
 
     fancylog(
         "Going through co-occurrence information and creating link graphs..."
@@ -664,7 +656,10 @@ def run_graph(
                 raise WeirdError("Unrecognized output format: {output_format}")
 
             verboselog(
-                f"Wrote out the link graph for contig {contig}.",
+                (
+                    f"Wrote out the link graph (format: \"{output_format}\") "
+                    f"for contig {contig}."
+                ),
                 prefix="",
             )
 
