@@ -1307,7 +1307,7 @@ def assemble(reads_dir, lja_params, lja_bin, output_dir, verbose):
 
 @click.group(name="link", **grp_params, **cmd_params)
 def link():
-    """[+] Create link graphs in order to show mutations' co-occurrences.
+    """[+] Create link graphs showing co-occurring alleles.
 
     The "nt" command should be run first; this generates information about
     the counts and co-occurrences of nucleotides at mutated positions in a
