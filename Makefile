@@ -5,9 +5,9 @@
 .PHONY: test stylecheck style
 
 # The -B in the invocation of python prevents this from creating pycache stuff.
-# --cov-report xml is needed to make this visible to Codecov, and
-# --cov-report term is needed in order to print a fancy table on the terminal
-# (useful when testing locally).
+# --cov-report xml is needed to make this visible to Codecov;
+# --cov-report term is needed in order to print a fancy table on the terminal;
+# --cov-report html creates a "htmlcov/" folder in the root of the repository.
 #
 # The reason for the --ignore strainflye/_cli.py is that pytest kept throwing
 # a strange error when trying to read through this file, for some reason (and
