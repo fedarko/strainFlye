@@ -98,18 +98,14 @@ def test_get_readname2pos2nt_err_on_read_self_overlap():
     )
 
 
-def test_get_pos_nt_info_good():
+def test_get_pos_nt_info_just_one_pos():
+    # (We already have a simple "good" test of this function as a doctest in
+    # link_utils, just to make the docstring there easier to read by itself.)
     pos2nt2ct, pospair2ntpair2ct = lu.get_pos_nt_info(
-        {"r1": {0: 3, 5: 2}, "r2": {4: 0, 0: 1}}
+        {"r1": {0: 3}, "r2": {0: 1}, "r3": {0: 1}}
     )
     # Note that positions get converted to 1-indexing
     assert pos2nt2ct == {
-        1: {1: 1, 3: 1},
-        5: {0: 1},
-        6: {2: 1},
+        1: {1: 2, 3: 1},
     }
-
-    assert pospair2ntpair2ct == {
-        (1, 6): {(3, 2): 1},
-        (1, 5): {(1, 0): 1},
-    }
+    assert pospair2ntpair2ct == {}

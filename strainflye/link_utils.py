@@ -166,103 +166,122 @@ def get_readname2pos2nt(bam_obj, contig, positions):
     return readname2pos2nt
 
 
-def get_pos_nt_info(readname2mutpos2nt):
-    # Part 2: convert readname2mutpos2nt into the actual nucleotide
-    # (co-)occurrence information we're going to output from here
+def get_pos_nt_info(readname2pos2nt):
+    """Converts read-level nucleotide info to nucleotide (co-)occurrence info.
 
-    # Maps mutated position -> nucleotide seen at this position, summed
-    # across all reads included here -> freq. This corresponds to
-    # Reads(i, N) as described in the paper.
+    Parameters
+    ----------
+    readname2pos2nt: defaultdict
+        Maps read name -> (zero-indexed) position -> nucleotide (encoded as an
+        integer using config.N2I). We only focus on the "positions of interest"
+        described in this dict, which in practice will probably mean mutated
+        positions. Can be computed by get_readname2pos2nt().
+
+    Returns
+    -------
+    pos2nt2ct, pospair2ntpair2ct: defaultdict, defaultdict
+        pos2nt2ct maps (one-indexed) position of interest -> nucleotide seen at
+        this position (still encoded as an integer) -> count of times we saw
+        this nucleotide at this position across all of the reads in
+        readname2pos2nt. This corresponds to reads(i, N) as described in the
+        strainFlye paper.
+
+        pospair2ntpair2ct maps (sorted so the leftmost position comes first)
+        pairs of (one-indexed) positions of interest -> pairs of nucleotides
+        seen at these two positions, such that the left nt is for the left
+        position in this pair (still encoding nts as integers) --> count of
+        times we saw this pair of nucleotides at these positions across all of
+        the reads in readname2pos2nt. Corresponds to reads(i, j, Ni, Nj) as
+        described in the strainFlye paper.
+
+        Note that the inclusion of a pair of possitions of interest in the
+        outer layer of pospair2ntpair2ct implies that these two positions were
+        spanned by at least one read. Also, there are 16 possible pairs of
+        nucleotides for any pair of positions, since 4^2 = 16 (and we should
+        have implicitly ignored degen nucleotides, deletions, etc. during
+        get_readname2pos2nt()).
+
+    Raises
+    ------
+    WeirdError
+        If things go wrong with the output of itertools.combinations().
+
+    Notes
+    -----
+    This converts positions from zero-indexing to one-indexing. Probs would've
+    been better to do one-indexing from the start in get_readname2pos2nt(), but
+    I'm not sure that'd be worth the trouble.
+
+    The main motivation for converting to one-indexing is that the output of
+    "strainFlye link graph" will use one-indexing also, so we may as well be
+    consistent with the output of "strainFlye link nt".
+
+    Also: if there is only one "position of interest" included, then
+    pospair2ntpair2ct will be empty.
+
+    Example
+    -------
+    In this example, there are two reads. These reads' "haplotypes" (using
+    one-indexed positions) are:
+
+    r1: 1 -> T, 6 -> G
+    r2: 1 -> C, 5 -> A
+
+    >>> pos2nt2ct, pospair2ntpair2ct = get_pos_nt_info(
+    ... {"r1": {0: 3, 5: 2}, "r2": {0: 1, 4: 0}}
+    ... )
+    >>> assert pos2nt2ct == {
+    ... 1: {1: 1, 3: 1},
+    ... 5: {0: 1},
+    ... 6: {2: 1},
+    ... }
+    >>> assert pospair2ntpair2ct == {
+    ... (1, 6): {(3, 2): 1},
+    ... (1, 5): {(1, 0): 1},
+    ... }
+
+    (Minor note about the above doctests: the ...s are needed because otherwise
+    doctest complains -- see https://stackoverflow.com/a/46083961.)
+    """
     pos2nt2ct = defaultdict(gen_ddi)
-
-    # This defaultdict has two levels:
-    # OUTER: Keys are sorted (in ascending order) 0-indexed pairs (tuples)
-    #        of mutated positions. The inclusion of a pair of mutated
-    #        positions in this defaultdict implies that these two mutated
-    #        positions were spanned by at least one read. The value of each
-    #        pair is another defaultdict:
-    #
-    # INNER: The keys of this inner defaultdict are pairs of integers, each
-    #        in the range [0, 3]. These represent the 4 nucleotides
-    #        (0 -> A, 1 -> C, 2 -> G, 3 -> T): the first entry represents
-    #        the nucleotide seen at the first position in the pair (aka the
-    #        position "earlier" in the genome), and the second entry
-    #        represents the nucleotide seen at the second position in the
-    #        pair (aka the position "later" in the genome). Of course, many
-    #        bacterial genomes are circular, so "earlier" and "later" are
-    #        kinda arbitrary. Anyway, there are 16 possible pairs in one of
-    #        these defaultdicts, since there are 4^2 = 16 different
-    #        possible combinations of two nucleotides (ignoring deletions,
-    #        degenerate nucleotides, etc.) That said, I expect in practice
-    #        only a handful of nucleotide pairs will be present for a given
-    #        position pair. The value of each pair in this defaultdict is
-    #        an integer representing the frequency with which this pair of
-    #        nucleotides was observed on a spanning read at this pair of
-    #        positions.
-    #
-    # So, as an example, if we only have two mutated positions in a genome
-    # (at 0-indexed positions 100 and 500), and we saw:
-    #
-    # - 30    reads with an A at both positions
-    # - 1,000 reads with an A at position 100 and a T at position 500
-    # - 5     reads with a T at position 100 and an A at position 500
-    # - 100   reads with a T at both positions
-    # - 3     reads with a C at position 100 and a T at position 500
-    # - 1     read  with a G at position 100 and a T at position 500
-    #
-    # ... then pospair2ntpair2ct would look like
-    # {
-    #     (100, 500): {
-    #         (0, 0): 30,
-    #         (0, 3): 1000,
-    #         (3, 0): 5,
-    #         (3, 3): 100,
-    #         (1, 3): 3,
-    #         (2, 3): 1
-    #     }
-    # }
     pospair2ntpair2ct = defaultdict(gen_ddi)
-    # NOTE: If a read did not span any mutated positions in this contig, then
-    # it will not be included in this iteration. This is as expected -- such a
-    # read has nothing to "contribute" to the information we are computing here
-    for ri, readname in enumerate(readname2mutpos2nt, 1):
+    # NOTE: If a read did not span any positions of interest in this contig,
+    # then it will not be included in this iteration. This is as expected --
+    # such a read has nothing to "contribute" to the information we are
+    # computing here.
+    for readname in readname2pos2nt:
         # TODO: see if we can avoid sorting here: inefficient
         # when done once for every read, maybe?
-        mutated_positions_covered_in_read = sorted(
-            readname2mutpos2nt[readname].keys()
+        positions_of_interest_covered_in_read = sorted(
+            readname2pos2nt[readname].keys()
         )
 
         # NOTE: it may be possible to include this in the combinations()
         # loop below, but we'd need some snazzy logic to prevent updating
         # the same position multiple times. Easiest for my sanity to just
         # be a bit inefficient and make this two separate loops.
-        for mutpos in mutated_positions_covered_in_read:
+        for pos in positions_of_interest_covered_in_read:
             # Convert to one-indexing
-            pos2nt2ct[mutpos + 1][readname2mutpos2nt[readname][mutpos]] += 1
+            pos2nt2ct[pos + 1][readname2pos2nt[readname][pos]] += 1
 
-        for (i, j) in combinations(mutated_positions_covered_in_read, 2):
+        for (i, j) in combinations(positions_of_interest_covered_in_read, 2):
 
             # We can assume that i and j are sorted because
-            # mutated_positions_covered_in_read is sorted: see
+            # positions_of_interest_covered_in_read is sorted: see
             # https://docs.python.org/3.10/library/itertools.html#itertools.combinations
             # This is guaranteed, but let's be paranoid just in case:
             if j <= i:
-                raise WeirdError(
-                    "combinations() isn't preserving order as expected?"
-                )
+                raise WeirdError("combinations() isn't preserving order?")
 
             # these are integers in the range [0, 3] thanks to config.N2I
-            i_nt = readname2mutpos2nt[readname][i]
-            j_nt = readname2mutpos2nt[readname][j]
+            i_nt = readname2pos2nt[readname][i]
+            j_nt = readname2pos2nt[readname][j]
 
-            # We know these mutated positions were observed on the same
+            # We know these positions of interest were observed on the same
             # read, and we know the exact nucleotides this read had at both
             # positions -- update this in pospair2ntpair2ct
             #
-            # Also, convert to one-indexing for these output files. The
-            # main motivation is that the output of "graph" will use
-            # one-indexing also, so we may as well be consistent with the
-            # outputs of these commands.
+            # Also, convert to one-indexing for these output files.
             pospair2ntpair2ct[(i + 1, j + 1)][(i_nt, j_nt)] += 1
 
     return pos2nt2ct, pospair2ntpair2ct
@@ -462,7 +481,7 @@ def run_graph(
                 for nt in pos2nt2ct[pos].keys():
                     # Set the "ct" attribute of this allele node to the
                     # number of times this nucleotide was seen at this position
-                    # in the reads. This corresponds to Reads(i, Ni) for
+                    # in the reads. This corresponds to reads(i, Ni) for
                     # position i and nucleotide Ni.
                     ct = pos2nt2ct[pos][nt]
 
@@ -496,7 +515,7 @@ def run_graph(
                         # these are still ints in the range [0, 3]
                         i_nt = ntpair[0]
                         j_nt = ntpair[1]
-                        # if one or both of the nodes failed the Reads(i, N)
+                        # if one or both of the nodes failed the reads(i, N)
                         # check above due to min_nt_ct, definitely don't create
                         # an edge adjacent to them!
                         if g.has_node((i, i_nt)) and g.has_node((j, j_nt)):
