@@ -18,6 +18,7 @@ import strainflye.link_utils as lu
 IN_DIR = os.path.join("strainflye", "tests", "inputs", "small")
 # FASTA = os.path.join(IN_DIR, "contigs.fasta")
 BAM = os.path.join(IN_DIR, "alignment.bam")
+DEGEN_BAM = os.path.join(IN_DIR, "degen.bam")
 # BCF = os.path.join(IN_DIR, "call-r-min3-di12345", "naive-calls.bcf")
 
 
@@ -66,3 +67,25 @@ def test_get_readname2pos2nt_onepos_with_nonspanning_read():
     # of interest -- by avoiding storing these currently-"unhelpful" reads in
     # r2p2t, we save some space.)
     assert r2p2t["r23"] == {}
+
+
+def test_get_readname2pos2nt_degen_doesnt_span():
+    bf = pysam.AlignmentFile(DEGEN_BAM, "rb")
+    # All reads have a "C" aligned to zero-indexed position 8, aside from reads
+    # r06, r07, and r08 (which in "degen.bam" have a "N" aligned to this
+    # position). So, these three reads should not be counted as spanning this
+    # position, even if they do span the position right next to it (9).
+    assert lu.get_readname2pos2nt(bf, "c1", [8, 9]) == {
+        "r01": {8: 1, 9: 1},
+        "r02": {8: 1, 9: 1},
+        "r03": {8: 1, 9: 1},
+        "r04": {8: 1, 9: 1},
+        "r05": {8: 1, 9: 1},
+        "r06": {9: 1},
+        "r07": {9: 1},
+        "r08": {9: 1},
+        "r09": {8: 1, 9: 1},
+        "r10": {8: 1, 9: 1},
+        "r11": {8: 1, 9: 1},
+        "r12": {8: 1, 9: 1},
+    }
