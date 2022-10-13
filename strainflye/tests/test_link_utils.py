@@ -2,6 +2,7 @@ import os
 import pysam
 import pytest
 import strainflye.link_utils as lu
+from collections import defaultdict
 from strainflye.errors import ParameterError
 
 
@@ -9,6 +10,10 @@ IN_DIR = os.path.join("strainflye", "tests", "inputs", "small")
 BAM = os.path.join(IN_DIR, "alignment.bam")
 DEGEN_BAM = os.path.join(IN_DIR, "degen.bam")
 SECONDARY_BAM = os.path.join(IN_DIR, "c4-and-secondary.bam")
+
+
+def test_gen_ddi():
+    assert lu.gen_ddi() == defaultdict(int)
 
 
 def test_get_readname2pos2nt_good():
