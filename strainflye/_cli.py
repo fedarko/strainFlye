@@ -711,12 +711,12 @@ def estimate(
             ),
             (
                 "Minimum length of a potential decoy contig (only used if "
-                f"diversity indices are specified): {decoy_min_length:,}"
+                f"diversity indices are specified): {decoy_min_length:,} bp"
             ),
             (
                 "Minimum average coverage of a potential decoy contig (only "
                 "used if diversity indices are specified): "
-                f"{decoy_min_average_coverage:,}"
+                f"{decoy_min_average_coverage:,}x"
             ),
         ),
     )
@@ -1038,7 +1038,7 @@ def cold_gaps(bcf, min_length, circular, exact_pvals, output_coldspots):
         (("BCF file", bcf),),
         (("file describing coldspot gaps", output_coldspots),),
         extra_info=(
-            f"Minimum coldspot gap length: {min_length:,}",
+            f"Minimum coldspot gap length: {min_length:,} bp",
             f"Check for circular coldspot gaps?: {cli_utils.b2y(circular)}",
             (
                 "Compute exact longest-gap p-values?: "
