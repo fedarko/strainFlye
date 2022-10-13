@@ -21,7 +21,7 @@ BAM = os.path.join(IN_DIR, "alignment.bam")
 # BCF = os.path.join(IN_DIR, "call-r-min3-di12345", "naive-calls.bcf")
 
 
-def test_get_readname2pos2nt():
+def test_get_readname2pos2nt_good():
     bf = pysam.AlignmentFile(BAM, "rb")
 
     # Note that A/C/G/T are encoded in the inner dicts as 0/1/2/3
@@ -41,3 +41,28 @@ def test_get_readname2pos2nt():
         "r11": final_few_read_haplotypes,
         "r12": final_few_read_haplotypes,
     }
+
+
+def test_get_readname2pos2nt_onepos_with_nonspanning_read():
+    bf = pysam.AlignmentFile(BAM, "rb")
+    r2p2t = lu.get_readname2pos2nt(bf, "c2", [0])
+
+    assert r2p2t == {
+        "r13": {0: 3},
+        "r14": {0: 3},
+        "r15": {0: 3},
+        "r16": {0: 3},
+        "r17": {0: 3},
+        "r18": {0: 3},
+        "r19": {0: 3},
+        "r20": {0: 3},
+        "r21": {0: 3},
+        "r22": {0: 3},
+    }
+    # read r23 (which skips over the first position in c2) shouldn't be
+    # included in r2p2t; however, r2p2t is a defaultdict, so we should be able
+    # to try to access r23 without any errors. (this behavior makes sense
+    # because it implies that this read simply just doesn't span any positions
+    # of interest -- by avoiding storing these currently-"unhelpful" reads in
+    # r2p2t, we save some space.)
+    assert r2p2t["r23"] == {}

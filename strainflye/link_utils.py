@@ -47,8 +47,15 @@ def get_readname2pos2nt(bam_obj, contig, positions):
         which in turn maps all (zero-indexed) positions in "positions" spanned
         by this read to the nucleotide aligned to this position at this read.
         Nucleotides are encoded as integers using config.N2I.
+
         Note that we only consider a read to "span" a position if it has a
-        nucleotide aligned to this position using a match/mismatch operation.
+        non-degenerate nucleotide (i.e. just one of A, C, G, T) aligned to this
+        position using a match/mismatch operation.
+
+        If a read does not span any of the positions of interest, then it will
+        not be explicitly included as an outer key in readname2pos2nt (although
+        since readname2pos2nt is a defaultdict, trying to access such a read in
+        it will just give you {}).
 
     Raises
     ------
@@ -125,11 +132,26 @@ def get_readname2pos2nt(bam_obj, contig, positions):
                     "so you can yell at Marcus."
                 )
 
-            # (Convert the nucleotide at this position on this read
-            # to an integer in the range [0, 3] using N2I)
-            readval = config.N2I[aln.query_sequence[readpos].upper()]
+            # If this read has a degenerate nucleotide aligned to a position of
+            # interest, it doesn't count (for our purposes at the moment, at
+            # least).
+            read_nt = aln.query_sequence[readpos].upper()
+            if read_nt not in "ACGT":
+                continue
+            # Convert the nucleotide at this position on this read to an
+            # integer in the range [0, 3] using N2I
+            readval = config.N2I[read_nt]
 
             # Record this specific "allele" for this read.
+            if pos in readname2pos2nt[readname]:
+                raise ParameterError(
+                    f"Read {readname} is aligned to the 0-indexed position "
+                    f"{pos:,} in contig {contig} multiple times. Make sure "
+                    "that you have removed secondary alignments and "
+                    "overlapping supplementary alignments from your alignment "
+                    'file; you can use "strainFlye align" to compute such an '
+                    "alignment."
+                )
             readname2pos2nt[readname][pos] = readval
     return readname2pos2nt
 
@@ -192,6 +214,9 @@ def get_pos_nt_info(readname2mutpos2nt):
     #     }
     # }
     pospair2ntpair2ct = defaultdict(gen_ddi)
+    # NOTE: If a read did not span any mutated positions in this contig, then
+    # it will not be included in this iteration. This is as expected -- such a
+    # read has nothing to "contribute" to the information we are computing here
     for ri, readname in enumerate(readname2mutpos2nt, 1):
         # TODO: see if we can avoid sorting here: inefficient
         # when done once for every read, maybe?
