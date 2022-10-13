@@ -136,7 +136,7 @@ def test_verify_vrf2_bad():
 
 def fetch_specific_aln(contig, aln_seq, alnfile="alignment.bam"):
     # or, more accurately, an alignment with a particular sequence.
-    bf = pysam.AlignmentFile(os.path.join(IN_DIR, alnfile))
+    bf = pysam.AlignmentFile(os.path.join(IN_DIR, alnfile), "rb")
     found_aln = False
     for aln in bf.fetch(contig):
         if aln.query_sequence == aln_seq:
@@ -238,7 +238,7 @@ def test_get_smooth_aln_replacements_mp_and_mp2ra_differ_a_lot():
 
 
 def test_compute_average_coverages_verbose(capsys):
-    bf = pysam.AlignmentFile(BAM)
+    bf = pysam.AlignmentFile(BAM, "rb")
     assert su.compute_average_coverages(
         FASTA, {"c1": 23}, bf, True, mock_log
     ) == {"c1": 12.0}
@@ -252,7 +252,7 @@ def test_compute_average_coverages_verbose(capsys):
 
 
 def test_compute_average_coverages_no_verbose(capsys):
-    bf = pysam.AlignmentFile(BAM)
+    bf = pysam.AlignmentFile(BAM, "rb")
     assert su.compute_average_coverages(
         FASTA, {"c1": 23}, bf, False, mock_log
     ) == {"c1": 12.0}
@@ -264,7 +264,7 @@ def test_compute_average_coverages_no_verbose(capsys):
 
 
 def test_compute_average_coverages_badlength():
-    bf = pysam.AlignmentFile(BAM)
+    bf = pysam.AlignmentFile(BAM, "rb")
 
     # Case 1: BAM has more than FASTA
     with pytest.raises(WeirdError) as ei:
@@ -579,7 +579,7 @@ def test_write_smoothed_reads_zero_mutations():
                 FASTA,
                 23,
                 {},
-                pysam.AlignmentFile(BAM),
+                pysam.AlignmentFile(BAM, "rb"),
                 True,
                 fh.name,
                 mock_log_2,
@@ -603,7 +603,7 @@ def test_write_smoothed_reads_bad_chunk_size():
                     FASTA,
                     23,
                     {10: ("G", "A")},
-                    pysam.AlignmentFile(BAM),
+                    pysam.AlignmentFile(BAM, "rb"),
                     True,
                     fh.name,
                     mock_log_2,
@@ -713,7 +713,7 @@ def test_write_smoothed_reads_c1_one_mutation_basic(capsys):
             FASTA,
             23,
             {10: ("G", "A")},
-            pysam.AlignmentFile(BAM),
+            pysam.AlignmentFile(BAM, "rb"),
             True,
             fh.name,
             mock_log_2,
@@ -747,7 +747,7 @@ def test_write_smoothed_reads_c1_one_mutation_tiny_buffer(capsys):
             FASTA,
             23,
             {10: ("G", "A")},
-            pysam.AlignmentFile(BAM),
+            pysam.AlignmentFile(BAM, "rb"),
             True,
             fh.name,
             mock_log_2,
@@ -773,7 +773,7 @@ def test_write_smoothed_reads_c1_one_mutation_no_pos2srcov(capsys):
             FASTA,
             23,
             {10: ("G", "A")},
-            pysam.AlignmentFile(BAM),
+            pysam.AlignmentFile(BAM, "rb"),
             False,
             fh.name,
             mock_log_2,
@@ -797,7 +797,7 @@ def test_write_smoothed_reads_bad_length():
                 FASTA,
                 24,
                 {10: ("G", "A")},
-                pysam.AlignmentFile(BAM),
+                pysam.AlignmentFile(BAM, "rb"),
                 False,
                 fh.name,
                 mock_log_2,
@@ -818,7 +818,7 @@ def test_write_smoothed_reads_c1_one_mutation_all_alns_ignored(capsys):
             # this mutation doesn't include either of these nts, then we'll
             # ignore all of these alignments.
             {10: ("C", "T")},
-            pysam.AlignmentFile(BAM),
+            pysam.AlignmentFile(BAM, "rb"),
             False,
             fh.name,
             mock_log_2,
@@ -847,7 +847,7 @@ def test_write_smoothed_reads_found_secondary_aln():
                 23,
                 {10: ("G", "A")},
                 pysam.AlignmentFile(
-                    os.path.join(IN_DIR, "c4-and-secondary.bam")
+                    os.path.join(IN_DIR, "c4-and-secondary.bam"), "rb"
                 ),
                 False,
                 fh.name,
@@ -870,7 +870,9 @@ def test_write_smoothed_reads_no_alns_to_contig(capsys):
             FASTA,
             100,
             {10: ("C", "T")},
-            pysam.AlignmentFile(os.path.join(IN_DIR, "c4-and-secondary.bam")),
+            pysam.AlignmentFile(
+                os.path.join(IN_DIR, "c4-and-secondary.bam"), "rb"
+            ),
             False,
             fh.name,
             mock_log_2,
@@ -895,7 +897,7 @@ def test_write_smoothed_reads_c3_two_mutations_deletion_smoothed(capsys):
             FASTA,
             16,
             {6: ("T", "A"), 7: ("T", "C")},
-            pysam.AlignmentFile(BAM),
+            pysam.AlignmentFile(BAM, "rb"),
             True,
             fh.name,
             mock_log_2,
@@ -921,7 +923,7 @@ def test_write_smoothed_reads_c3_deletion_at_mutation(capsys):
             FASTA,
             16,
             {6: ("T", "A"), 7: ("T", "C"), 15: ("T", "G")},
-            pysam.AlignmentFile(BAM),
+            pysam.AlignmentFile(BAM, "rb"),
             True,
             fh.name,
             mock_log_2,
@@ -957,7 +959,7 @@ def test_write_smoothed_reads_c3_deletion_at_mutation_only_1_sr(capsys):
             # is not ignored -- so this results in only one smoothed read being
             # created
             {6: ("T", "A"), 7: ("T", "C"), 15: ("T", "C")},
-            pysam.AlignmentFile(BAM),
+            pysam.AlignmentFile(BAM, "rb"),
             True,
             fh.name,
             mock_log_2,
