@@ -132,17 +132,13 @@ def get_readname2pos2nt(bam_obj, contig, positions):
                     "so you can yell at Marcus."
                 )
 
-            # If this read has a degenerate nucleotide aligned to a position of
-            # interest, it doesn't count (for our purposes at the moment, at
-            # least).
-            read_nt = aln.query_sequence[readpos].upper()
-            if read_nt not in "ACGT":
-                continue
-            # Convert the nucleotide at this position on this read to an
-            # integer in the range [0, 3] using N2I
-            readval = config.N2I[read_nt]
-
-            # Record this specific "allele" for this read.
+            # Perform a quick sanity check that this read has not already had a
+            # match to this position. Should never happen in practice, unless
+            # the input BAM includes OSAs / secondary alns. We could make this
+            # check much more comprehensive (checking ALL positions in all
+            # contigs) but we just limit it here to the positions of interest,
+            # because we're already assuming the input alignment doesn't have
+            # this problem.
             if pos in readname2pos2nt[readname]:
                 raise ParameterError(
                     f"Read {readname} is aligned to the 0-indexed position "
@@ -152,7 +148,21 @@ def get_readname2pos2nt(bam_obj, contig, positions):
                     'file; you can use "strainFlye align" to compute such an '
                     "alignment."
                 )
+
+            # If this read has a degenerate nucleotide aligned to a position of
+            # interest, it doesn't count (for our purposes at the moment, at
+            # least).
+            read_nt = aln.query_sequence[readpos].upper()
+            if read_nt not in "ACGT":
+                continue
+
+            # Convert the nucleotide at this position on this read to an
+            # integer in the range [0, 3] using N2I
+            readval = config.N2I[read_nt]
+
+            # Record this specific "allele" for this read.
             readname2pos2nt[readname][pos] = readval
+
     return readname2pos2nt
 
 

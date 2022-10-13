@@ -1,25 +1,14 @@
 import os
 import pysam
+import pytest
 import strainflye.link_utils as lu
-
-
-# import stat
-# import gzip
-# import tempfile
-# import contextlib
-# import pytest
-# import skbio
-# from io import StringIO
-# from strainflye.config import DI_PREF, DEFAULT_LJA_PARAMS
-# from strainflye.errors import ParameterError, WeirdError
-# from strainflye.tests.utils_for_testing import mock_log, mock_log_2
+from strainflye.errors import ParameterError
 
 
 IN_DIR = os.path.join("strainflye", "tests", "inputs", "small")
-# FASTA = os.path.join(IN_DIR, "contigs.fasta")
 BAM = os.path.join(IN_DIR, "alignment.bam")
 DEGEN_BAM = os.path.join(IN_DIR, "degen.bam")
-# BCF = os.path.join(IN_DIR, "call-r-min3-di12345", "naive-calls.bcf")
+SECONDARY_BAM = os.path.join(IN_DIR, "c4-and-secondary.bam")
 
 
 def test_get_readname2pos2nt_good():
@@ -89,3 +78,16 @@ def test_get_readname2pos2nt_degen_doesnt_span():
         "r11": {8: 1, 9: 1},
         "r12": {8: 1, 9: 1},
     }
+
+
+def test_get_readname2pos2nt_err_on_read_self_overlap():
+    bf = pysam.AlignmentFile(SECONDARY_BAM, "rb")
+    with pytest.raises(ParameterError) as ei:
+        lu.get_readname2pos2nt(bf, "c1", [8, 9])
+    assert str(ei.value) == (
+        "Read r11 is aligned to the 0-indexed position 8 in contig c1 "
+        "multiple times. Make sure that you have removed secondary "
+        "alignments and overlapping supplementary alignments from your "
+        'alignment file; you can use "strainFlye align" to compute '
+        "such an alignment."
+    )
