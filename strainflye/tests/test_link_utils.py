@@ -381,7 +381,7 @@ def test_make_linkgraph_low_span_pospair():
     assert len(g.edges) == 0
 
 
-def test_make_linkgraph_low_link_edges():
+def test_make_linkgraph_low_link_ntpairs():
     # Let's set low_link to 1 / 3. This will result in two edges:
     #
     # (7, 0) -- (8, 1) (link = 1 / 7)
@@ -421,6 +421,31 @@ def test_make_linkgraph_low_link_edges():
     assert len(g.edges) == 2
     assert g.edges[(7, 0), (8, 3)] == {"link": 6 / 10}
     assert g.edges[(7, 3), (8, 3)] == {"link": 4 / 10}
+
+
+def test_make_linkgraph_zeroct_ntpair():
+    with pytest.raises(WeirdError) as ei:
+        # Set the count of (7, 3) -- (8, 3) to zero. In practice, we shouldn't
+        # include non-co-occurring pairs of nucleotides in pospair2ntpair2ct.
+        lu.make_linkgraph(
+            {7: {0: 7, 3: 6}, 8: {1: 3, 3: 10}},
+            {
+                (7, 8): {
+                    (0, 3): 6,
+                    (0, 1): 1,
+                    (3, 1): 2,
+                    (3, 3): 0,
+                }
+            },
+            1,
+            1,
+            0,
+            "c3",
+            mock_log,
+        )
+    assert str(ei.value) == (
+        "Numerator of link() for nodes (7, 3) and (8, 3) in contig c3 is 0?"
+    )
 
 
 def test_write_linkgraph_to_dot_good(tmp_path):
