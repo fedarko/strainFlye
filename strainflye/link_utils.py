@@ -459,6 +459,63 @@ def make_linkgraph(
     low_link,
     verboselog,
 ):
+    """Creates a link graph based on nucleotide (co-)occurrence information.
+
+    Parameters
+    ----------
+    contig: str
+        Name of the contig represented by this link graph. This doesn't
+        actually impact the graph -- it's just used in logging messages.
+
+    pos2nt2ct: defaultdict
+        Maps one-indexed mutated positions --> integer nucleotide at this
+        position --> count, in this contig. See get_pos_nt_info().
+
+    pospair2ntpair2ct: defaultdict
+        Maps pairs one-indexed mutated positions --> pairs of integer
+        nucleotides at these positions --> count, in this contig. See
+        get_pos_nt_info().
+
+    min_nt_ct: int
+        We'll only add a node (representing a given nt at a position) if this
+        nucleotide has a count at this position of at least this value.
+
+    min_span: int
+        One of the conditions for adding an edge between two nodes: the total
+        number of reads spanning both nodes' positions must be at least this
+        value. Note that (at least in the context of constructing link graphs)
+        we don't consider a read to "span" a position if it has a degenerate
+        nucleotide, deletion, skip, etc. aligned to this position -- it's gotta
+        have an A, C, G, or T aligned to this position.
+
+    low_link: float
+        The other condition for adding an edge between two nodes: the link
+        value between these nodes must be greater than this value. See the
+        strainFlye paper (as well as the "strainFlye link graph" CLI) for
+        detailed descriptions of the link value between two nodes.
+
+    verboselog: function
+        Logging function for minor details. We can use this somewhat freely,
+        since we assume that this won't do anything unless the user specified
+        --verbose when running "strainFlye link graph". (Mainly, I'm including
+        this so that if this gets "stuck" doing a lot of work we can easily
+        diagnose what operations for which contigs' graphs take a lot of time.)
+
+    Returns
+    -------
+    g: nx.Graph
+        Link graph structure. Nodes are named with 2-tuples of (one-indexed
+        position, integer nucleotide). Nodes have "ct" and "freq" attributes
+        indicating the corresponding allele's coverage and relative frequency,
+        respectively; freq is a float in the range [0, 1]. Edges have "link"
+        attributes computed as described elsewhere (see low_link desc. above).
+
+    Raises
+    ------
+    WeirdError
+        If the input data seems malformed. We don't perform super strict
+        validation, but we do check that a few values are positive.
+    """
     g = nx.Graph()
 
     verboselog(f"Creating the link graph for contig {contig}...", prefix="")
@@ -466,6 +523,13 @@ def make_linkgraph(
     for pos in pos2nt2ct.keys():
 
         pos_cov = sum(pos2nt2ct[pos].values())
+
+        # should never happen -- we should only include positions in pos2nt2ct
+        # if they are covered by at least one read
+        if pos_cov <= 0:
+            raise WeirdError(
+                f"Coverage at pos {pos:,} in contig {contig} is {pos_cov}?"
+            )
 
         # Since this data structure is a defaultdict, this will only
         # iterate over the defined (i.e. seen) nucleotide indices
@@ -499,6 +563,14 @@ def make_linkgraph(
         # having skips/indels at either position, etc.
         num_spanning_reads = sum(pospair2ntpair2ct[pospair].values())
 
+        # should never happen -- we should only include pairs of positions in
+        # pospair2ntpair2ct if they co-occur on at least one read
+        if num_spanning_reads <= 0:
+            raise WeirdError(
+                f"Number of spanning reads for position pair {pospair} is "
+                f"{num_spanning_reads}?"
+            )
+
         if num_spanning_reads >= min_span:
             for ntpair in pospair2ntpair2ct[pospair]:
                 # these are still ints in the range [0, 3]
@@ -508,9 +580,19 @@ def make_linkgraph(
                 # check above due to min_nt_ct, definitely don't create
                 # an edge adjacent to them!
                 if g.has_node((i, i_nt)) and g.has_node((j, j_nt)):
-                    link = pospair2ntpair2ct[pospair][ntpair] / max(
-                        pos2nt2ct[i][i_nt], pos2nt2ct[j][j_nt]
-                    )
+
+                    link_denom = max(pos2nt2ct[i][i_nt], pos2nt2ct[j][j_nt])
+
+                    # should never happen -- nucleotides should only be
+                    # recorded for a position in pos2nt2ct if they occur at
+                    # least once
+                    if link_denom <= 0:
+                        raise WeirdError(
+                            f"Denominator of link() for nodes {(i, i_nt)} "
+                            f"and {(j, j_nt)} is {link_denom}?"
+                        )
+
+                    link = pospair2ntpair2ct[pospair][ntpair] / link_denom
                     if link > low_link:
                         # Yay, add an edge between these alleles!
                         g.add_edge((i, i_nt), (j, j_nt), link=link)
