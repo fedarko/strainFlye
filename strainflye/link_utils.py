@@ -518,7 +518,7 @@ def make_linkgraph(
     """
     g = nx.Graph()
 
-    verboselog(f"Creating the link graph for contig {contig}...", prefix="")
+    verboselog(f"Creating a link graph for contig {contig}...", prefix="")
     # Add nodes to the graph
     for pos in pos2nt2ct.keys():
 

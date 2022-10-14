@@ -225,7 +225,7 @@ def test_run_nt(capsys, tmp_path):
     assert capsys.readouterr().out == exp_out
 
 
-def test_make_linkgraph_good():
+def test_make_linkgraph_good(capsys):
     g = lu.make_linkgraph(
         {7: {0: 7, 3: 6}, 8: {1: 3, 3: 10}},
         {
@@ -258,6 +258,12 @@ def test_make_linkgraph_good():
     assert g.edges[(7, 0), (8, 3)] == {"link": 6 / 10}
     assert g.edges[(7, 3), (8, 1)] == {"link": 2 / 6}
     assert g.edges[(7, 3), (8, 3)] == {"link": 4 / 10}
+
+    assert capsys.readouterr().out == (
+        "MockLog: Creating a link graph for contig c3...\n"
+        "MockLog: The link graph for contig c3 has 4 node(s).\n"
+        "MockLog: The link graph for contig c3 has 4 edge(s).\n"
+    )
 
 
 def test_make_linkgraph_uncovered_pos():
