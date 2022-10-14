@@ -583,9 +583,14 @@ def make_linkgraph(
 
                     link_den = max(pos2nt2ct[i][i_nt], pos2nt2ct[j][j_nt])
 
-                    # should never happen -- nucleotides should only be
-                    # recorded for a position in pos2nt2ct if they occur at
-                    # least once
+                    # should never happen, for multiple reasons. First, nts
+                    # should only be recorded for a position in pos2nt2ct if
+                    # they occur at least once. Second, nodes should only be
+                    # created above for nts if the nt occurs with a count of at
+                    # least min_nt_ct, and min_nt_ct should always be >= 1
+                    # due to Click enforcing this in the CLI.
+                    #
+                    # (... but let's check for it anyway because i'm insane)
                     if link_den <= 0:
                         raise WeirdError(
                             f"Denominator of link() for nodes {(i, i_nt)} "

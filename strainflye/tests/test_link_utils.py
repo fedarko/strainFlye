@@ -448,6 +448,44 @@ def test_make_linkgraph_zeroct_ntpair():
     )
 
 
+def test_make_linkgraph_zero_den():
+    with pytest.raises(WeirdError) as ei:
+        # Set both (7, 3) and (8, 3) to have zero counts. These positions will
+        # still have positive coverage, but when we try to create an edge
+        # between these positions we'll see that the max count across either of
+        # them is zero.
+        #
+        # Notably, to do this, we have to commit a sin -- we have to set
+        # min_nt_ct to zero, which is straight-up impossible using strainFlye's
+        # CLI at the moment. The reason for this is that otherwise (if we left
+        # min_nt_ct at one) then these nodes with zero counts would get dropped
+        # from the graph automatically.
+        #
+        # So, this test is impossible to replicate in practice (at least not
+        # without doing some weird stuff to bypass Click's IntRange checks),
+        # but whatevs. This test is just "this should never happen" on
+        # steroids, I guess.
+        lu.make_linkgraph(
+            {7: {0: 7, 3: 0}, 8: {1: 3, 3: 0}},
+            {
+                (7, 8): {
+                    (0, 3): 6,
+                    (0, 1): 1,
+                    (3, 1): 2,
+                    (3, 3): 4,
+                }
+            },
+            0,
+            1,
+            0,
+            "c3",
+            mock_log,
+        )
+    assert str(ei.value) == (
+        "Denominator of link() for nodes (7, 3) and (8, 3) in contig c3 is 0?"
+    )
+
+
 def test_write_linkgraph_to_dot_good(tmp_path):
     g = nx.Graph()
 
