@@ -701,6 +701,12 @@ def write_linkgraph_to_dot(g, output_dir, contig_name):
             #
             # However, since a very tiny link value implies a very tiny
             # penwidth, we clamp the min penwidth.
+            #
+            # Also, note that we don't apply any formatting to this penwidth --
+            # we just let Python spit out its representation of this
+            # floating-point number. This is also how we write out diversity
+            # indices, for reference. I guess we could try to format this to a
+            # fixed number of digits but... not a big deal.
             lw = g.edges[e]["link"] * config.MAX_PENWIDTH
             if lw < config.MIN_PENWIDTH:
                 lw = config.MIN_PENWIDTH

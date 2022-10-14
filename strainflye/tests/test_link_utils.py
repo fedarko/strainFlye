@@ -5,6 +5,7 @@ import networkx as nx
 import pytest
 import strainflye.link_utils as lu
 from collections import defaultdict
+from pytest import approx
 from strainflye.config import POS_FILE_LBL, POSPAIR_FILE_LBL
 from strainflye.errors import ParameterError, WeirdError
 from strainflye.tests.utils_for_testing import mock_log
@@ -587,12 +588,19 @@ def test_run_graph_good_verbose_nx(capsys, tmp_path):
     with open(gdir / "c3_linkgraph.pickle", "rb") as f:
         g = pickle.load(f)
 
+    # same validation code as earlier -- TODO, abstract to a function?
     assert len(g.nodes) == 4
     assert set(g.nodes) == set([(7, 0), (7, 3), (8, 1), (8, 3)])
     assert g.nodes[(7, 0)] == {"ct": 7, "freq": 7 / 13}
     assert g.nodes[(7, 3)] == {"ct": 6, "freq": 6 / 13}
     assert g.nodes[(8, 1)] == {"ct": 3, "freq": 3 / 13}
     assert g.nodes[(8, 3)] == {"ct": 10, "freq": 10 / 13}
+
+    assert len(g.edges) == 4
+    assert g.edges[(7, 0), (8, 1)] == {"link": 1 / 7}
+    assert g.edges[(7, 0), (8, 3)] == {"link": 6 / 10}
+    assert g.edges[(7, 3), (8, 1)] == {"link": 2 / 6}
+    assert g.edges[(7, 3), (8, 3)] == {"link": 4 / 10}
 
     assert capsys.readouterr().out == (
         "PREFIX\nMockLog: Going through (co-)occurrence information and "
@@ -679,3 +687,73 @@ def test_run_graph_bad_output_format(tmp_path):
     with pytest.raises(WeirdError) as ei:
         lu.run_graph(ndir, 1, 1, 0, "Sus", gdir, True, mock_log)
     assert str(ei.value) == 'Unrecognized output format: "Sus"'
+
+
+def test_link_graph_integration(tmp_path):
+    ndir = tmp_path / "ndir"
+    lu.run_nt(FASTA, BAM, BCF, ndir, False, mock_log)
+
+    gdir = tmp_path / "gdir"
+    lu.run_graph(ndir, 1, 1, 0, "dot", gdir, False, mock_log)
+
+    # TODO check c1 dot
+
+    with open(gdir / "c3_linkgraph.gv", "r") as f:
+        c3_dot_lines = f.readlines()
+
+    # ignore the order in which we output node / edge lines, to make testing
+    # more consistent. i guess we could make this stricter by checking that the
+    # observed file at least starts with the graph { line and ends with the }
+    # line, but we've already tested the DOT-exporting function above so that
+    # isn't a priority.
+    exp_nonedge_lines = set(
+        [
+            "graph {\n",
+            '  "(7, 0)" [label="7 (A)\\n7x (53.85%)"];\n',
+            '  "(7, 3)" [label="7 (T)\\n6x (46.15%)"];\n',
+            '  "(8, 1)" [label="8 (C)\\n3x (23.08%)"];\n',
+            '  "(8, 3)" [label="8 (T)\\n10x (76.92%)"];\n',
+            "}",
+        ]
+    )
+
+    obs_dot_lines = set(c3_dot_lines)
+
+    assert exp_nonedge_lines.issubset(obs_dot_lines)
+
+    # i guess there's a possibility that newline crap makes this set have 5
+    # elements (including an extra line at the end of the file). if so it
+    # should be simple to adjust this test to accommodate that (but i don't
+    # wannnnna)
+    obs_edge_lines = obs_dot_lines - exp_nonedge_lines
+    assert len(obs_edge_lines) == 4
+
+    # checking the presence of edges is a bit trickier because penwidths are
+    # not formatted in a consistent way (e.g. always 2 digits, like the
+    # percentages above). so we do some custom stuff
+    exp_edges = [
+        ((7, 0), (8, 1), (1 / 7) * 5),
+        ((7, 0), (8, 3), 3),
+        ((7, 3), (8, 1), (2 / 6) * 5),
+        ((7, 3), (8, 3), 2),
+    ]
+
+    # this is a terrible inefficient way of doing this check but there are only
+    # 4 elements in this set so efficiency doesn't really matter
+    for e in exp_edges:
+        found_matching_edge_line = False
+        for el in obs_edge_lines:
+            if str(e[0]) in el and str(e[1]) in el:
+                assert el.startswith(f'  "{e[0]}" -- "{e[1]}" [penwidth=')
+                # the [:-3] slices off the ];\n (the \n is one character)
+                # we're making the assumption that there are no edge attrs
+                # besides penwidth, ofc
+                penwidth = float(el.split("=")[1][:-3])
+                assert penwidth == approx(e[2])
+                obs_edge_lines.remove(el)
+                found_matching_edge_line = True
+                break
+        if not found_matching_edge_line:
+            raise AssertionError(
+                f"Didn't find a matching edge line for edge {e}"
+            )
