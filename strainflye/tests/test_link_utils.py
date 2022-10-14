@@ -285,6 +285,42 @@ def test_make_linkgraph_uncovered_pos():
     assert str(ei.value) == "Coverage at pos 7 in contig c3 is 0?"
 
 
+def test_make_linkgraph_lowcov_nt():
+    # Let's set min_nt_ct to 4 -- this will ensure that the node (8, 1) will be
+    # excluded from the graph
+    g = lu.make_linkgraph(
+        {7: {0: 7, 3: 6}, 8: {1: 3, 3: 10}},
+        {
+            (7, 8): {
+                # (A, T)
+                (0, 3): 6,
+                # (A, C)
+                (0, 1): 1,
+                # (T, C)
+                (3, 1): 2,
+                # (T, T)
+                (3, 3): 4,
+            }
+        },
+        4,
+        1,
+        0,
+        "c3",
+        mock_log,
+    )
+    assert len(g.nodes) == 3
+    assert set(g.nodes) == set([(7, 0), (7, 3), (8, 3)])
+    assert g.nodes[(7, 0)] == {"ct": 7, "freq": 7 / 13}
+    assert g.nodes[(7, 3)] == {"ct": 6, "freq": 6 / 13}
+    # Importantly, the frequency of (8, 3) remains unchanged -- we should not
+    # forget about the existence of (8, 1) entirely
+    assert g.nodes[(8, 3)] == {"ct": 10, "freq": 10 / 13}
+
+    assert len(g.edges) == 2
+    assert g.edges[(7, 0), (8, 3)] == {"link": 6 / 10}
+    assert g.edges[(7, 3), (8, 3)] == {"link": 4 / 10}
+
+
 def test_write_linkgraph_to_dot_good(tmp_path):
     g = nx.Graph()
 
