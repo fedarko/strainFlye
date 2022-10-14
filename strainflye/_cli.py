@@ -1396,7 +1396,7 @@ def nt(contigs, bam, bcf, output_dir, verbose):
     ),
 )
 @click.option(
-    "--min-nt-ct",
+    "--min-nt-count",
     required=False,
     default=2,
     show_default=True,
@@ -1467,7 +1467,13 @@ def nt(contigs, bam, bcf, output_dir, verbose):
     help="Display extra details for each contig while generating reads.",
 )
 def graph(
-    nt_dir, min_nt_ct, min_span, low_link, output_format, output_dir, verbose
+    nt_dir,
+    min_nt_count,
+    min_span,
+    low_link,
+    output_format,
+    output_dir,
+    verbose,
 ):
     """Convert (co-)occurrence information into link graph structures.
 
@@ -1503,7 +1509,7 @@ def graph(
         extra_info=(
             (
                 "To make a node (i, Ni): reads(i, Ni) must be \u2265 "
-                f"{min_nt_ct:,}"
+                f"{min_nt_count:,}"
             ),
             (
                 "To make an edge btwn (i, Ni) & (j, Nj): spanCount(i, j) must "
@@ -1519,7 +1525,7 @@ def graph(
     )
     link_utils.run_graph(
         nt_dir,
-        min_nt_ct,
+        min_nt_count,
         min_span,
         low_link,
         output_format,

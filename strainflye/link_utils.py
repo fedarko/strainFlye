@@ -548,76 +548,94 @@ def make_linkgraph(
                 # at this position had a given nucleotide.
                 g.add_node((pos, nt), ct=ct, freq=(ct / pos_cov))
 
-    verboselog(
-        f"The link graph for contig {contig} has {len(g.nodes):,} node(s).",
-        prefix="",
-    )
+    num_nodes = len(g.nodes)
+    if num_nodes == 0:
+        verboselog(
+            (
+                f"The link graph for contig {contig} has no nodes, and is "
+                "thus empty. Try lowering the --min-nt-count parameter (it's "
+                f"set to {min_nt_ct:,})."
+            ),
+            prefix="",
+        )
+        # still return an empty graph anyway
+    else:
+        verboselog(
+            f"The link graph for contig {contig} has {num_nodes:,} node(s).",
+            prefix="",
+        )
 
-    for pospair in pospair2ntpair2ct:
-        i = pospair[0]
-        j = pospair[1]
+        for pospair in pospair2ntpair2ct:
+            i = pospair[0]
+            j = pospair[1]
 
-        # NOTE: possible to speed this up by bundling this computation
-        # into the for loop below, maybe also note that "num spanning
-        # reads" only includes reads that meet criteria about not
-        # having skips/indels at either position, etc.
-        num_spanning_reads = sum(pospair2ntpair2ct[pospair].values())
+            # NOTE: possible to speed this up by bundling this computation
+            # into the for loop below, maybe also note that "num spanning
+            # reads" only includes reads that meet criteria about not
+            # having skips/indels at either position, etc.
+            num_spanning_reads = sum(pospair2ntpair2ct[pospair].values())
 
-        # should never happen -- we should only include pairs of positions in
-        # pospair2ntpair2ct if they co-occur on at least one read
-        if num_spanning_reads <= 0:
-            raise WeirdError(
-                f"Number of spanning reads for position pair {pospair} in "
-                f"contig {contig} is {num_spanning_reads}?"
-            )
+            # should never happen -- we should only include pairs of positions
+            # in pospair2ntpair2ct if they co-occur on at least one read
+            if num_spanning_reads <= 0:
+                raise WeirdError(
+                    f"Number of spanning reads for position pair {pospair} in "
+                    f"contig {contig} is {num_spanning_reads}?"
+                )
 
-        if num_spanning_reads >= min_span:
-            for ntpair in pospair2ntpair2ct[pospair]:
-                # these are still ints in the range [0, 3]
-                i_nt = ntpair[0]
-                j_nt = ntpair[1]
-                # if one or both of the nodes failed the reads(i, N)
-                # check above due to min_nt_ct, definitely don't create
-                # an edge adjacent to them!
-                if g.has_node((i, i_nt)) and g.has_node((j, j_nt)):
+            if num_spanning_reads >= min_span:
+                for ntpair in pospair2ntpair2ct[pospair]:
+                    # these are still ints in the range [0, 3]
+                    i_nt = ntpair[0]
+                    j_nt = ntpair[1]
+                    # if one or both of the nodes failed the reads(i, N)
+                    # check above due to min_nt_ct, definitely don't create
+                    # an edge adjacent to them!
+                    if g.has_node((i, i_nt)) and g.has_node((j, j_nt)):
 
-                    link_den = max(pos2nt2ct[i][i_nt], pos2nt2ct[j][j_nt])
+                        link_den = max(pos2nt2ct[i][i_nt], pos2nt2ct[j][j_nt])
 
-                    # should never happen, for multiple reasons. First, nts
-                    # should only be recorded for a position in pos2nt2ct if
-                    # they occur at least once. Second, nodes should only be
-                    # created above for nts if the nt occurs with a count of at
-                    # least min_nt_ct, and min_nt_ct should always be >= 1
-                    # due to Click enforcing this in the CLI.
-                    #
-                    # (... but let's check for it anyway because i'm insane)
-                    if link_den <= 0:
-                        raise WeirdError(
-                            f"Denominator of link() for nodes {(i, i_nt)} "
-                            f"and {(j, j_nt)} in contig {contig} is "
-                            f"{link_den}?"
-                        )
+                        # should never happen, for multiple reasons:
+                        #
+                        # 1. nucleotides should only be recorded for a position
+                        #    in pos2nt2ct if they occur at least once.
+                        #
+                        # 2. Second, nodes should only be created above for
+                        #    nucleotides if the nt occurs with a count of at
+                        #    least min_nt_ct, and min_nt_ct should always be
+                        #    >= 1 due to Click enforcing this in the CLI.
+                        #
+                        # (... but let's check for it anyway because i'm crazy)
+                        if link_den <= 0:
+                            raise WeirdError(
+                                f"Denominator of link() for nodes {(i, i_nt)} "
+                                f"and {(j, j_nt)} in contig {contig} is "
+                                f"{link_den}?"
+                            )
 
-                    # same idea: pairs of nts that don't co-occur at two
-                    # positions (even if these positions are spanned by reads)
-                    # should not be included in pospair2ntpair2ct.
-                    link_num = pospair2ntpair2ct[pospair][ntpair]
-                    if link_num <= 0:
-                        raise WeirdError(
-                            f"Numerator of link() for nodes {(i, i_nt)} "
-                            f"and {(j, j_nt)} in contig {contig} is "
-                            f"{link_num}?"
-                        )
+                        # same idea: pairs of nts that don't co-occur at two
+                        # positions (even if these positions are spanned by
+                        # reads) should not be included in pospair2ntpair2ct.
+                        link_num = pospair2ntpair2ct[pospair][ntpair]
+                        if link_num <= 0:
+                            raise WeirdError(
+                                f"Numerator of link() for nodes {(i, i_nt)} "
+                                f"and {(j, j_nt)} in contig {contig} is "
+                                f"{link_num}?"
+                            )
 
-                    link = link_num / link_den
-                    if link > low_link:
-                        # Yay, add an edge between these alleles!
-                        g.add_edge((i, i_nt), (j, j_nt), link=link)
+                        link = link_num / link_den
+                        if link > low_link:
+                            # Yay, add an edge between these alleles!
+                            g.add_edge((i, i_nt), (j, j_nt), link=link)
 
-    verboselog(
-        f"The link graph for contig {contig} has {len(g.edges):,} edge(s).",
-        prefix="",
-    )
+        verboselog(
+            (
+                f"The link graph for contig {contig} has {len(g.edges):,} "
+                "edge(s)."
+            ),
+            prefix="",
+        )
 
     return g
 
