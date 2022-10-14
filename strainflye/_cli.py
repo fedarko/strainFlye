@@ -1567,6 +1567,19 @@ strainflye.add_command(dynam)
     ),
 )
 @click.option(
+    "-e",
+    "--norm-coverage-epsilon",
+    required=False,
+    default=0.3,
+    show_default=True,
+    type=click.FloatRange(min=0, min_open=True),
+    help=(
+        "We clamp all bins' normalized coverages in a contig to within this "
+        "distance of 1.0. For example, the default of 0.3 means we clamp to "
+        "the range [0.7, 1.3]."
+    ),
+)
+@click.option(
     "-o",
     "--output-dir",
     required=True,
@@ -1578,7 +1591,7 @@ strainflye.add_command(dynam)
     ),
 )
 def covskew(contigs, bam, bin_length, output_dir):
-    """Create tables comparing coverage and skew within contigs."""
+    """Compare normalized coverage and skew within contigs."""
     fancylog = cli_utils.fancystart(
         "dynam covskew",
         (
