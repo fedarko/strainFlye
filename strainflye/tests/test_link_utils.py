@@ -635,7 +635,46 @@ def test_run_graph_good_verbose_nx(capsys, tmp_path):
         "MockLog: Creating a link graph for contig c3...\n"
         "MockLog: The link graph for contig c3 has 4 node(s).\n"
         "MockLog: The link graph for contig c3 has 4 edge(s).\n"
-        'MockLog: Wrote out the link graph (format: "nx") for contig c3.\n'
+        'MockLog: Wrote out a link graph (format: "nx") for contig c3.\n'
+        "MockLog: Done.\n"
+    )
+
+
+def test_run_graph_empty_verbose_dot(capsys, tmp_path):
+    # Write out "inputs", mocking the output of run_nt()
+    ndir = tmp_path / "ndir"
+    os.makedirs(ndir)
+
+    with open(ndir / f"c3_{POS_FILE_LBL}.pickle", "wb") as f:
+        pickle.dump({7: {0: 7, 3: 6}, 8: {1: 3, 3: 10}}, f)
+
+    with open(ndir / f"c3_{POSPAIR_FILE_LBL}.pickle", "wb") as f:
+        pickle.dump({(7, 8): {(0, 3): 6, (0, 1): 1, (3, 1): 2, (3, 3): 4}}, f)
+
+    gdir = tmp_path / "gdir"
+
+    # set min_nt_ct to 1,000 -- this prevents any of the nodes from being in
+    # the graph, and triggers a unique branch of the code (it doesn't bother
+    # trying to create edges and just spits out an empty graph)
+    lu.run_graph(ndir, 1000, 1, 0, "dot", gdir, True, mock_log)
+
+    with open(gdir / "c3_linkgraph.gv", "r") as f:
+        dot = f.read()
+
+    # make sure the graph is empty
+    assert dot == "graph {\n}"
+
+    # special logging message
+    # (not a warning b/c this might happen a lot if the user wants to focus on
+    # super high cov MAGs for example maybe idk)
+    assert capsys.readouterr().out == (
+        "PREFIX\nMockLog: Going through (co-)occurrence information and "
+        "creating link graphs...\n"
+        "MockLog: Creating a link graph for contig c3...\n"
+        "MockLog: The link graph for contig c3 has no nodes, and is thus "
+        "empty. Try lowering the --min-nt-count parameter (it's set to "
+        "1,000).\n"
+        'MockLog: Wrote out a link graph (format: "dot") for contig c3.\n'
         "MockLog: Done.\n"
     )
 
