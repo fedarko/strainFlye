@@ -552,9 +552,9 @@ def make_linkgraph(
     if num_nodes == 0:
         verboselog(
             (
-                f"The link graph for contig {contig} has no nodes, and is "
-                "thus empty. Try lowering the --min-nt-count parameter (it's "
-                f"set to {min_nt_ct:,})."
+                f"The link graph for contig {contig} has no nodes, so it's "
+                "empty. Try lowering --min-nt-count (it's set to "
+                f"{min_nt_ct:,})."
             ),
             prefix="",
         )

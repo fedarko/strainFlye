@@ -671,9 +671,8 @@ def test_run_graph_empty_verbose_dot(capsys, tmp_path):
         "PREFIX\nMockLog: Going through (co-)occurrence information and "
         "creating link graphs...\n"
         "MockLog: Creating a link graph for contig c3...\n"
-        "MockLog: The link graph for contig c3 has no nodes, and is thus "
-        "empty. Try lowering the --min-nt-count parameter (it's set to "
-        "1,000).\n"
+        "MockLog: The link graph for contig c3 has no nodes, so it's "
+        "empty. Try lowering --min-nt-count (it's set to 1,000).\n"
         'MockLog: Wrote out a link graph (format: "dot") for contig c3.\n'
         "MockLog: Done.\n"
     )
