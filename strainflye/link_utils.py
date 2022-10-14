@@ -771,7 +771,17 @@ def run_graph(
             elif output_format == "dot":
                 write_linkgraph_to_dot(g, output_dir, contig)
             else:
-                raise WeirdError("Unrecognized output format: {output_format}")
+                # it's a WeirdError (not a ParameterError) because Click should
+                # have disallowed the selection of such an output format. (In
+                # other words, This Should Never Happen.) I guessss we could
+                # handle this case better (e.g. we have already created the
+                # output directory at this point, which is a no-no because we
+                # already should have "known" this parameter was invalid at the
+                # start of this function), but this should never happen in
+                # practice so whatevs.
+                raise WeirdError(
+                    f'Unrecognized output format: "{output_format}"'
+                )
 
             verboselog(
                 (

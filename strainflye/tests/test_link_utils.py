@@ -662,3 +662,20 @@ def test_run_graph_only_pospair_info_file(tmp_path):
     )
 
     assert not os.path.exists(gdir)
+
+
+def test_run_graph_bad_output_format(tmp_path):
+    ndir = tmp_path / "ndir"
+    os.makedirs(ndir)
+
+    with open(ndir / f"c3_{POS_FILE_LBL}.pickle", "wb") as f:
+        pickle.dump({7: {0: 7, 3: 6}, 8: {1: 3, 3: 10}}, f)
+
+    with open(ndir / f"c3_{POSPAIR_FILE_LBL}.pickle", "wb") as f:
+        pickle.dump({(7, 8): {(0, 3): 6, (0, 1): 1, (3, 1): 2, (3, 3): 4}}, f)
+
+    gdir = tmp_path / "gdir"
+
+    with pytest.raises(WeirdError) as ei:
+        lu.run_graph(ndir, 1, 1, 0, "Sus", gdir, True, mock_log)
+    assert str(ei.value) == 'Unrecognized output format: "Sus"'
