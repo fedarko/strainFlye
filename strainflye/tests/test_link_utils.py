@@ -347,6 +347,82 @@ def test_make_linkgraph_non_spanned_pospair():
     )
 
 
+def test_make_linkgraph_low_span_pospair():
+    # Let's set min_span to 14, which will preclude any edges between 7 and 8
+    # (in total, 13 reads span these positions)
+    g = lu.make_linkgraph(
+        {7: {0: 7, 3: 6}, 8: {1: 3, 3: 10}},
+        {
+            (7, 8): {
+                # (A, T)
+                (0, 3): 6,
+                # (A, C)
+                (0, 1): 1,
+                # (T, C)
+                (3, 1): 2,
+                # (T, T)
+                (3, 3): 4,
+            }
+        },
+        1,
+        14,
+        0,
+        "c3",
+        mock_log,
+    )
+    assert len(g.nodes) == 4
+    assert set(g.nodes) == set([(7, 0), (7, 3), (8, 1), (8, 3)])
+    assert g.nodes[(7, 0)] == {"ct": 7, "freq": 7 / 13}
+    assert g.nodes[(7, 3)] == {"ct": 6, "freq": 6 / 13}
+    assert g.nodes[(8, 1)] == {"ct": 3, "freq": 3 / 13}
+    assert g.nodes[(8, 3)] == {"ct": 10, "freq": 10 / 13}
+
+    # the main thing we check for
+    assert len(g.edges) == 0
+
+
+def test_make_linkgraph_low_link_edges():
+    # Let's set low_link to 1 / 3. This will result in two edges:
+    #
+    # (7, 0) -- (8, 1) (link = 1 / 7)
+    #
+    # (7, 3) -- (8, 1) (link = 2 / 6 = 1 / 3, and the low_link check uses >,
+    #                   although note that floating point stuff makes this
+    #                   check imperfect so whatevs)
+    #
+    # ... not being included in the graph.
+    g = lu.make_linkgraph(
+        {7: {0: 7, 3: 6}, 8: {1: 3, 3: 10}},
+        {
+            (7, 8): {
+                # (A, T)
+                (0, 3): 6,
+                # (A, C)
+                (0, 1): 1,
+                # (T, C)
+                (3, 1): 2,
+                # (T, T)
+                (3, 3): 4,
+            }
+        },
+        1,
+        1,
+        1 / 3,
+        "c3",
+        mock_log,
+    )
+    assert len(g.nodes) == 4
+    assert set(g.nodes) == set([(7, 0), (7, 3), (8, 1), (8, 3)])
+    assert g.nodes[(7, 0)] == {"ct": 7, "freq": 7 / 13}
+    assert g.nodes[(7, 3)] == {"ct": 6, "freq": 6 / 13}
+    assert g.nodes[(8, 1)] == {"ct": 3, "freq": 3 / 13}
+    assert g.nodes[(8, 3)] == {"ct": 10, "freq": 10 / 13}
+
+    assert len(g.edges) == 2
+    assert g.edges[(7, 0), (8, 3)] == {"link": 6 / 10}
+    assert g.edges[(7, 3), (8, 3)] == {"link": 4 / 10}
+
+
 def test_write_linkgraph_to_dot_good(tmp_path):
     g = nx.Graph()
 
