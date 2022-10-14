@@ -11,6 +11,7 @@ from strainflye import (
     spot_utils,
     smooth_utils,
     link_utils,
+    dynam_utils,
     config,
     __version__,
 )
@@ -1447,7 +1448,8 @@ def nt(contigs, bam, bcf, output_dir, verbose):
     type=click.Path(dir_okay=True, file_okay=False),
     help=(
         "Directory to which graphs will be written. We'll write one graph "
-        "per contig."
+        "file per contig; each file's name will be prefixed with the "
+        "corresponding contig name."
     ),
 )
 @click.option(
@@ -1536,15 +1538,60 @@ strainflye.add_command(dynam)
 
 
 @dynam.command(**cmd_params)
-def covskew():
-    """Create tables comparing binned coverage and skew in each contig."""
-    # input: FASTA of contigs, BAM file mapping reads to contigs
-    # output: cov / skew info
-    print("covskew")
+@click.option(
+    "-c",
+    "--contigs",
+    required=True,
+    type=click.Path(exists=True),
+    help=desc.INPUT_CONTIGS,
+)
+@click.option(
+    "-b",
+    "--bam",
+    required=True,
+    type=click.Path(exists=True),
+    help=desc.INPUT_BAM,
+)
+@click.option(
+    "--bin-length",
+    required=False,
+    default=10000,
+    show_default=True,
+    type=click.IntRange(min=1),
+    help=(
+        "Bin length, used for both coverage and skew. If a contig's length is "
+        "larger than this length but not evenly divisible by it, the "
+        'rightmost bin will be a smaller one that contains all "overflowing" '
+        "positions. We will not create an output TSV file for contigs with "
+        "lengths shorter than this."
+    ),
+)
+@click.option(
+    "-o",
+    "--output-dir",
+    required=True,
+    type=click.Path(dir_okay=True, file_okay=False),
+    help=(
+        "Directory to which TSV files describing contigs' coverage and skew "
+        "will be written. We'll write one TSV file per contig; each file "
+        "will be named [contig]_covskew.tsv."
+    ),
+)
+def covskew(contigs, bam, bin_length, output_dir):
+    """Create tables comparing coverage and skew within contigs."""
+    fancylog = cli_utils.fancystart(
+        "dynam covskew",
+        (
+            ("contig file", contigs),
+            ("BAM file", bam),
+        ),
+        (("directory", output_dir),),
+        extra_info=(f"Bin length: {bin_length:,} bp",),
+    )
+    dynam_utils.run_covskew(contigs, bam, bin_length, output_dir, fancylog)
+    fancylog("Done.")
 
 
-#
-#
 # @strainflye.command(**cmd_params)
 # def matrix():
 #     """Computes mutation matrices of a MAG."""
