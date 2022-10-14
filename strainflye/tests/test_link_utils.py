@@ -1,4 +1,5 @@
 import os
+import copy
 import pickle
 import pysam
 import networkx as nx
@@ -145,12 +146,12 @@ def test_run_nt(capsys, tmp_path):
             (1, 0): 2,
             # (G, A)
             (2, 0): 1,
+            # (G, G)
+            (2, 2): 5,
             # (T, A)
             (3, 0): 1,
             # (T, G)
             (3, 2): 2,
-            # (G, G)
-            (2, 2): 5,
         }
         assert c1pp == {
             (4, 11): first_two_pair_data,
@@ -689,6 +690,36 @@ def test_run_graph_bad_output_format(tmp_path):
     assert str(ei.value) == 'Unrecognized output format: "Sus"'
 
 
+def check_edge_existence(exp_edges, obs_edge_lines):
+    # utility function: check for the presence of "expected edge" 3-tuples of
+    # (left node, right node, penwidth) in a set of edge lines in a DOT file.
+
+    # we'll remove stuff from this set, so make a copy first to avoid breaking
+    # things unexpectedly for the caller
+    obs_edge_lines_copy = copy.deepcopy(obs_edge_lines)
+
+    # this is a terrible inefficient way of doing this check but there should
+    # only be a few elements in either set so efficiency doesn't really matter
+    for e in exp_edges:
+        found_matching_edge_line = False
+        for el in obs_edge_lines_copy:
+            if str(e[0]) in el and str(e[1]) in el:
+                assert el.startswith(f'  "{e[0]}" -- "{e[1]}" [penwidth=')
+                # the [:-3] slices off the ];\n (the \n is one character)
+                # we're making the assumption that there are no edge attrs
+                # besides penwidth, ofc
+                penwidth = float(el.split("=")[1][:-3])
+                assert penwidth == approx(e[2])
+                obs_edge_lines_copy.remove(el)
+                found_matching_edge_line = True
+                break
+        if not found_matching_edge_line:
+            raise AssertionError(
+                f"Didn't find a matching edge line for edge {e}"
+            )
+    assert len(obs_edge_lines_copy) == 0
+
+
 def test_link_graph_integration(tmp_path):
     ndir = tmp_path / "ndir"
     lu.run_nt(FASTA, BAM, BCF, ndir, False, mock_log)
@@ -696,15 +727,18 @@ def test_link_graph_integration(tmp_path):
     gdir = tmp_path / "gdir"
     lu.run_graph(ndir, 1, 1, 0, "dot", gdir, False, mock_log)
 
-    # TODO check c1 dot
+    # there shouldn't be a c2 link graph b/c it has no mutations
+    assert sorted(os.listdir(gdir)) == ["c1_linkgraph.gv", "c3_linkgraph.gv"]
 
-    with open(gdir / "c3_linkgraph.gv", "r") as f:
-        c3_dot_lines = f.readlines()
+    # First, check the c3 graph -- same data as above
 
-    # ignore the order in which we output node / edge lines, to make testing
+    # ignore the order in which we see node / edge lines, to make testing
     # more consistent. i guess we could make this stricter by checking that the
     # observed file at least starts with the graph { line and ends with the }
     # line, but we've already tested the DOT-exporting function above so that
+    with open(gdir / "c3_linkgraph.gv", "r") as f:
+        obs_dot_lines = set(f.readlines())
+
     # isn't a priority.
     exp_nonedge_lines = set(
         [
@@ -716,8 +750,6 @@ def test_link_graph_integration(tmp_path):
             "}",
         ]
     )
-
-    obs_dot_lines = set(c3_dot_lines)
 
     assert exp_nonedge_lines.issubset(obs_dot_lines)
 
@@ -738,22 +770,52 @@ def test_link_graph_integration(tmp_path):
         ((7, 3), (8, 3), 2),
     ]
 
-    # this is a terrible inefficient way of doing this check but there are only
-    # 4 elements in this set so efficiency doesn't really matter
-    for e in exp_edges:
-        found_matching_edge_line = False
-        for el in obs_edge_lines:
-            if str(e[0]) in el and str(e[1]) in el:
-                assert el.startswith(f'  "{e[0]}" -- "{e[1]}" [penwidth=')
-                # the [:-3] slices off the ];\n (the \n is one character)
-                # we're making the assumption that there are no edge attrs
-                # besides penwidth, ofc
-                penwidth = float(el.split("=")[1][:-3])
-                assert penwidth == approx(e[2])
-                obs_edge_lines.remove(el)
-                found_matching_edge_line = True
-                break
-        if not found_matching_edge_line:
-            raise AssertionError(
-                f"Didn't find a matching edge line for edge {e}"
-            )
+    check_edge_existence(exp_edges, obs_edge_lines)
+
+    # OK now check the c1 graph
+
+    with open(gdir / "c1_linkgraph.gv", "r") as f:
+        obs_dot_lines = set(f.readlines())
+
+    exp_nonedge_lines = set(
+        [
+            "graph {\n",
+            '  "(4, 0)" [label="4 (A)\\n1x (8.33%)"];\n',
+            '  "(4, 1)" [label="4 (C)\\n2x (16.67%)"];\n',
+            '  "(4, 2)" [label="4 (G)\\n6x (50.00%)"];\n',
+            '  "(4, 3)" [label="4 (T)\\n3x (25.00%)"];\n',
+            '  "(11, 0)" [label="11 (A)\\n5x (41.67%)"];\n',
+            '  "(11, 2)" [label="11 (G)\\n7x (58.33%)"];\n',
+            '  "(13, 0)" [label="13 (A)\\n5x (41.67%)"];\n',
+            '  "(13, 2)" [label="13 (G)\\n7x (58.33%)"];\n',
+            "}",
+        ]
+    )
+
+    assert exp_nonedge_lines.issubset(obs_dot_lines)
+
+    obs_edge_lines = obs_dot_lines - exp_nonedge_lines
+    assert len(obs_edge_lines) == 14
+
+    # see test_run_nt() above for some context on this insanity
+    exp_edges = [
+        ((4, 0), (11, 0), (1 / 5) * 5),
+        ((4, 1), (11, 0), (2 / 5) * 5),
+        ((4, 2), (11, 0), (1 / 6) * 5),
+        ((4, 2), (11, 2), (5 / 7) * 5),
+        ((4, 3), (11, 0), (1 / 5) * 5),
+        ((4, 3), (11, 2), (2 / 7) * 5),
+        # the edges between the position 4 and 11 nodes exactly match the edges
+        # between the position 4 and 13 nodes
+        ((4, 0), (13, 0), (1 / 5) * 5),
+        ((4, 1), (13, 0), (2 / 5) * 5),
+        ((4, 2), (13, 0), (1 / 6) * 5),
+        ((4, 2), (13, 2), (5 / 7) * 5),
+        ((4, 3), (13, 0), (1 / 5) * 5),
+        ((4, 3), (13, 2), (2 / 7) * 5),
+        # positions 11 and 13 always match
+        ((11, 0), (13, 0), 5),
+        ((11, 2), (13, 2), 5),
+    ]
+
+    check_edge_existence(exp_edges, obs_edge_lines)
