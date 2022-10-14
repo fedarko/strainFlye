@@ -321,6 +321,32 @@ def test_make_linkgraph_lowcov_nt():
     assert g.edges[(7, 3), (8, 3)] == {"link": 4 / 10}
 
 
+def test_make_linkgraph_non_spanned_pospair():
+    with pytest.raises(WeirdError) as ei:
+        # weird example where no reads span both 7 and 8. this is technically
+        # possible if you have, like, the shittiest sequencing technology known
+        # to humanity, i guess. can i patent that?
+        lu.make_linkgraph(
+            {7: {0: 7, 3: 6}, 8: {1: 3, 3: 10}},
+            {
+                (7, 8): {
+                    (0, 3): 0,
+                    (0, 1): 0,
+                    (3, 1): 0,
+                    (3, 3): 0,
+                }
+            },
+            1,
+            1,
+            0,
+            "c3",
+            mock_log,
+        )
+    assert str(ei.value) == (
+        "Number of spanning reads for position pair (7, 8) in contig c3 is 0?"
+    )
+
+
 def test_write_linkgraph_to_dot_good(tmp_path):
     g = nx.Graph()
 
