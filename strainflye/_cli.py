@@ -1590,7 +1590,7 @@ strainflye.add_command(dynam)
         "will be named [contig]_covskew.tsv."
     ),
 )
-def covskew(contigs, bam, bin_length, output_dir):
+def covskew(contigs, bam, bin_length, norm_coverage_epsilon, output_dir):
     """Compare normalized coverage and skew within contigs."""
     fancylog = cli_utils.fancystart(
         "dynam covskew",
@@ -1599,9 +1599,14 @@ def covskew(contigs, bam, bin_length, output_dir):
             ("BAM file", bam),
         ),
         (("directory", output_dir),),
-        extra_info=(f"Bin length: {bin_length:,} bp",),
+        extra_info=(
+            f"Bin length: {bin_length:,} bp",
+            f"Normalized coverage epsilon: {norm_coverage_epsilon}",
+        ),
     )
-    dynam_utils.run_covskew(contigs, bam, bin_length, output_dir, fancylog)
+    dynam_utils.run_covskew(
+        contigs, bam, bin_length, norm_coverage_epsilon, output_dir, fancylog
+    )
     fancylog("Done.")
 
 
