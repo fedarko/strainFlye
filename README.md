@@ -20,7 +20,7 @@ easier-to-use pipeline.
 As of writing, the steps of the pipeline shown in the
 main text of the paper are all implemented in the pipeline; the remaining
 tasks (see progress [here](https://github.com/fedarko/strainFlye/issues/1))
-are computing mutation matrices and PTR values.
+are computing mutation matrices and growth dynamics information.
 In the meantime, if you have any questions, please feel free to open an issue.
 
 ## Installation
@@ -110,6 +110,7 @@ Commands:
   spot    [+] Identify putative mutational hotspots or coldspots in contigs.
   smooth  [+] Create and assemble smoothed and virtual reads.
   link    [+] Create link graphs showing co-occurring alleles.
+  dynam   [+] Compute simple information about growth dynamics.
   utils   [+] Various utility commands provided with strainFlye.
 ```
 
