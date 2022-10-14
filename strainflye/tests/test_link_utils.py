@@ -294,18 +294,8 @@ def test_make_linkgraph_good(capsys):
         "c3",
         mock_log,
     )
-    assert len(g.nodes) == 4
-    assert set(g.nodes) == set([(7, 0), (7, 3), (8, 1), (8, 3)])
-    assert g.nodes[(7, 0)] == {"ct": 7, "freq": 7 / 13}
-    assert g.nodes[(7, 3)] == {"ct": 6, "freq": 6 / 13}
-    assert g.nodes[(8, 1)] == {"ct": 3, "freq": 3 / 13}
-    assert g.nodes[(8, 3)] == {"ct": 10, "freq": 10 / 13}
 
-    assert len(g.edges) == 4
-    assert g.edges[(7, 0), (8, 1)] == {"link": 1 / 7}
-    assert g.edges[(7, 0), (8, 3)] == {"link": 6 / 10}
-    assert g.edges[(7, 3), (8, 1)] == {"link": 2 / 6}
-    assert g.edges[(7, 3), (8, 3)] == {"link": 4 / 10}
+    check_c3_linkgraph(g)
 
     assert capsys.readouterr().out == (
         "MockLog: Creating a link graph for contig c3...\n"
@@ -604,38 +594,8 @@ def test_write_linkgraph_to_dot_penwidth_clamp(tmp_path):
     )
 
 
-def test_run_graph_good_verbose_nx(capsys, tmp_path):
-    # Write out "inputs", mocking the output of run_nt()
-    ndir = tmp_path / "ndir"
-    os.makedirs(ndir)
-
-    with open(ndir / f"c3_{POS_FILE_LBL}.pickle", "wb") as f:
-        pickle.dump({7: {0: 7, 3: 6}, 8: {1: 3, 3: 10}}, f)
-
-    with open(ndir / f"c3_{POSPAIR_FILE_LBL}.pickle", "wb") as f:
-        pickle.dump(
-            {
-                (7, 8): {
-                    # (A, T)
-                    (0, 3): 6,
-                    # (A, C)
-                    (0, 1): 1,
-                    # (T, C)
-                    (3, 1): 2,
-                    # (T, T)
-                    (3, 3): 4,
-                }
-            },
-            f,
-        )
-
-    gdir = tmp_path / "gdir"
-    lu.run_graph(ndir, 1, 1, 0, "nx", gdir, True, mock_log)
-
-    with open(gdir / "c3_linkgraph.pickle", "rb") as f:
-        g = pickle.load(f)
-
-    # same validation code as earlier -- TODO, abstract to a function?
+def check_c3_linkgraph(g):
+    # assumes that we included all possible nodes and edges
     assert len(g.nodes) == 4
     assert set(g.nodes) == set([(7, 0), (7, 3), (8, 1), (8, 3)])
     assert g.nodes[(7, 0)] == {"ct": 7, "freq": 7 / 13}
@@ -648,6 +608,26 @@ def test_run_graph_good_verbose_nx(capsys, tmp_path):
     assert g.edges[(7, 0), (8, 3)] == {"link": 6 / 10}
     assert g.edges[(7, 3), (8, 1)] == {"link": 2 / 6}
     assert g.edges[(7, 3), (8, 3)] == {"link": 4 / 10}
+
+
+def test_run_graph_good_verbose_nx(capsys, tmp_path):
+    # Write out "inputs", mocking the output of run_nt()
+    ndir = tmp_path / "ndir"
+    os.makedirs(ndir)
+
+    with open(ndir / f"c3_{POS_FILE_LBL}.pickle", "wb") as f:
+        pickle.dump({7: {0: 7, 3: 6}, 8: {1: 3, 3: 10}}, f)
+
+    with open(ndir / f"c3_{POSPAIR_FILE_LBL}.pickle", "wb") as f:
+        pickle.dump({(7, 8): {(0, 3): 6, (0, 1): 1, (3, 1): 2, (3, 3): 4}}, f)
+
+    gdir = tmp_path / "gdir"
+    lu.run_graph(ndir, 1, 1, 0, "nx", gdir, True, mock_log)
+
+    with open(gdir / "c3_linkgraph.pickle", "rb") as f:
+        g = pickle.load(f)
+
+    check_c3_linkgraph(g)
 
     assert capsys.readouterr().out == (
         "PREFIX\nMockLog: Going through (co-)occurrence information and "
