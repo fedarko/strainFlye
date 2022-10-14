@@ -230,10 +230,10 @@ def test_write_linkgraph_to_dot_good(tmp_path):
 
     g.add_node((100, 1), ct=5, freq=0.25)
     g.add_node((100, 2), ct=15, freq=0.75)
-    g.add_node((200, 1), ct=20, freq=1)
+    g.add_node((200, 0), ct=20, freq=1)
 
-    g.add_edge((100, 1), (200, 1), link=0.25)
-    g.add_edge((100, 2), (200, 1), link=0.75)
+    g.add_edge((100, 1), (200, 0), link=0.25)
+    g.add_edge((100, 2), (200, 0), link=0.75)
 
     lu.write_linkgraph_to_dot(g, tmp_path, "borgar")
 
@@ -250,8 +250,24 @@ def test_write_linkgraph_to_dot_good(tmp_path):
         "graph {\n"
         '  "(100, 1)" [label="100 (C)\\n5x (25.00%)"];\n'
         '  "(100, 2)" [label="100 (G)\\n15x (75.00%)"];\n'
-        '  "(200, 1)" [label="200 (C)\\n20x (100.00%)"];\n'
-        '  "(100, 1)" -- "(200, 1)" [penwidth=1.25];\n'
-        '  "(100, 2)" -- "(200, 1)" [penwidth=3.75];\n'
+        '  "(200, 0)" [label="200 (A)\\n20x (100.00%)"];\n'
+        '  "(100, 1)" -- "(200, 0)" [penwidth=1.25];\n'
+        '  "(100, 2)" -- "(200, 0)" [penwidth=3.75];\n'
+        "}"
+    )
+
+
+def test_write_linkgraph_to_dot_one_node_big_nums(tmp_path):
+    # checks that 1-node link graphs get written out ok
+    # and that large numbers result in commas included in the node label
+    g = nx.Graph()
+    g.add_node((12345, 3), ct=56789, freq=0.56789)
+    lu.write_linkgraph_to_dot(g, tmp_path, "lonely")
+
+    with open(tmp_path / "lonely_linkgraph.gv", "r") as f:
+        dot_txt = f.read()
+    assert dot_txt == (
+        "graph {\n"
+        '  "(12345, 3)" [label="12,345 (T)\\n56,789x (56.79%)"];\n'
         "}"
     )

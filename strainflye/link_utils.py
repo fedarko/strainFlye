@@ -533,9 +533,9 @@ def write_linkgraph_to_dot(g, output_dir, contig_name):
     ----------
     g: nx.Graph
         Link graph to write out. This should actually be a link graph (i.e.
-        containing the extra node/edge attributes like "link" for edges), not
-        just an arbitrary NetworkX graph. You can produce such a graph using
-        make_linkgraph().
+        nodes should have "ct" and "freq" attributes and edges should have
+        "link" attributes), not just an arbitrary NetworkX graph. You can
+        produce such a graph using make_linkgraph().
 
     output_dir: str
         Directory to which we'll write this DOT file. Should already exist.
@@ -546,6 +546,24 @@ def write_linkgraph_to_dot(g, output_dir, contig_name):
     Returns
     -------
     None
+
+    Raises
+    ------
+    KeyError
+        Implicitly, if the input graph doesn't have the node / edge attributes
+        we expect to see in a link graph -- see "Notes" below.
+
+    Notes
+    -----
+    This should only be called with graphs produced by make_linkgraph(), so
+    this won't bother explicitly checking that nodes / edges have the required
+    attributes mentioned above. If a node / edge in the graph does not have
+    these attributes, then this function should raise a KeyError at some point.
+
+    Similarly, this doesn't validate the structure of the graph. For example: a
+    link graph should never have edges between two nodes representing alleles
+    at the same position, but this function won't care about that and will
+    happily write such a malformed link graph out to DOT anyway.
     """
     fp = os.path.join(output_dir, f"{contig_name}_linkgraph.gv")
     with open(fp, "w") as df:
