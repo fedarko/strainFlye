@@ -556,7 +556,7 @@ def test_write_linkgraph_to_dot_penwidth_clamp(tmp_path):
     )
 
 
-def test_run_graph_good(capsys, tmp_path):
+def test_run_graph_good_verbose_nx(capsys, tmp_path):
     # Write out "inputs", mocking the output of run_nt()
     ndir = tmp_path / "ntdir"
     os.makedirs(ndir)
@@ -593,3 +593,13 @@ def test_run_graph_good(capsys, tmp_path):
     assert g.nodes[(7, 3)] == {"ct": 6, "freq": 6 / 13}
     assert g.nodes[(8, 1)] == {"ct": 3, "freq": 3 / 13}
     assert g.nodes[(8, 3)] == {"ct": 10, "freq": 10 / 13}
+
+    assert capsys.readouterr().out == (
+        "PREFIX\nMockLog: Going through (co-)occurrence information and "
+        "creating link graphs...\n"
+        "MockLog: Creating a link graph for contig c3...\n"
+        "MockLog: The link graph for contig c3 has 4 node(s).\n"
+        "MockLog: The link graph for contig c3 has 4 edge(s).\n"
+        'MockLog: Wrote out the link graph (format: "nx") for contig c3.\n'
+        "MockLog: Done.\n"
+    )

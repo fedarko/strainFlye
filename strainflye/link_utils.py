@@ -726,7 +726,7 @@ def run_graph(
     pair_suffix = f"_{config.POSPAIR_FILE_LBL}.pickle"
 
     fancylog(
-        "Going through co-occurrence information and creating link graphs..."
+        "Going through (co-)occurrence information and creating link graphs..."
     )
 
     # Sorting os.listdir() makes this deterministic. We use this same trick in
