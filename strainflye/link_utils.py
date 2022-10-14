@@ -725,6 +725,47 @@ def run_graph(
     verbose,
     fancylog,
 ):
+    """Creates link graphs based on the information from run_nt().
+
+    Parameters
+    ----------
+    nt_dir: str
+        Directory containing nucleotide (co-)occurrence information from
+        run_nt().
+
+    min_nt_ct: int
+    min_span: int
+    low_link: float
+        Various parameters of link graph construction. See make_linkgraph()
+        and/or the CLI for this command for details. (look i've written this
+        out at least twice now i don't wanna do it again lol)
+
+    output_format: str
+        Format of the output graphs to create. One of "nx", "dot".
+
+    output_dir: str
+        Directory to which we'll write link graphs.
+
+    verbose: bool
+        Log extra info.
+
+    fancylog: function
+        Logging function.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    FileNotFoundError
+        If no, or incomplete, (co-)occurrence info is present in nt_dir.
+
+    WeirdError
+        - If output_format is invalid.
+        - If the input data seems malformed in various ways (raised by
+          make_linkgraph()).
+    """
     verboselog = cli_utils.get_verboselog(fancylog, verbose)
     havent_created_first_graph_yet = True
 
