@@ -117,13 +117,12 @@ def test_get_pos_nt_info_just_one_pos():
 
 
 def test_run_nt(capsys, tmp_path):
-    output_dir = os.path.join(tmp_path, "run-nt-out")
-    lu.run_nt(FASTA, BAM, BCF, output_dir, True, mock_log)
+    lu.run_nt(FASTA, BAM, BCF, tmp_path, True, mock_log)
 
-    fp_c1p = os.path.join(output_dir, f"c1_{POS_FILE_LBL}.pickle")
-    fp_c1pp = os.path.join(output_dir, f"c1_{POSPAIR_FILE_LBL}.pickle")
-    fp_c3p = os.path.join(output_dir, f"c3_{POS_FILE_LBL}.pickle")
-    fp_c3pp = os.path.join(output_dir, f"c3_{POSPAIR_FILE_LBL}.pickle")
+    fp_c1p = tmp_path / f"c1_{POS_FILE_LBL}.pickle"
+    fp_c1pp = tmp_path / f"c1_{POSPAIR_FILE_LBL}.pickle"
+    fp_c3p = tmp_path / f"c3_{POS_FILE_LBL}.pickle"
+    fp_c3pp = tmp_path / f"c3_{POSPAIR_FILE_LBL}.pickle"
 
     with open(fp_c1p, "rb") as f:
         c1p = pickle.load(f)
