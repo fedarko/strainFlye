@@ -782,7 +782,7 @@ def run_graph(
             )
 
     if havent_created_first_graph_yet:
-        raise ParameterError(
+        raise FileNotFoundError(
             f"Didn't find any (co-)occurrence information in {nt_dir}."
         )
 

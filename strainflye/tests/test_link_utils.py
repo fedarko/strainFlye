@@ -613,11 +613,52 @@ def test_run_graph_no_nt_info_at_all(tmp_path):
     gdir = tmp_path / "gdir"
 
     # First, check that this raises an error.
-    with pytest.raises(ParameterError) as ei:
-        lu.run_graph(tmp_path, 1, 1, 0, "nx", gdir, True, mock_log)
+    with pytest.raises(FileNotFoundError) as ei:
+        lu.run_graph(ndir, 1, 1, 0, "nx", gdir, True, mock_log)
     assert str(ei.value) == (
-        f"Didn't find any (co-)occurrence information in {tmp_path}."
+        f"Didn't find any (co-)occurrence information in {ndir}."
     )
 
     # Second, check that this didn't create gdir yet.
+    assert not os.path.exists(gdir)
+
+
+def test_run_graph_only_pos_info_file(tmp_path):
+    ndir = tmp_path / "ndir"
+    os.makedirs(ndir)
+
+    pf = ndir / f"c3_{POS_FILE_LBL}.pickle"
+    ppf = ndir / f"c3_{POSPAIR_FILE_LBL}.pickle"
+    with open(pf, "wb") as f:
+        pickle.dump({7: {0: 7, 3: 6}, 8: {1: 3, 3: 10}}, f)
+
+    gdir = tmp_path / "gdir"
+
+    with pytest.raises(FileNotFoundError) as ei:
+        lu.run_graph(ndir, 1, 1, 0, "nx", gdir, True, mock_log)
+    assert str(ei.value) == f"Found file {pf}, but not file {ppf}."
+
+    assert not os.path.exists(gdir)
+
+
+def test_run_graph_only_pospair_info_file(tmp_path):
+    # this doesn't trigger a unique error message, since we use the presence of
+    # the "position" info file as a sign to look for a "position pair" info
+    # file. however, i expect this case should be rare in practice (should only
+    # happen if you start deleting stuff from the output of "link nt"...)
+    ndir = tmp_path / "ndir"
+    os.makedirs(ndir)
+
+    ppf = ndir / f"c3_{POSPAIR_FILE_LBL}.pickle"
+    with open(ppf, "wb") as f:
+        pickle.dump({(7, 8): {(0, 3): 6, (0, 1): 1, (3, 1): 2, (3, 3): 4}}, f)
+
+    gdir = tmp_path / "gdir"
+
+    with pytest.raises(FileNotFoundError) as ei:
+        lu.run_graph(ndir, 1, 1, 0, "nx", gdir, True, mock_log)
+    assert str(ei.value) == (
+        f"Didn't find any (co-)occurrence information in {ndir}."
+    )
+
     assert not os.path.exists(gdir)
