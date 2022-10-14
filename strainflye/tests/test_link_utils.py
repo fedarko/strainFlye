@@ -246,6 +246,9 @@ def test_write_linkgraph_to_dot_good(tmp_path):
     # before iteration -- or, we could just fix this in the test by testing
     # that the sets of strings representing each line exist in both files.
     # Something like that. (But I'm not gonna do this until it's necessary.)
+    #
+    # Alternatively, this might start failing if you change config.MAX_PENWIDTH
+    # or config.MIN_PENWIDTH.
     assert dot_txt == (
         "graph {\n"
         '  "(100, 1)" [label="100 (C)\\n5x (25.00%)"];\n'
@@ -258,7 +261,7 @@ def test_write_linkgraph_to_dot_good(tmp_path):
 
 
 def test_write_linkgraph_to_dot_one_node_big_nums(tmp_path):
-    # checks that 1-node link graphs get written out ok
+    # checks that 1-node link graphs get written out ok,
     # and that large numbers result in commas included in the node label
     g = nx.Graph()
     g.add_node((12345, 3), ct=56789, freq=0.56789)
@@ -269,5 +272,24 @@ def test_write_linkgraph_to_dot_one_node_big_nums(tmp_path):
     assert dot_txt == (
         "graph {\n"
         '  "(12345, 3)" [label="12,345 (T)\\n56,789x (56.79%)"];\n'
+        "}"
+    )
+
+
+def test_write_linkgraph_to_dot_penwidth_clamp(tmp_path):
+    g = nx.Graph()
+    g.add_node((12345, 3), ct=56789, freq=0.56789)
+    g.add_node((12346, 0), ct=2, freq=1)
+    g.add_edge((12345, 3), (12346, 0), link=(2 / 56789))
+    lu.write_linkgraph_to_dot(g, tmp_path, "clampy")
+
+    with open(tmp_path / "clampy_linkgraph.gv", "r") as f:
+        dot_txt = f.read()
+    # Verify that the penwidth of the edge is clamped to config.MIN_PENWIDTH
+    assert dot_txt == (
+        "graph {\n"
+        '  "(12345, 3)" [label="12,345 (T)\\n56,789x (56.79%)"];\n'
+        '  "(12346, 0)" [label="12,346 (A)\\n2x (100.00%)"];\n'
+        '  "(12345, 3)" -- "(12346, 0)" [penwidth=0.01];\n'
         "}"
     )
