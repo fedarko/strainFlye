@@ -1,6 +1,7 @@
 import os
 import pickle
 import pysam
+import networkx as nx
 import pytest
 import strainflye.link_utils as lu
 from collections import defaultdict
@@ -222,3 +223,35 @@ def test_run_nt(capsys, tmp_path):
     )
 
     assert capsys.readouterr().out == exp_out
+
+
+def test_write_linkgraph_to_dot_good(tmp_path):
+    g = nx.Graph()
+
+    g.add_node((100, 1), ct=5, freq=0.25)
+    g.add_node((100, 2), ct=15, freq=0.75)
+    g.add_node((200, 1), ct=20, freq=1)
+
+    g.add_edge((100, 1), (200, 1), link=0.25)
+    g.add_edge((100, 2), (200, 1), link=0.75)
+
+    lu.write_linkgraph_to_dot(g, tmp_path, "borgar")
+
+    with open(tmp_path / "borgar_linkgraph.gv", "r") as f:
+        dot_txt = f.read()
+
+    # As of writing, this works -- however, if this test starts failing, this
+    # may be due to NetworkX changing the order of its iteration through nodes
+    # and/or edges. We could fix this in the actual code by sorting nodes/edges
+    # before iteration -- or, we could just fix this in the test by testing
+    # that the sets of strings representing each line exist in both files.
+    # Something like that. (But I'm not gonna do this until it's necessary.)
+    assert dot_txt == (
+        "graph {\n"
+        '  "(100, 1)" [label="100 (C)\\n5x (25.00%)"];\n'
+        '  "(100, 2)" [label="100 (G)\\n15x (75.00%)"];\n'
+        '  "(200, 1)" [label="200 (C)\\n20x (100.00%)"];\n'
+        '  "(100, 1)" -- "(200, 1)" [penwidth=1.25];\n'
+        '  "(100, 2)" -- "(200, 1)" [penwidth=3.75];\n'
+        "}"
+    )

@@ -450,74 +450,6 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
     fancylog("Done.", prefix="")
 
 
-def write_linkgraph_to_dot(g, output_dir, contig_name):
-    """Writes out a NetworkX link graph to a DOT file.
-
-    This file will be named [contig_name]_linkgraph.gv, and will be
-    located in the directory [output_dir].
-
-    Parameters
-    ----------
-    g: nx.Graph
-        Link graph to write out. This should actually be a link graph (i.e.
-        containing the extra node/edge attributes like "link" for edges), not
-        just an arbitrary NetworkX graph.
-
-    output_dir: str
-        Directory to which we'll write this DOT file. Should already exist.
-
-    contig_name: str
-        Used in the name of the DOT file to be created.
-
-    Returns
-    -------
-    None
-    """
-    fp = os.path.join(output_dir, f"{contig_name}_linkgraph.gv")
-    with open(fp, "w") as df:
-        # We could name this graph according to the contig, or something, but I
-        # don't wanna have to worry about Graphviz breaking due to contigs
-        # containing weird characters (using these as part of filenames is
-        # enough of a headache already). So let's just omit a name for now.
-        # (This is consistent with DOT files from LJA at the moment, at least
-        # as far as I can tell)
-        df.write("graph {\n")
-
-        # We represent node names in the DOT file by just putting their "real"
-        # name (from networkx) in double-quotes. Graphviz *can* support things
-        # like integers as node names, but just treating all node names as
-        # strings from the start of developing this should save us some
-        # headaches. (Knock on wood.)
-        for n in g.nodes:
-            node_lbl = (
-                f"{n[0]:,} ({config.I2N[n[1]]})\\n"
-                f"{g.nodes[n]['ct']:,}x "
-                f"({(100 * g.nodes[n]['freq']):.2f}%)"
-            )
-            # we use two spaces of indentation for node lines and edge lines,
-            # matching https://www.graphviz.org/doc/info/lang.html, although
-            # this doesn't actually matter and the time that i spent writing
-            # this comment is probably now wasted to the sands of time wait why
-            # am i still writing this on aodsfih dofhid ofuhasd foudhf odufhod
-            df.write(f'  "{n}" [label="{node_lbl}"];\n')
-
-        for e in g.edges:
-            # In theory, an edge's "link" value could be anywhere in the range
-            # (0, 1] (the requirement that --low-link is at least 0 forces link
-            # to be positive, if we have created an edge in the first place).
-            # So doing interpolation to scale these values into
-            # (0, MAX_PENWIDTH] isn't too challenging.
-            #
-            # However, since a very tiny link value implies a very tiny
-            # penwidth, we clamp the min penwidth.
-            lw = g.edges[e]["link"] * config.MAX_PENWIDTH
-            if lw < config.MIN_PENWIDTH:
-                lw = config.MIN_PENWIDTH
-            df.write(f'  "{e[0]}" -- "{e[1]}" ' f"[penwidth={lw}];\n")
-
-        df.write("}")
-
-
 def make_linkgraph(
     contig,
     pos2nt2ct,
@@ -589,6 +521,75 @@ def make_linkgraph(
     )
 
     return g
+
+
+def write_linkgraph_to_dot(g, output_dir, contig_name):
+    """Writes out a NetworkX link graph to a DOT file.
+
+    This file will be named [contig_name]_linkgraph.gv, and will be
+    located in the directory [output_dir].
+
+    Parameters
+    ----------
+    g: nx.Graph
+        Link graph to write out. This should actually be a link graph (i.e.
+        containing the extra node/edge attributes like "link" for edges), not
+        just an arbitrary NetworkX graph. You can produce such a graph using
+        make_linkgraph().
+
+    output_dir: str
+        Directory to which we'll write this DOT file. Should already exist.
+
+    contig_name: str
+        Used in the name of the DOT file to be created.
+
+    Returns
+    -------
+    None
+    """
+    fp = os.path.join(output_dir, f"{contig_name}_linkgraph.gv")
+    with open(fp, "w") as df:
+        # We could name this graph according to the contig, or something, but I
+        # don't wanna have to worry about Graphviz breaking due to contigs
+        # containing weird characters (using these as part of filenames is
+        # enough of a headache already). So let's just omit a name for now.
+        # (This is consistent with DOT files from LJA at the moment, at least
+        # as far as I can tell)
+        df.write("graph {\n")
+
+        # We represent node names in the DOT file by just putting their "real"
+        # name (from networkx) in double-quotes. Graphviz *can* support things
+        # like integers as node names, but just treating all node names as
+        # strings from the start of developing this should save us some
+        # headaches. (Knock on wood.)
+        for n in g.nodes:
+            node_lbl = (
+                f"{n[0]:,} ({config.I2N[n[1]]})\\n"
+                f"{g.nodes[n]['ct']:,}x "
+                f"({(100 * g.nodes[n]['freq']):.2f}%)"
+            )
+            # we use two spaces of indentation for node lines and edge lines,
+            # matching https://www.graphviz.org/doc/info/lang.html, although
+            # this doesn't actually matter and the time that i spent writing
+            # this comment is probably now wasted to the sands of time wait why
+            # am i still writing this on aodsfih dofhid ofuhasd foudhf odufhod
+            df.write(f'  "{n}" [label="{node_lbl}"];\n')
+
+        for e in g.edges:
+            # In theory, an edge's "link" value could be anywhere in the range
+            # (0, 1] (the requirement that --low-link is at least 0 forces link
+            # to be positive, if we have created an edge in the first place).
+            # So doing interpolation to scale these values into
+            # (0, MAX_PENWIDTH] isn't too challenging.
+            #
+            # However, since a very tiny link value implies a very tiny
+            # penwidth, we clamp the min penwidth.
+            lw = g.edges[e]["link"] * config.MAX_PENWIDTH
+            if lw < config.MIN_PENWIDTH:
+                lw = config.MIN_PENWIDTH
+            df.write(f'  "{e[0]}" -- "{e[1]}" ' f"[penwidth={lw}];\n")
+
+        df.write("}")
 
 
 def run_graph(
