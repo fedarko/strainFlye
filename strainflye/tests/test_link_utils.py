@@ -6,7 +6,7 @@ import pytest
 import strainflye.link_utils as lu
 from collections import defaultdict
 from strainflye.config import POS_FILE_LBL, POSPAIR_FILE_LBL
-from strainflye.errors import ParameterError
+from strainflye.errors import ParameterError, WeirdError
 from strainflye.tests.utils_for_testing import mock_log
 
 
@@ -225,7 +225,7 @@ def test_run_nt(capsys, tmp_path):
     assert capsys.readouterr().out == exp_out
 
 
-def test_make_linkgraph():
+def test_make_linkgraph_good():
     g = lu.make_linkgraph(
         {7: {0: 7, 3: 6}, 8: {1: 3, 3: 10}},
         {
@@ -258,6 +258,25 @@ def test_make_linkgraph():
     assert g.edges[(7, 0), (8, 3)] == {"link": 6 / 10}
     assert g.edges[(7, 3), (8, 1)] == {"link": 2 / 6}
     assert g.edges[(7, 3), (8, 3)] == {"link": 4 / 10}
+
+
+def test_make_linkgraph_uncovered_pos():
+    with pytest.raises(WeirdError) as ei:
+        lu.make_linkgraph(
+            {7: {0: 0, 3: 0}, 8: {1: 3, 3: 10}},
+            {
+                (7, 8): {
+                    # (A, T)
+                    (0, 3): 6,
+                }
+            },
+            1,
+            1,
+            0,
+            "c3",
+            mock_log,
+        )
+    assert str(ei.value) == "Coverage at pos 7 in contig c3 is 0?"
 
 
 def test_write_linkgraph_to_dot_good(tmp_path):
