@@ -1426,7 +1426,7 @@ def nt(contigs, bam, bcf, output_dir, verbose):
     required=False,
     default=0,
     show_default=True,
-    type=click.FloatRange(min=0),
+    type=click.FloatRange(min=0, max=1, max_open=True),
     help=(
         "The other prerequisite for creating an edge between two nodes "
         "(representing nucleotides Ni, Nj at mutated positions i and j) is "
