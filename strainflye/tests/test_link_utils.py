@@ -554,3 +554,42 @@ def test_write_linkgraph_to_dot_penwidth_clamp(tmp_path):
         '  "(12345, 3)" -- "(12346, 0)" [penwidth=0.01];\n'
         "}"
     )
+
+
+def test_run_graph_good(capsys, tmp_path):
+    # Write out "inputs", mocking the output of run_nt()
+    ndir = tmp_path / "ntdir"
+    os.makedirs(ndir)
+
+    with open(ndir / f"c3_{POS_FILE_LBL}.pickle", "wb") as f:
+        pickle.dump({7: {0: 7, 3: 6}, 8: {1: 3, 3: 10}}, f)
+
+    with open(ndir / f"c3_{POSPAIR_FILE_LBL}.pickle", "wb") as f:
+        pickle.dump(
+            {
+                (7, 8): {
+                    # (A, T)
+                    (0, 3): 6,
+                    # (A, C)
+                    (0, 1): 1,
+                    # (T, C)
+                    (3, 1): 2,
+                    # (T, T)
+                    (3, 3): 4,
+                }
+            },
+            f,
+        )
+
+    gdir = tmp_path / "gdir"
+    lu.run_graph(ndir, 1, 1, 0, "nx", gdir, True, mock_log)
+
+    with open(gdir / "c3_linkgraph.pickle", "rb") as f:
+        g = pickle.load(f)
+
+    assert len(g.nodes) == 4
+    assert set(g.nodes) == set([(7, 0), (7, 3), (8, 1), (8, 3)])
+    assert g.nodes[(7, 0)] == {"ct": 7, "freq": 7 / 13}
+    assert g.nodes[(7, 3)] == {"ct": 6, "freq": 6 / 13}
+    assert g.nodes[(8, 1)] == {"ct": 3, "freq": 3 / 13}
+    assert g.nodes[(8, 3)] == {"ct": 10, "freq": 10 / 13}
