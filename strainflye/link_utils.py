@@ -421,7 +421,7 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
             fancylog(
                 (
                     f"Warning: Contig {contig} has no reads spanning any of "
-                    "its mutations; ignoring this contig."
+                    "its mutated positions; ignoring this contig."
                 ),
                 prefix="",
             )

@@ -18,6 +18,7 @@ BCF = os.path.join(IN_DIR, "call-r-min3-di12345", "naive-calls.bcf")
 BAM = os.path.join(IN_DIR, "alignment.bam")
 DEGEN_BAM = os.path.join(IN_DIR, "degen.bam")
 SECONDARY_BAM = os.path.join(IN_DIR, "c4-and-secondary.bam")
+NO_C1_READS_BAM = os.path.join(IN_DIR, "no-c1-reads.bam")
 
 
 def test_gen_ddi():
@@ -119,13 +120,35 @@ def test_get_pos_nt_info_just_one_pos():
     assert pospair2ntpair2ct == {}
 
 
-def test_run_nt(capsys, tmp_path):
+def check_c3_nt_info(tmp_path):
+    fp_c3p = tmp_path / f"c3_{POS_FILE_LBL}.pickle"
+    fp_c3pp = tmp_path / f"c3_{POSPAIR_FILE_LBL}.pickle"
+
+    with open(fp_c3p, "rb") as f:
+        c3p = pickle.load(f)
+        assert c3p == {7: {0: 7, 3: 6}, 8: {1: 3, 3: 10}}
+
+    with open(fp_c3pp, "rb") as f:
+        c3pp = pickle.load(f)
+        assert c3pp == {
+            (7, 8): {
+                # (A, T)
+                (0, 3): 6,
+                # (A, C)
+                (0, 1): 1,
+                # (T, C)
+                (3, 1): 2,
+                # (T, T)
+                (3, 3): 4,
+            }
+        }
+
+
+def test_run_nt_good(capsys, tmp_path):
     lu.run_nt(FASTA, BAM, BCF, tmp_path, True, mock_log)
 
     fp_c1p = tmp_path / f"c1_{POS_FILE_LBL}.pickle"
     fp_c1pp = tmp_path / f"c1_{POSPAIR_FILE_LBL}.pickle"
-    fp_c3p = tmp_path / f"c3_{POS_FILE_LBL}.pickle"
-    fp_c3pp = tmp_path / f"c3_{POSPAIR_FILE_LBL}.pickle"
 
     with open(fp_c1p, "rb") as f:
         c1p = pickle.load(f)
@@ -165,24 +188,7 @@ def test_run_nt(capsys, tmp_path):
             },
         }
 
-    with open(fp_c3p, "rb") as f:
-        c3p = pickle.load(f)
-        assert c3p == {7: {0: 7, 3: 6}, 8: {1: 3, 3: 10}}
-
-    with open(fp_c3pp, "rb") as f:
-        c3pp = pickle.load(f)
-        assert c3pp == {
-            (7, 8): {
-                # (A, T)
-                (0, 3): 6,
-                # (A, C)
-                (0, 1): 1,
-                # (T, C)
-                (3, 1): 2,
-                # (T, T)
-                (3, 3): 4,
-            }
-        }
+    check_c3_nt_info(tmp_path)
 
     exp_out = (
         (
@@ -220,6 +226,46 @@ def test_run_nt(capsys, tmp_path):
             "MockLog: Found 13 read(s) spanning \u2265 1 mutated position in "
             "contig c3. Computing (co-)occurrence info...\n"
             "MockLog: Wrote out (co-)occurrence info for contig c3.\n"
+        )
+        + ("MockLog: Done.\n")
+    )
+
+    assert capsys.readouterr().out == exp_out
+
+
+def test_run_nt_no_reads_spanning_muts(capsys, tmp_path):
+    # use the same contigs and mutation calls as test_run_nt_good(), but remove
+    # all linear alignments to contig c1. This causes all mutations in c1 to be
+    # uncovered, so we shouldn't write out any info for it.
+    lu.run_nt(FASTA, NO_C1_READS_BAM, BCF, tmp_path, False, mock_log)
+
+    # We should *only* see c3 info in the output directory -- nothing for c1.
+    # (And nothing for c2, for that matter, but that was already the case...)
+    check_c3_nt_info(tmp_path)
+    assert len(os.listdir(tmp_path)) == 2
+
+    # we turned off "verbose", so we should see less output -- but we should
+    # still see the warning about this weird case.
+    exp_out = (
+        (
+            "PREFIX\nMockLog: Loading and checking FASTA, BAM, and BCF "
+            "files...\n"
+            "MockLog: The FASTA file describes 3 contig(s).\n"
+            "MockLog: All FASTA contig(s) are included in the BAM file (this "
+            "BAM file has 3 reference(s)).\n"
+            "MockLog: All FASTA contig(s) are included in the BCF file (the "
+            "header of this BCF file describes 3 contig(s)).\n"
+            "MockLog: The lengths of all contig(s) in the FASTA file match "
+            "the corresponding lengths in the BAM and BCF files.\n"
+            "MockLog: So far, these files seem good.\n"
+        )
+        + (
+            "PREFIX\nMockLog: Going through contigs and computing nucleotide "
+            "(co-)occurrence information...\n"
+        )
+        + (
+            "MockLog: Warning: Contig c1 has no reads spanning any of its "
+            "mutated positions; ignoring this contig.\n"
         )
         + ("MockLog: Done.\n")
     )
