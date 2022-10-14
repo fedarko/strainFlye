@@ -500,11 +500,7 @@ def r_mutation(
 
 @click.group(name="fdr", **grp_params, **cmd_params)
 def fdr():
-    """[+] Estimate and fix FDRs for contigs' na\u00efve mutation calls.
-
-    The "estimate" command should be run before the "fix" command, since "fix"
-    takes as input the FDR estimates produced by "estimate".
-    """
+    """[+] Estimate and fix FDRs for contigs' na\u00efve mutation calls."""
 
 
 strainflye.add_command(fdr)
@@ -665,7 +661,7 @@ def estimate(
     decoy_min_average_coverage,
     output_dir,
 ):
-    """Estimate the FDRs of contigs' na\u00efve mutation calls.
+    """Estimate the FDRs of contigs' mutation calls.
 
     We do this using the target-decoy approach (TDA). Given a set of C contigs,
     we select a "decoy contig" with relatively few called mutations. We then
@@ -790,7 +786,7 @@ def estimate(
     ),
 )
 def fix(bcf, fdr_info, fdr, output_bcf, verbose):
-    """Fix contigs' na\u00efve mutation calls' FDRs to an upper limit.
+    """Fix contigs' mutation calls' estimated FDRs to an upper limit.
 
     This takes as input the estimated FDRs from "strainFlye fdr estimate" (if
     you used multiple decoy contexts, then you will need to choose which set of
@@ -1054,12 +1050,7 @@ def cold_gaps(bcf, min_length, circular, exact_pvals, output_coldspots):
 
 @click.group(name="smooth", **grp_params, **cmd_params)
 def smooth():
-    """[+] Create and assemble smoothed and virtual reads.
-
-    The "create" command should be run before the "assemble" command, since
-    "assemble" takes as input the smoothed and virtual reads produced by
-    "create".
-    """
+    """[+] Create and assemble smoothed and virtual reads."""
 
 
 strainflye.add_command(smooth)
@@ -1283,7 +1274,7 @@ def create(
     help="Display extra details for each contig during the assembly process.",
 )
 def assemble(reads_dir, lja_params, lja_bin, output_dir, verbose):
-    """Assemble contigs' reads using LJA.
+    """Assemble contigs' smoothed and virtual reads using LJA.
 
     Please note that this command relies on the "simple_ec" branch of LJA being
     installed on your system. See strainFlye's README (and/or LJA's manual) for
@@ -1317,8 +1308,8 @@ def link():
     creates link graphs (one link graph per contig) from it. There are many
     parameters that impact the graph creation, so we have split this into
     two steps in order to make it easy to rerun the "graph" step with different
-    parameter settings if needed (the "nt" command should usually take much
-    longer to run).
+    parameter settings if needed (the "nt" command will likely take longer to
+    run).
     """
 
 
@@ -1475,7 +1466,7 @@ def graph(
     output_dir,
     verbose,
 ):
-    """Convert (co-)occurrence information into link graph structures.
+    """Convert (co-)occurrence information into a link graph structure.
 
     Link graphs are undirected. A node (i, Ni) in the graph represents an
     allele: in other words, the occurrence of nucleotide Ni (one of
@@ -1536,12 +1527,22 @@ def graph(
     fancylog("Done.")
 
 
-# @strainflye.command(**cmd_params)
-# def covskew():
-#     """Visualizes MAG coverage and GC skew."""
-#     # input: FASTA of contigs, BAM file mapping reads to contigs
-#     # output: cov / skew plots; PTR estimates, if requested?
-#     print("SMOOTH")
+@click.group(name="dynam", **grp_params, **cmd_params)
+def dynam():
+    """[+] Compute simple information about growth dynamics."""
+
+
+strainflye.add_command(dynam)
+
+
+@dynam.command(**cmd_params)
+def covskew():
+    """Create tables comparing binned coverage and skew in each contig."""
+    # input: FASTA of contigs, BAM file mapping reads to contigs
+    # output: cov / skew info
+    print("covskew")
+
+
 #
 #
 # @strainflye.command(**cmd_params)
