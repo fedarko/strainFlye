@@ -1417,8 +1417,8 @@ def nt(contigs, bam, bcf, output_dir, verbose):
         "One of the prerequisites for creating an edge between two nodes "
         "(representing nucleotides Ni, Nj at mutated positions i and j) is "
         "that the total number of reads spanning both i and j, across all "
-        "combinations of nucleotides at both i and j, is at least this "
-        "parameter."
+        "combinations of (non-degenerate) nucleotides at both i and j, is at "
+        "least this parameter."
     ),
 )
 @click.option(
@@ -1445,8 +1445,8 @@ def nt(contigs, bam, bcf, output_dir, verbose):
     help=(
         'Format in which to write out each contig\'s link graph. "dot" will '
         'write out graphs in Graphviz\' DOT file format; "nx" will write out '
-        '"pickle" files containing representations of the graph loaded in '
-        "NetworkX."
+        'graphs to "pickle" files, in which each link graph is a NetworkX '
+        "object."
     ),
 )
 @click.option(
@@ -1464,7 +1464,7 @@ def nt(contigs, bam, bcf, output_dir, verbose):
     is_flag=True,
     default=False,
     show_default=True,
-    help="Display extra details for each contig while generating reads.",
+    help="Display extra details for each contig while creating link graphs.",
 )
 def graph(
     nt_dir,
@@ -1477,13 +1477,14 @@ def graph(
 ):
     """Convert (co-)occurrence information into link graph structures.
 
-    A node in this graph (i, Ni) represents an allele: in other words, the
-    occurrence of nucleotide Ni (one of {A, C, G, T}) at position i
-    (1-indexed).
+    Link graphs are undirected. A node (i, Ni) in the graph represents an
+    allele: in other words, the occurrence of nucleotide Ni (one of
+    {A, C, G, T}) at position i. (Positions are 1-indexed.)
 
-    To explain this graph a bit: let's define reads(i, Ni) as the number of
-    reads at which Ni is aligned to i. Let's also define reads(i, j, Ni, Nj) as
-    the number of reads at which Ni is aligned to i, and Nj is aligned to j.
+    What do edges between nodes represent? To answer that, let's define
+    reads(i, Ni) as the number of reads at which Ni is aligned to i. Let's also
+    define reads(i, j, Ni, Nj) as the number of reads at which Ni is aligned to
+    i, and Nj is aligned to j.
 
     Given these definitions, we define the link weight between two alleles (i,
     Ni) and (j, Nj) as
@@ -1496,9 +1497,8 @@ def graph(
     We create an edge between nodes (i, Ni) and (j, Nj) if both of the
     following conditions hold:
 
-    1. The number of reads spanning both i and j (regardless of the actual
-       nucleotides aligned to i and j in these reads; this quantity is also
-       referred to as spanCount(i, j)) is \u2265 the --min-span parameter.
+    1. The number of reads spanning both i and j with any (non-degenerate)
+    nucleotides aligned to either position is \u2265 the --min-span parameter.
 
     2. link(i, j, Ni, Nj) > the --low-link parameter.
     """
