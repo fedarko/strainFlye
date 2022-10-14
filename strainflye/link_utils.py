@@ -581,19 +581,30 @@ def make_linkgraph(
                 # an edge adjacent to them!
                 if g.has_node((i, i_nt)) and g.has_node((j, j_nt)):
 
-                    link_denom = max(pos2nt2ct[i][i_nt], pos2nt2ct[j][j_nt])
+                    link_den = max(pos2nt2ct[i][i_nt], pos2nt2ct[j][j_nt])
 
                     # should never happen -- nucleotides should only be
                     # recorded for a position in pos2nt2ct if they occur at
                     # least once
-                    if link_denom <= 0:
+                    if link_den <= 0:
                         raise WeirdError(
                             f"Denominator of link() for nodes {(i, i_nt)} "
                             f"and {(j, j_nt)} in contig {contig} is "
-                            f"{link_denom}?"
+                            f"{link_den}?"
                         )
 
-                    link = pospair2ntpair2ct[pospair][ntpair] / link_denom
+                    # same idea: pairs of nts that don't co-occur at two
+                    # positions (even if these positions are spanned by reads)
+                    # should not be included in pospair2ntpair2ct.
+                    link_num = pospair2ntpair2ct[pospair][ntpair]
+                    if link_num <= 0:
+                        raise WeirdError(
+                            f"Numerator of link() for nodes {(i, i_nt)} "
+                            f"and {(j, j_nt)} in contig {contig} is "
+                            f"{link_num}?"
+                        )
+
+                    link = link_num / link_den
                     if link > low_link:
                         # Yay, add an edge between these alleles!
                         g.add_edge((i, i_nt), (j, j_nt), link=link)
