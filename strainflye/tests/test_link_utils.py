@@ -558,7 +558,7 @@ def test_write_linkgraph_to_dot_penwidth_clamp(tmp_path):
 
 def test_run_graph_good_verbose_nx(capsys, tmp_path):
     # Write out "inputs", mocking the output of run_nt()
-    ndir = tmp_path / "ntdir"
+    ndir = tmp_path / "ndir"
     os.makedirs(ndir)
 
     with open(ndir / f"c3_{POS_FILE_LBL}.pickle", "wb") as f:
@@ -603,3 +603,21 @@ def test_run_graph_good_verbose_nx(capsys, tmp_path):
         'MockLog: Wrote out the link graph (format: "nx") for contig c3.\n'
         "MockLog: Done.\n"
     )
+
+
+def test_run_graph_no_nt_info_at_all(tmp_path):
+    ndir = tmp_path / "ndir"
+    os.makedirs(ndir)
+    # (no need to make gdir exist, because run_graph() will -- or at least, it
+    # would if any co-occurrence information existed.)
+    gdir = tmp_path / "gdir"
+
+    # First, check that this raises an error.
+    with pytest.raises(ParameterError) as ei:
+        lu.run_graph(tmp_path, 1, 1, 0, "nx", gdir, True, mock_log)
+    assert str(ei.value) == (
+        f"Didn't find any (co-)occurrence information in {tmp_path}."
+    )
+
+    # Second, check that this didn't create gdir yet.
+    assert not os.path.exists(gdir)
