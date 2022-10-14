@@ -451,22 +451,18 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
 
 
 def make_linkgraph(
-    contig,
     pos2nt2ct,
     pospair2ntpair2ct,
     min_nt_ct,
     min_span,
     low_link,
+    contig,
     verboselog,
 ):
     """Creates a link graph based on nucleotide (co-)occurrence information.
 
     Parameters
     ----------
-    contig: str
-        Name of the contig represented by this link graph. This doesn't
-        actually impact the graph -- it's just used in logging messages.
-
     pos2nt2ct: defaultdict
         Maps one-indexed mutated positions --> integer nucleotide at this
         position --> count, in this contig. See get_pos_nt_info().
@@ -493,6 +489,10 @@ def make_linkgraph(
         value between these nodes must be greater than this value. See the
         strainFlye paper (as well as the "strainFlye link graph" CLI) for
         detailed descriptions of the link value between two nodes.
+
+    contig: str
+        Name of the contig represented by this link graph. This doesn't
+        actually impact the graph -- it's just used in logging/error messages.
 
     verboselog: function
         Logging function for minor details. We can use this somewhat freely,
@@ -567,8 +567,8 @@ def make_linkgraph(
         # pospair2ntpair2ct if they co-occur on at least one read
         if num_spanning_reads <= 0:
             raise WeirdError(
-                f"Number of spanning reads for position pair {pospair} is "
-                f"{num_spanning_reads}?"
+                f"Number of spanning reads for position pair {pospair} in "
+                f"contig {contig} is {num_spanning_reads}?"
             )
 
         if num_spanning_reads >= min_span:
@@ -589,7 +589,8 @@ def make_linkgraph(
                     if link_denom <= 0:
                         raise WeirdError(
                             f"Denominator of link() for nodes {(i, i_nt)} "
-                            f"and {(j, j_nt)} is {link_denom}?"
+                            f"and {(j, j_nt)} in contig {contig} is "
+                            f"{link_denom}?"
                         )
 
                     link = pospair2ntpair2ct[pospair][ntpair] / link_denom
@@ -736,12 +737,12 @@ def run_graph(
                 pospair2ntpair2ct = pickle.load(loadster)
 
             g = make_linkgraph(
-                contig,
                 pos2nt2ct,
                 pospair2ntpair2ct,
                 min_nt_ct,
                 min_span,
                 low_link,
+                contig,
                 verboselog,
             )
 
