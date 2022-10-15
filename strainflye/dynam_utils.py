@@ -6,13 +6,27 @@ from statistics import median
 from strainflye import misc_utils, cli_utils, config
 
 
-def compute_binned_coverages(contig, contigs, bam_obj, bin_len, verboselog):
-    """Computes binned coverages (and the centers of these bins) for a contig.
+def compute_nb_coverages(
+    contig, contigs, bam_obj, bin_len, nclb, ncub, verboselog
+):
+    """Computes normalized binned coverages (and bin center positions).
+
+    How does normalization work?
+
+    1. Compute the median coverage in each bin.
+
+    2. Compute the median of these medians, agg_total_cov (we call it "M" in
+       the paper).
+
+    3. Divide each bin's median coverage by agg_total_cov. This gives us
+       "normalized" coverages.
+
+    4. Clamp normalized coverages to the range [nclb, ncub].
 
     Parameters
     ----------
     contig: str
-        Name of a contig.
+        Name of a contig for which we'll compute this information.
 
     contigs: str
         Filepath to a FASTA file describing contigs. (pysamstats needs this.)
@@ -20,6 +34,15 @@ def compute_binned_coverages(contig, contigs, bam_obj, bin_len, verboselog):
     bam_obj: pysam.AlignmentFile
         Describes an alignment of reads to contigs. We assume that "contig" is
         one of the references in this alignment.
+
+    bin_len: int
+        Bin length.
+
+    nclb: float
+        Lower bound to which we'll clamp normalized coverages. Should be < 1.
+
+    ncub: float
+        Upper bound to which we'll clamp normalized coverages. Should be > 1.
 
     verboselog: function
         Logging function.
@@ -88,7 +111,22 @@ def compute_binned_coverages(contig, contigs, bam_obj, bin_len, verboselog):
         bin_covs = covs[left_pos - 1 :]
         binned_coverages.append(median(bin_covs))
 
-    return binned_coverages, center_positions
+    # We've got binned coverages -- do normalization now.
+    agg_total_cov = median(binned_coverages)
+    norm_binned_coverages = []
+
+    for bc in binned_coverages:
+        norm_cov = bc / agg_total_cov
+
+        # Clamp norm_cov to [lower bound, upper bound] if needed
+        if norm_cov < nclb:
+            norm_cov = nclb
+        elif norm_cov > ncub:
+            norm_cov = ncub
+
+        norm_binned_coverages.append(norm_cov)
+
+    return norm_binned_coverages, center_positions
 
 
 def run_covskew(
@@ -108,7 +146,8 @@ def run_covskew(
         Bin length.
 
     norm_cov_epsilon: float
-        Used to determine the clamp "height" for normalized coverage.
+        Used to determine the clamp range for normalized coverages: we'll set
+        it as [1 - norm_cov_epsilon, 1 + norm_cov_epsilon].
 
     output_dir: str
         Directory to which we'll write out TSV files for each contig.
@@ -127,6 +166,8 @@ def run_covskew(
     contig_name2len, bam_obj, num_contigs = misc_utils.load_fasta_and_bam(
         contigs, bam, fancylog
     )
+    ncl = 1 - norm_cov_epsilon
+    ncu = 1 + norm_cov_epsilon
     fancylog(
         "Going through contigs and computing coverage/skew information..."
     )
@@ -155,8 +196,8 @@ def run_covskew(
             bin_desc = f"1 smaller bin of length {clen:,} bp"
 
         verboselog(f"Creating {bin_desc} for contig {contig}...", prefix="")
-        binned_coverages, center_positions = compute_binned_coverages(
-            contig, contigs, bam_obj, bin_len, verboselog
+        nb_coverages, center_positions = compute_nb_coverages(
+            contig, contigs, bam_obj, bin_len, ncl, ncu, verboselog
         )
-        verboselog(binned_coverages, prefix="")
-        verboselog(center_positions, prefix="")
+        # verboselog(nb_coverages, prefix="")
+        # verboselog(center_positions, prefix="")
