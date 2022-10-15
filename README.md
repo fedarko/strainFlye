@@ -11,21 +11,6 @@ other files (e.g. alignment, mutation calls) ready.
 
 <img src="https://github.com/fedarko/strainFlye/raw/main/docs/strainflye-pipeline.png" alt="strainFlye pipeline diagram" />
 
-## Note about this source code
-
-This repository is under active development; we're working on porting our code
-from a set of ad hoc analyses (https://github.com/fedarko/sheepgut) to an
-easier-to-use pipeline.
-
-As of writing, the steps of the pipeline shown in the
-main text of the paper are all implemented in the pipeline; the primary
-remaining task (see progress [here](https://github.com/fedarko/strainFlye/issues/1))
-is computing mutation matrices. In the meantime, [this
-notebook](https://github.com/fedarko/sheepgut/blob/main/notebooks/Matrices-01-Compute.ipynb)
-demonstrates how to compute these matrices, and [this
-notebook](https://github.com/fedarko/sheepgut/blob/main/notebooks/Matrices-02-Viz.ipynb)
-demonstrates how to visualize these matrices.
-
 ## Installation
 
 Long story short, strainFlye is an ordinary Python package. However, it
@@ -51,6 +36,8 @@ conda activate strainflye
 # Install the actual strainFlye package
 pip install git+https://github.com/fedarko/strainFlye.git
 ```
+
+This should be set up as a conda package soon.
 
 ### Optional: install LJA in order to run `strainFlye smooth assemble`
 
@@ -83,8 +70,7 @@ make
 
 ### Tutorial
 
-We provide a (work in progress) tutorial using the SheepGut dataset
-**[in this Jupyter Notebook](https://nbviewer.org/github/fedarko/strainFlye/blob/main/docs/SheepGutExample.ipynb)**.
+We provide a tutorial using the SheepGut dataset **[in this Jupyter Notebook](https://nbviewer.org/github/fedarko/strainFlye/blob/main/docs/SheepGutExample.ipynb)**.
 
 ### Command-line usage
 
@@ -113,8 +99,9 @@ Commands:
   spot    [+] Identify putative mutational hotspots or coldspots in contigs.
   smooth  [+] Create and assemble smoothed and virtual reads.
   link    [+] Create link graphs showing co-occurring alleles.
+  matrix  [+] Create contig-specific codon and amino acid mutation matrices.
   dynam   [+] Compute simple information about growth dynamics.
-  utils   [+] Various utility commands provided with strainFlye.
+  utils   [+] Miscellaneous utility commands provided with strainFlye.
 ```
 
 ### Development documentation
