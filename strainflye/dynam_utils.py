@@ -1,14 +1,13 @@
 # Utilities for strainFlye dynam.
 
+
 import pysamstats
 from math import floor
 from statistics import median
 from strainflye import misc_utils, cli_utils, config
 
 
-def compute_nb_coverages(
-    contig, contigs, bam_obj, bin_len, nclb, ncub, verboselog
-):
+def compute_nb_coverages(contig, contigs, bam_obj, bin_len, nclb, ncub):
     """Computes normalized binned coverages (and bin center positions).
 
     How does normalization work?
@@ -43,9 +42,6 @@ def compute_nb_coverages(
 
     ncub: float
         Upper bound to which we'll clamp normalized coverages. Should be > 1.
-
-    verboselog: function
-        Logging function.
 
     Returns
     -------
@@ -129,6 +125,31 @@ def compute_nb_coverages(
     return norm_binned_coverages, center_positions
 
 
+def log_bin_ct_info(contig, contig_len, bin_len, verboselog):
+    """Logs information about the number of bins in a contig."""
+
+    if contig_len >= bin_len:
+        # This is the number of "full" bins of exactly bin_len
+        num_bins = floor(contig_len / bin_len)
+        bin_noun = "bins" if num_bins > 1 else "bin"
+        bin_desc = f"{num_bins:,} {bin_noun} of length {bin_len:,} bp"
+
+        # There will probably be extra positions on the right (e.g. if
+        # contig_len = 23 and bin_len = 10, then we'll have two "full" bins and
+        # three positions remaining outside of these bins). So, let's
+        # create an extra bin containing these extra positions.
+        rbl = contig_len % bin_len
+        if contig_len % bin_len != 0:
+            num_bins += 1
+            bin_desc += f" and 1 smaller bin of length {rbl:,} bp"
+    else:
+        # Make a bin of length contig_len including all positions in the contig
+        num_bins = 1
+        bin_desc = f"1 smaller bin of length {contig_len:,} bp"
+
+    verboselog(f"Creating {bin_desc} for contig {contig}...", prefix="")
+
+
 def run_covskew(
     contigs, bam, bin_len, norm_cov_epsilon, output_dir, verbose, fancylog
 ):
@@ -176,28 +197,11 @@ def run_covskew(
         clen = contig_name2len[contig]
         cli_utils.proglog(contig, ci, num_contigs, verboselog, contig_len=clen)
 
-        if clen >= bin_len:
-            # This is the number of "full" bins of exactly bin_len
-            num_bins = floor(clen / bin_len)
-            bin_noun = "bins" if num_bins > 1 else "bin"
-            bin_desc = f"{num_bins:,} {bin_noun} of length {bin_len:,} bp"
+        if verbose:
+            log_bin_ct_info(contig, clen, bin_len, verboselog)
 
-            # There will probably be extra positions on the right (e.g. if
-            # clen = 23 and bin_len = 10, then we'll have two "full" bins and
-            # three positions remaining outside of these bins). So, let's
-            # create an extra bin containing these extra positions.
-            rbl = clen % bin_len
-            if clen % bin_len != 0:
-                num_bins += 1
-                bin_desc += f" and 1 smaller bin of length {rbl:,} bp"
-        else:
-            # Make a bin of length clen containing all positions in the contig
-            num_bins = 1
-            bin_desc = f"1 smaller bin of length {clen:,} bp"
-
-        verboselog(f"Creating {bin_desc} for contig {contig}...", prefix="")
         nb_coverages, center_positions = compute_nb_coverages(
-            contig, contigs, bam_obj, bin_len, ncl, ncu, verboselog
+            contig, contigs, bam_obj, bin_len, ncl, ncu
         )
         # verboselog(nb_coverages, prefix="")
         # verboselog(center_positions, prefix="")
