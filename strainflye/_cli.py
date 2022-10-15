@@ -321,7 +321,7 @@ strainflye.add_command(call)
     is_flag=True,
     default=False,
     show_default=True,
-    help=desc.VERBOSE_CALL,
+    help=desc.VERBOSE_BASIC,
 )
 def p_mutation(
     contigs,
@@ -441,7 +441,7 @@ def p_mutation(
     is_flag=True,
     default=False,
     show_default=True,
-    help=desc.VERBOSE_CALL,
+    help=desc.VERBOSE_BASIC,
 )
 def r_mutation(
     contigs,
@@ -792,7 +792,7 @@ def estimate(
     is_flag=True,
     default=False,
     show_default=True,
-    help=("Display extra details while writing the filtered BCF."),
+    help="Display extra details while writing the filtered BCF.",
 )
 def fix(bcf, fdr_info, fdr, output_bcf, verbose):
     """Fix contigs' mutation calls' estimated FDRs to an upper limit.
@@ -1372,7 +1372,7 @@ strainflye.add_command(link)
     is_flag=True,
     default=False,
     show_default=True,
-    help="Display extra details while running.",
+    help=desc.VERBOSE_BASIC,
 )
 def nt(contigs, bam, bcf, output_dir, verbose):
     """Compute (co-)occurrence information for mutations' nucleotides."""
@@ -1472,7 +1472,7 @@ def nt(contigs, bam, bcf, output_dir, verbose):
     is_flag=True,
     default=False,
     show_default=True,
-    help="Display extra details while creating link graphs.",
+    help=desc.VERBOSE_BASIC,
 )
 def graph(
     nt_dir,

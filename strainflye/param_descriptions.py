@@ -32,7 +32,7 @@ OUTPUT_DIR_NAIVE_CALL = (
     "written. Some temporary files will also be written to this directory."
 )
 
-VERBOSE_CALL = "Display extra details for each contig while running."
+VERBOSE_BASIC = "Display extra details while running."
 
 INPUT_BCF_DOWNSTREAM = (
     "Indexed BCF file describing single-nucleotide mutations in a set of "
