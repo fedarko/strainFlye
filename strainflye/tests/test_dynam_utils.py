@@ -194,3 +194,64 @@ def test_run_covskew_good_noverbose_binlen10(capsys, tmp_path):
         "information...\n"
         "MockLog: Done.\n"
     )
+
+
+def test_run_covskew_good_verbose_binlen1000(capsys, tmp_path):
+    du.run_covskew(FASTA, BAM, 1000, 0.5, tmp_path, True, mock_log)
+
+    assert sorted(os.listdir(tmp_path)) == ["c1_covskew.tsv", "c2_covskew.tsv", "c3_covskew.tsv"]
+
+    c1 = pd.read_csv(tmp_path / "c1_covskew.tsv", sep="\t")
+    pd.testing.assert_frame_equal(
+        c1,
+        pd.DataFrame(
+            {
+                "LeftPos_1IndexedInclusive": [1],
+                "CenterPos": [(1 + 23) / 2],
+                "NormalizedCoverage": [1.0],
+                "CumulativeSkew": [(1  - 10) / 11],
+            }
+        ),
+    )
+
+    c2 = pd.read_csv(tmp_path / "c2_covskew.tsv", sep="\t")
+    pd.testing.assert_frame_equal(
+        c2,
+        pd.DataFrame(
+            {
+                "LeftPos_1IndexedInclusive": [1],
+                "CenterPos": [(1 + 12)/2],
+                "NormalizedCoverage": [1.0],
+                "CumulativeSkew": [1.0],
+            }
+        ),
+    )
+
+    c3 = pd.read_csv(tmp_path / "c3_covskew.tsv", sep="\t")
+    pd.testing.assert_frame_equal(
+        c3,
+        pd.DataFrame(
+            {
+                "LeftPos_1IndexedInclusive": [1],
+                "CenterPos": [(1 + 16)/2],
+                "NormalizedCoverage": [1.0],
+                "CumulativeSkew": [0],
+            }
+        ),
+    )
+
+    assert capsys.readouterr().out == (
+        "PREFIX\nMockLog: Loading and checking FASTA and BAM files...\n"
+        "MockLog: The FASTA file describes 3 contig(s).\n"
+        "MockLog: All of these are included in the BAM file (which has 3 "
+        "reference(s)), with the same lengths.\n"
+        "PREFIX\nMockLog: Going through contigs and computing coverage/skew "
+        "information...\n"
+        "MockLog: On contig c1 (23 bp) (1 / 3 contigs = 33.33%).\n"
+        "MockLog: Creating 1 smaller bin of length 23 bp for contig c1...\n"
+        "MockLog: On contig c2 (12 bp) (2 / 3 contigs = 66.67%).\n"
+        "MockLog: Creating 1 smaller bin of length 12 bp for contig c2...\n"
+        "MockLog: On contig c3 (16 bp) (3 / 3 contigs = 100.00%).\n"
+        "MockLog: Creating 1 smaller bin of length 16 bp for contig c3...\n"
+        "MockLog: Done.\n"
+    )
