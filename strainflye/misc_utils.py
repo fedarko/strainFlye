@@ -192,6 +192,87 @@ def load_and_sanity_check_diversity_indices(
     return di
 
 
+def load_fasta_and_bam(contigs, bam, fancylog, min_num_contigs=1):
+    """Loads and checks a FASTA and BAM file.
+
+    Ensures that all contigs in the FASTA file are also in the BAM file. We
+    allow the BAM file to contain "extra" contigs.
+
+    If you need to load a BCF file at the same time, you should use
+    load_triplet() instead. This is just designed for situations where you
+    don't have a BCF you care about.
+
+    Parameters
+    ----------
+    contigs: str
+        Filepath to a FASTA file containing contigs.
+
+    bam: str
+        Filepath to a (sorted and indexed) BAM file mapping reads to contigs.
+
+    fancylog: function
+        Logging function.
+
+    min_num_contigs: int
+        Will be passed to fasta_utils.get_name2len().
+
+    Returns
+    -------
+    (contig_name2len, bam_obj, num_fasta_contigs): (dict, pysam.AlignmentFile,
+                                                    int)
+
+        contig_name2len: dict mapping contig name to length.
+
+        bam_obj: Object describing the BAM file.
+
+        num_fasta_contigs: Number of contigs in contig_name2len.
+
+    Raises
+    ------
+    This function doesn't raise any errors itself, but it calls various
+    functions which can raise errors if the input files are invalid in certain
+    ways. See fasta_utils.get_name2len(), verify_contig_subset(), and
+    verify_contig_lengths() for details.
+    """
+    fancylog("Loading and checking contig information...")
+
+    contig_name2len = fasta_utils.get_name2len(
+        contigs, min_num_contigs=min_num_contigs
+    )
+
+    bam_obj = pysam.AlignmentFile(bam, "rb")
+
+    # Verify that all contigs in the FASTA are also references in the BAM
+    # (this will throw an error if not)
+    verify_contig_subset(
+        set(contig_name2len),
+        set(bam_obj.references),
+        "the FASTA file",
+        "the BAM file",
+    )
+
+    # ... and that recorded contig lengths match
+    verify_contig_lengths(contig_name2len, bam_obj=bam_obj)
+
+    num_fasta_contigs = len(contig_name2len)
+
+    # unnecessarily fancy, or me not wanting to break existing tests? you
+    # decide
+
+    fancylog(
+        f"The FASTA file describes {num_fasta_contigs:,} contig(s).", prefix=""
+    )
+    fancylog(
+        (
+            "All of these are included in the BAM file (which has "
+            f"{bam_obj.nreferences:,} reference(s)), with the same lengths."
+        ),
+        prefix="",
+    )
+
+    return contig_name2len, bam_obj, num_fasta_contigs
+
+
 def load_triplet(
     contigs,
     bam,

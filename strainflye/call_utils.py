@@ -3,13 +3,11 @@
 
 import os
 import time
-import pysam
 import pysamstats
 from . import config
 from .errors import ParameterError, WeirdError
 from strainflye import (
     __version__,
-    fasta_utils,
     misc_utils,
     cli_utils,
     bcf_utils,
@@ -298,33 +296,13 @@ def run(
     if not using_p and not using_r:
         raise ParameterError("Either p or r needs to be specified.")
 
-    fancylog("Loading and checking contig information...")
-    # get_name2len() will throw an error if there are < 2 contigs in the FASTA.
-    # The naive calling stuff requires the use of a decoy contig, so this is an
-    # ok restriction to enforce here -- I don't think this stuff would be super
-    # useful with just one contig (although if you really do only have one
-    # contig and want to use this script then let me know)
-    contig_name2len = fasta_utils.get_name2len(contigs, min_num_contigs=2)
-    # Verify that all contigs in the FASTA are also references in the BAM
-    # (this will throw an error if not)
-    bf = pysam.AlignmentFile(bam, "rb")
-    misc_utils.verify_contig_subset(
-        set(contig_name2len),
-        set(bf.references),
-        "the FASTA file",
-        "the BAM file",
-    )
-    misc_utils.verify_contig_lengths(contig_name2len, bam_obj=bf)
-    num_fasta_contigs = len(contig_name2len)
-    fancylog(
-        f"The FASTA file describes {num_fasta_contigs:,} contigs.", prefix=""
-    )
-    fancylog(
-        (
-            "All of these are included in the BAM file (which has "
-            f"{bf.nreferences:,} references), with the same lengths."
-        ),
-        prefix="",
+    # load_fasta_and_bam() will throw an error if there are < 2 contigs in the
+    # FASTA. The naive calling stuff requires the use of a decoy contig, so
+    # this is an ok restriction to enforce here -- I don't think this stuff
+    # would be super useful with just one contig (although if you really do
+    # only have one contig and want to use this script then let me know)
+    contig_name2len, bf, num_fasta_contigs = misc_utils.load_fasta_and_bam(
+        contigs, bam, fancylog, min_num_contigs=2
     )
 
     # Create the output directory (if it doesn't already exist) and determine
