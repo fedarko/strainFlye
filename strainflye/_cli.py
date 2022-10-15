@@ -126,7 +126,7 @@ def strainflye():
     is_flag=True,
     default=False,
     show_default=True,
-    help="Display extra details for each contig during alignment filtering.",
+    help="Display extra details during alignment filtering.",
 )
 # Regarding the \b marker, see https://stackoverflow.com/a/53302580 -- this is
 # apparently needed to get the formatting to look the way I want (otherwise all
@@ -513,7 +513,14 @@ strainflye.add_command(fdr)
     "--contigs",
     required=True,
     type=click.Path(exists=True),
-    help=desc.INPUT_CONTIGS,
+    help=(
+        "FASTA file of contigs for which we will estimate mutation calls' "
+        "FDRs. All contigs in this FASTA file should also be "
+        "contained in the BAM and BCF files. It's ok if the BAM file "
+        "contains contigs not in this FASTA file (we'll ignore them), "
+        "but all contigs described in the BCF file's header must also be in "
+        "this FASTA file."
+    ),
 )
 @click.option(
     "--bam",
@@ -527,7 +534,7 @@ strainflye.add_command(fdr)
     type=click.Path(exists=True),
     help=(
         "Indexed BCF file describing na\u00efvely called p- or r-mutations in "
-        "the FASTA file's contigs."
+        'the FASTA file\'s contigs, produced by "strainFlye call".'
     ),
 )
 @click.option(
@@ -740,7 +747,10 @@ def estimate(
     "--bcf",
     required=True,
     type=click.Path(exists=True),
-    help="Indexed BCF file describing na\u00efvely called p- or r-mutations.",
+    help=(
+        "Indexed BCF file describing na\u00efvely called p- or r-mutations, "
+        'produced by "strainFlye call".'
+    ),
 )
 @click.option(
     "-fi",
@@ -782,9 +792,7 @@ def estimate(
     is_flag=True,
     default=False,
     show_default=True,
-    help=(
-        "Display extra details for each contig while writing the filtered BCF."
-    ),
+    help=("Display extra details while writing the filtered BCF."),
 )
 def fix(bcf, fdr_info, fdr, output_bcf, verbose):
     """Fix contigs' mutation calls' estimated FDRs to an upper limit.
@@ -1063,7 +1071,10 @@ strainflye.add_command(smooth)
     "--contigs",
     required=True,
     type=click.Path(exists=True),
-    help=desc.INPUT_CONTIGS,
+    help=(
+        "FASTA file of contigs for which we will create smoothed and virtual "
+        f"reads. {desc.FASTA_SUBSET_BAM_BCF}"
+    ),
 )
 @click.option(
     "--bam",
@@ -1156,7 +1167,7 @@ strainflye.add_command(smooth)
     is_flag=True,
     default=False,
     show_default=True,
-    help="Display extra details for each contig while generating reads.",
+    help="Display extra details while generating reads.",
 )
 def create(
     contigs,
@@ -1272,7 +1283,7 @@ def create(
     is_flag=True,
     default=False,
     show_default=True,
-    help="Display extra details for each contig during the assembly process.",
+    help="Display extra details during the assembly process.",
 )
 def assemble(reads_dir, lja_params, lja_bin, output_dir, verbose):
     """Assemble contigs' smoothed and virtual reads using LJA.
@@ -1323,7 +1334,10 @@ strainflye.add_command(link)
     "--contigs",
     required=True,
     type=click.Path(exists=True),
-    help=desc.INPUT_CONTIGS,
+    help=(
+        "FASTA file of contigs for which we will create link graphs. "
+        f"{desc.FASTA_SUBSET_BAM_BCF}"
+    ),
 )
 @click.option(
     "--bam",
@@ -1358,7 +1372,7 @@ strainflye.add_command(link)
     is_flag=True,
     default=False,
     show_default=True,
-    help="Display extra details for each contig while running.",
+    help="Display extra details while running.",
 )
 def nt(contigs, bam, bcf, output_dir, verbose):
     """Compute (co-)occurrence information for mutations' nucleotides."""
@@ -1384,7 +1398,8 @@ def nt(contigs, bam, bcf, output_dir, verbose):
     type=click.Path(exists=True, dir_okay=True, file_okay=False),
     help=(
         'Directory produced by "strainFlye link nt" containing "pickle" files '
-        "describing nucleotide (co-)occurrence information."
+        "describing nucleotide (co-)occurrence information for certain "
+        "contigs."
     ),
 )
 @click.option(
@@ -1436,7 +1451,7 @@ def nt(contigs, bam, bcf, output_dir, verbose):
     show_default=True,
     help=(
         'Format in which to write out each contig\'s link graph. "dot" will '
-        'write out graphs in Graphviz\' DOT file format; "nx" will write out '
+        'write out graphs in Graphviz\' DOT language; "nx" will write out '
         'graphs to "pickle" files, in which each link graph is a NetworkX '
         "object."
     ),
@@ -1457,7 +1472,7 @@ def nt(contigs, bam, bcf, output_dir, verbose):
     is_flag=True,
     default=False,
     show_default=True,
-    help="Display extra details for each contig while creating link graphs.",
+    help="Display extra details while creating link graphs.",
 )
 def graph(
     nt_dir,
@@ -1470,9 +1485,9 @@ def graph(
 ):
     """Convert (co-)occurrence information into a link graph structure.
 
-    Link graphs are undirected. A node (i, Ni) in the graph represents an
-    allele: in other words, the occurrence of nucleotide Ni (one of
-    {A, C, G, T}) at position i. (Positions are 1-indexed.)
+    We create one link graph per contig. These graphs are undirected. A node
+    (i, Ni) in the graph represents an allele: in other words, the occurrence
+    of nucleotide Ni (one of {A, C, G, T}) at position i (1-indexed).
 
     What do edges between nodes represent? To answer that, let's define
     reads(i, Ni) as the number of reads at which Ni is aligned to i. Let's also
@@ -1543,7 +1558,10 @@ strainflye.add_command(dynam)
     "--contigs",
     required=True,
     type=click.Path(exists=True),
-    help=desc.INPUT_CONTIGS,
+    help=(
+        "FASTA file of contigs for which we will compute coverage and skew "
+        f"information. {desc.FASTA_SUBSET_BAM}"
+    ),
 )
 @click.option(
     "-b",

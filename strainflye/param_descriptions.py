@@ -2,11 +2,23 @@
 # The main goal is abstracting repeated stuff (e.g. between p-mutation and
 # r-mutation calling).
 
+# these two aren't stand-alone descriptions, but are instead eesigned to be
+# used in the descriptions of various downstream tasks
+FASTA_SUBSET_BAM = (
+    "All contigs in this FASTA file should also be contained in the BAM file; "
+    "it's ok if the BAM file contains contigs not in this FASTA file (we'll "
+    "ignore them)."
+)
+
+FASTA_SUBSET_BAM_BCF = (
+    "All contigs in this FASTA file should also be contained in the BAM and "
+    "BCF files; it's ok if the BAM or BCF files contain contigs not in this "
+    "FASTA file (we'll ignore them)."
+)
+
 INPUT_CONTIGS_NAIVE_CALL = (
     "FASTA file of contigs in which to na\u00efvely call mutations. "
-    "All contigs in this FASTA file should also be contained in the BAM file; "
-    "however, if some contigs in the BAM file are not included in this FASTA "
-    "file, we won't perform any calling on these absent contigs."
+    f"{FASTA_SUBSET_BAM}"
 )
 
 INPUT_BAM = (
@@ -21,8 +33,6 @@ OUTPUT_DIR_NAIVE_CALL = (
 )
 
 VERBOSE_CALL = "Display extra details for each contig while running."
-
-INPUT_CONTIGS = "FASTA file of contigs."
 
 INPUT_BCF_DOWNSTREAM = (
     "Indexed BCF file describing single-nucleotide mutations in a set of "
