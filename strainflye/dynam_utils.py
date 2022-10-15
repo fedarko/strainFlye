@@ -38,9 +38,6 @@ def compute_binned_coverages(contig, contigs, bam_obj, bin_len, verboselog):
                           rightmost positions included in this bin. Useful for
                           plotting.
     """
-    # verboselog(f"Recording coverages at each position in contig {contig}...",
-    #         prefix=""
-    # )
     covs = []
     for rec in pysamstats.stat_variation(
         bam_obj,
@@ -62,7 +59,7 @@ def compute_binned_coverages(contig, contigs, bam_obj, bin_len, verboselog):
     while left_pos + bin_len - 1 <= contig_len:
 
         # The -1 is needed to fit things in properly.
-        # For example, say our sequence is ABCDEFGHIJKLMNOP (start = 1, end = 16).
+        # For example, say our sequence is ABCDEFGHIJKLMNOP (start: 1, end: 16)
         # Bins w/ length 3:                1234567890123456
         #                                  ---===---===---=
         # The [left pos, right pos] intervals (inclusive on both ends) are:
@@ -78,15 +75,11 @@ def compute_binned_coverages(contig, contigs, bam_obj, bin_len, verboselog):
         assert len(bin_covs) == bin_len
 
         binned_coverages.append(median(bin_covs))
-
-        # verboselog(
-        #     f"Created bin [{left_pos:,}, {right_pos:,}] in contig {contig}.",
-        #     prefix="",
-        # )
         left_pos = right_pos + 1
 
-    # Unless contig_len was evenly divisible by bin_len, there will be some extra positions not
-    # in any bins yet (at the right end of the sequence). Create a new bin to hold these.
+    # Unless contig_len was evenly divisible by bin_len, there will be some
+    # extra positions not in any bins yet (at the right end of the sequence).
+    # Create a new bin to hold these.
     if left_pos <= contig_len:
         positions_in_bin = range(left_pos, contig_len + 1)
         center_positions.append(
@@ -94,17 +87,6 @@ def compute_binned_coverages(contig, contigs, bam_obj, bin_len, verboselog):
         )
         bin_covs = covs[left_pos - 1 :]
         binned_coverages.append(median(bin_covs))
-        # verboselog(
-        #     (
-        #         f"Created small bin [{left_pos:,}, {contig_len:,}] in contig "
-        #         f"{contig}."
-        #     ),
-        #     prefix="",
-        # )
-    # verboselog(
-    #     f"Done computing ",
-    #     prefix="",
-    # )
 
     return binned_coverages, center_positions
 
