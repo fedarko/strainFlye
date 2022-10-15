@@ -626,7 +626,7 @@ strainflye.add_command(fdr)
     show_default=True,
     type=click.IntRange(min=0, min_open=True),
     help=(
-        "Minimum length of a potential decoy contig. Only used if "
+        "Minimum length of a potential decoy contig (in bp). Only used if "
         "--diversity-indices is specified."
     ),
 )
@@ -966,7 +966,7 @@ def hot_features(
     show_default=True,
     help=(
         'Label a gap between mutations in a contig as a "coldspot" if the gap '
-        "is at least this long."
+        "is at least this long (in bp)."
     ),
 )
 @click.option(
@@ -1577,13 +1577,7 @@ strainflye.add_command(dynam)
     default=10000,
     show_default=True,
     type=click.IntRange(min=1),
-    help=(
-        "Bin length, used for both coverage and skew. If a contig's length is "
-        "larger than this length but not evenly divisible by it, the "
-        'rightmost bin will be a smaller one that contains all "overflowing" '
-        "positions. If a contig's length is less than or equal to this bin "
-        "length, we'll just create one bin for this contig."
-    ),
+    help="Bin length (in bp), used for both coverage and skew.",
 )
 @click.option(
     "-e",
@@ -1604,9 +1598,9 @@ strainflye.add_command(dynam)
     required=True,
     type=click.Path(dir_okay=True, file_okay=False),
     help=(
-        "Directory to which TSV files describing contigs' coverage and skew "
-        "will be written. We'll write one TSV file per contig; each file "
-        "will be named [contig]_covskew.tsv."
+        "Directory to which TSV files describing contigs' bins, coverages, "
+        "and skews will be written. We'll write one TSV file per contig; each "
+        "file will be named [contig]_covskew.tsv."
     ),
 )
 @click.option(
@@ -1619,7 +1613,35 @@ strainflye.add_command(dynam)
 def covskew(
     contigs, bam, bin_length, norm_coverage_epsilon, output_dir, verbose
 ):
-    """Compare normalized coverage and skew within contigs."""
+    """Compare coverage and GC skew within contigs.
+
+    \b
+    Bins
+    ----
+    We split each contig into bin(s) of a fixed number of positions:
+    starting at the leftmost end of the contig, we combine the next
+    --bin-length positions into a single bin, continuing until we run out of
+    positions. The rightmost bin will contain fewer positions than --bin-length
+    if the contig length is not divisible by --bin-length. (If the contig's
+    length is \u2264 --bin-length, we'll just create one bin for this contig.)
+
+    \b
+    How we compute bin coverages
+    ----------------------------
+    For each bin, we compute the median coverage of all positions in this bin.
+    We then compute M, the median of these medians. We then compute
+    "normalized" coverages by dividing each bin's median coverage by M. We then
+    clamp these normalized coverages using --norm-coverage-epsilon.
+
+    \b
+    How we compute GC skews
+    -----------------------
+    For each bin, we compute (G - C) / (G + C), where G is the number of G
+    nucleotides in this bin and C is the number of C nucleotides in this bin.
+    We make these skews cumulative by, starting from the second-from-the-left
+    bin, adding this bin's skew and the skew of the bin exactly to the left of
+    it. This approach is based on (Grigoriev, 1998).
+    """
     fancylog = cli_utils.fancystart(
         "dynam covskew",
         (

@@ -1,6 +1,7 @@
 # Utilities for strainFlye dynam.
 
 
+import os
 import pysamstats
 from math import floor
 from statistics import median
@@ -291,9 +292,12 @@ def run_covskew(
             left_positions,
             center_positions,
         ) = contig_covskew(contig, contigs, bam_obj, bin_len, ncl, ncu)
-        with open(f"{contig}_covskew.tsv", "w") as f:
+        with open(os.path.join(output_dir, f"{contig}_covskew.tsv"), "w") as f:
             f.write(
-                "LeftPos_1IndexedInclusive\tCenterPos\tNBCoverage\tCBSkew\n"
+                "LeftPos_1IndexedInclusive\t"
+                "CenterPos\t"
+                "NormalizedCoverage\t"
+                "CumulativeSkew\n"
             )
             all_lists = zip(
                 nb_coverages, b_skews, left_positions, center_positions
