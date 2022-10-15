@@ -384,7 +384,7 @@ def test_run_small_dataset_r(capsys):
 
     # Basic intro stuff
     exp_out = (
-        "PREFIX\nMockLog: Loading and checking contig information...\n"
+        "PREFIX\nMockLog: Loading and checking FASTA and BAM files...\n"
         "MockLog: The FASTA file describes 3 contig(s).\n"
         "MockLog: All of these are included in the BAM file (which has 3 "
         "reference(s)), with the same lengths.\n"
@@ -507,7 +507,7 @@ def test_run_small_dataset_p(capsys):
         pd.testing.assert_frame_equal(obs_di_df, exp_di_df)
 
     exp_out = (
-        "PREFIX\nMockLog: Loading and checking contig information...\n"
+        "PREFIX\nMockLog: Loading and checking FASTA and BAM files...\n"
         "MockLog: The FASTA file describes 3 contig(s).\n"
         "MockLog: All of these are included in the BAM file (which has 3 "
         "reference(s)), with the same lengths.\n"
@@ -612,7 +612,7 @@ def test_run_small_dataset_p_noverbose_diff_params(capsys):
         pd.testing.assert_frame_equal(obs_di_df, exp_di_df)
 
     exp_out = (
-        "PREFIX\nMockLog: Loading and checking contig information...\n"
+        "PREFIX\nMockLog: Loading and checking FASTA and BAM files...\n"
         "MockLog: The FASTA file describes 3 contig(s).\n"
         "MockLog: All of these are included in the BAM file (which has 3 "
         "reference(s)), with the same lengths.\n"
@@ -715,7 +715,7 @@ def test_run_contig_with_no_alns_verbose_p(capsys):
         pd.testing.assert_frame_equal(obs_di_df, exp_di_df)
 
     exp_out = (
-        "PREFIX\nMockLog: Loading and checking contig information...\n"
+        "PREFIX\nMockLog: Loading and checking FASTA and BAM files...\n"
         "MockLog: The FASTA file describes 4 contig(s).\n"
         "MockLog: All of these are included in the BAM file (which has 4 "
         "reference(s)), with the same lengths.\n"
@@ -788,7 +788,7 @@ def test_run_contig_with_no_alns_nonverbose_r(capsys):
         pd.testing.assert_frame_equal(obs_di_df, exp_di_df)
 
     exp_out = (
-        "PREFIX\nMockLog: Loading and checking contig information...\n"
+        "PREFIX\nMockLog: Loading and checking FASTA and BAM files...\n"
         "MockLog: The FASTA file describes 4 contig(s).\n"
         "MockLog: All of these are included in the BAM file (which has 4 "
         "reference(s)), with the same lengths.\n"

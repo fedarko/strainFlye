@@ -3,7 +3,9 @@
 from strainflye import misc_utils
 
 
-def run_covskew(contigs, bam, binlen, norm_cov_epsilon, output_dir, fancylog):
+def run_covskew(
+    contigs, bam, binlen, norm_cov_epsilon, output_dir, verbose, fancylog
+):
     """Computes coverage and skew information for contigs.
 
     Parameters
@@ -23,8 +25,13 @@ def run_covskew(contigs, bam, binlen, norm_cov_epsilon, output_dir, fancylog):
     output_dir: str
         Directory to which we'll write out TSV files for each contig.
 
+    verbose: bool
+        Log extra info.
+
     fancylog: function
         Logging function.
+
+    verbose:
 
     Returns
     -------
@@ -33,3 +40,5 @@ def run_covskew(contigs, bam, binlen, norm_cov_epsilon, output_dir, fancylog):
     contig_name2len, bf, num_fasta_contigs = misc_utils.load_fasta_and_bam(
         contigs, bam, fancylog
     )
+    for ci, contig in enumerate(contig_name2len, 1):
+        pass

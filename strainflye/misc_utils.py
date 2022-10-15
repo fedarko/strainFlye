@@ -234,7 +234,7 @@ def load_fasta_and_bam(contigs, bam, fancylog, min_num_contigs=1):
     ways. See fasta_utils.get_name2len(), verify_contig_subset(), and
     verify_contig_lengths() for details.
     """
-    fancylog("Loading and checking contig information...")
+    fancylog("Loading and checking FASTA and BAM files...")
 
     contig_name2len = fasta_utils.get_name2len(
         contigs, min_num_contigs=min_num_contigs

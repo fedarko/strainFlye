@@ -1580,8 +1580,8 @@ strainflye.add_command(dynam)
         "Bin length, used for both coverage and skew. If a contig's length is "
         "larger than this length but not evenly divisible by it, the "
         'rightmost bin will be a smaller one that contains all "overflowing" '
-        "positions. We will not create an output TSV file for contigs with "
-        "lengths shorter than this."
+        "positions. If a contig's length is less than or equal to this bin "
+        "length, we'll just create one bin for this contig."
     ),
 )
 @click.option(
@@ -1608,6 +1608,13 @@ strainflye.add_command(dynam)
         "will be named [contig]_covskew.tsv."
     ),
 )
+@click.option(
+    "--verbose/--no-verbose",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help=desc.VERBOSE_BASIC,
+)
 def covskew(contigs, bam, bin_length, norm_coverage_epsilon, output_dir):
     """Compare normalized coverage and skew within contigs."""
     fancylog = cli_utils.fancystart(
@@ -1623,7 +1630,13 @@ def covskew(contigs, bam, bin_length, norm_coverage_epsilon, output_dir):
         ),
     )
     dynam_utils.run_covskew(
-        contigs, bam, bin_length, norm_coverage_epsilon, output_dir, fancylog
+        contigs,
+        bam,
+        bin_length,
+        norm_coverage_epsilon,
+        output_dir,
+        verbose,
+        fancylog,
     )
     fancylog("Done.")
 
