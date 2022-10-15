@@ -1577,7 +1577,7 @@ strainflye.add_command(dynam)
     default=10000,
     show_default=True,
     type=click.IntRange(min=1),
-    help="Bin length (in bp), used for both coverage and skew.",
+    help="Bin length (in bp).",
 )
 @click.option(
     "-e",
@@ -1587,9 +1587,9 @@ strainflye.add_command(dynam)
     show_default=True,
     type=click.FloatRange(min=0, min_open=True),
     help=(
-        "We clamp all bins' normalized coverages in a contig to within this "
-        "distance of 1.0. For example, the default of 0.3 means we clamp to "
-        "the range [0.7, 1.3]."
+        "We clamp all bins' normalized coverages to within this distance of "
+        "1.0. For example, the default of 0.3 means we clamp to the range "
+        "[0.7, 1.3]."
     ),
 )
 @click.option(
