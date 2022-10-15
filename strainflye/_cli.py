@@ -1544,6 +1544,42 @@ def graph(
     fancylog("Done.")
 
 
+@click.group(name="matrix", **grp_params, **cmd_params)
+def matrix():
+    """[+] Create contig-specific codon and amino acid mutation matrices."""
+
+
+strainflye.add_command(matrix)
+
+
+@matrix.command(**cmd_params)
+def count():
+    """Count 3-mers aligned to contigs' codons."""
+    # Inputs: FASTA, BAM, gene predictions (GFF3 or SCO?)
+    #
+    # Output: seq2gene2codon2alignedcodons from matrix ntbk. Storing as pickle
+    # files might be easiest (one per seq?). We could probably compress this a
+    # decent amount by putting in some work (e.g. rather than storing actual
+    # codon coordinates, just figure them out after the fact...?), but it's
+    # easiest to just store all of the information explicitly. This would
+    # probably resemble "link nt" a lot -- produces a directory of these files.
+
+
+@matrix.command(**cmd_params)
+def fill():
+    """Call codon mutations from 3-mer counts, filling in matrices."""
+    # Inputs: Directory from "count".
+    #
+    # Params: p (optional), r (optional), min-alt-pos (only if p given)
+    #
+    # Outputs: Four things -- codon2codon2freq, codon2freq, aa2aa2freq, aa2freq
+    # It should be fairly simple to support multiple output formats. Definitely
+    # TSV, and probably also JSON / pickle. Again, produce a directory of these
+    # files. I'm not sure if we could easily bundle all four of these into one
+    # output file per contig, and I'm not sure that'd be worth it honestly. (We
+    # could also create an output subdirectory for each contig but ehhhhh)
+
+
 @click.group(name="dynam", **grp_params, **cmd_params)
 def dynam():
     """[+] Compute simple information about growth dynamics."""
@@ -1667,15 +1703,9 @@ def covskew(
     fancylog("Done.")
 
 
-# @strainflye.command(**cmd_params)
-# def matrix():
-#     """Computes mutation matrices of a MAG."""
-#     print("MM")
-
-
 @click.group(name="utils", **grp_params, **cmd_params)
 def utils():
-    """[+] Various utility commands provided with strainFlye."""
+    """[+] Miscellaneous utility commands provided with strainFlye."""
     pass
 
 
