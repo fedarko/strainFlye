@@ -1,4 +1,5 @@
 import os
+import pandas as pd
 from pytest import approx
 from strainflye import dynam_utils as du
 from strainflye.tests.utils_for_testing import mock_log
@@ -136,3 +137,60 @@ def test_contig_covskew_c3_binlen1_upperclamp():
     # Bin 5: GG: Skew = 1
     # Bin 6: GG: Skew = 1
     assert cbskews == [0] * 16
+
+
+def test_run_covskew_good_noverbose_binlen10(capsys, tmp_path):
+    du.run_covskew(FASTA, BAM, 10, 0.3, tmp_path, False, mock_log)
+
+    assert sorted(os.listdir(tmp_path)) == ["c1_covskew.tsv", "c2_covskew.tsv", "c3_covskew.tsv"]
+
+    # this one should be the same as test_contig_covskew_c1_binlen10() above
+    c1 = pd.read_csv(tmp_path / "c1_covskew.tsv", sep="\t")
+    pd.testing.assert_frame_equal(
+        c1,
+        pd.DataFrame(
+            {
+                "LeftPos_1IndexedInclusive": [1, 11, 21],
+                "CenterPos": [(1 + 10) / 2, (11 + 20) / 2, (21 + 23) / 2],
+                "NormalizedCoverage": [1.0, 1.0, 1.0],
+                "CumulativeSkew": [-4 / 6, (-4 / 6) + (-1), (-4 / 6) + (-2)],
+            }
+        ),
+    )
+
+    c2 = pd.read_csv(tmp_path / "c2_covskew.tsv", sep="\t")
+    pd.testing.assert_frame_equal(
+        c2,
+        pd.DataFrame(
+            {
+                "LeftPos_1IndexedInclusive": [1, 11],
+                "CenterPos": [(1 + 10) / 2, 11.5],
+                "NormalizedCoverage": [1.0, 1.0],
+                # both bins only include Gs, so they both have skews of 1.
+                "CumulativeSkew": [1.0, 2.0],
+            }
+        ),
+    )
+
+    c3 = pd.read_csv(tmp_path / "c3_covskew.tsv", sep="\t")
+    pd.testing.assert_frame_equal(
+        c3,
+        pd.DataFrame(
+            {
+                "LeftPos_1IndexedInclusive": [1, 11],
+                "CenterPos": [(1 + 10) / 2, (11 + 16)/2],
+                "NormalizedCoverage": [1.0, 1.0],
+                "CumulativeSkew": [0, 0],
+            }
+        ),
+    )
+
+    assert capsys.readouterr().out == (
+        "PREFIX\nMockLog: Loading and checking FASTA and BAM files...\n"
+        "MockLog: The FASTA file describes 3 contig(s).\n"
+        "MockLog: All of these are included in the BAM file (which has 3 "
+        "reference(s)), with the same lengths.\n"
+        "PREFIX\nMockLog: Going through contigs and computing coverage/skew "
+        "information...\n"
+        "MockLog: Done.\n"
+    )
