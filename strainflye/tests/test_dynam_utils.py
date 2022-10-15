@@ -1,3 +1,4 @@
+from pytest import approx
 from strainflye import dynam_utils as du
 
 
@@ -12,3 +13,27 @@ def test_skew():
     assert du.skew("GGGGC") == 3 / 5
     assert du.skew("CCCCG") == -3 / 5
     assert du.skew("CGCCC") == -3 / 5
+
+
+def check_lists_approx_equal(exp, obs):
+    assert len(exp) == len(obs)
+    for (e, o) in zip(exp, obs):
+        assert e == approx(o)
+
+
+def test_update_cumulative_binned_skews():
+    c = []
+    du.update_cumulative_binned_skews(c, 1)
+    assert c == [1]
+
+    du.update_cumulative_binned_skews(c, -1)
+    check_lists_approx_equal(c, [1, 0])
+
+    du.update_cumulative_binned_skews(c, 0)
+    check_lists_approx_equal(c, [1, 0, 0])
+
+    du.update_cumulative_binned_skews(c, 0.5)
+    check_lists_approx_equal(c, [1, 0, 0, 0.5])
+
+    du.update_cumulative_binned_skews(c, -0.8)
+    check_lists_approx_equal(c, [1, 0, 0, 0.5, -0.3])
