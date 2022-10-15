@@ -8,7 +8,7 @@ from statistics import median
 from strainflye import misc_utils, fasta_utils, cli_utils, config
 
 
-def compute_skew(dna):
+def skew(dna):
     """Returns a single numeric value: (G - C) / (G + C) for a DNA sequence.
 
     Parameters
@@ -164,7 +164,7 @@ def contig_covskew(contig, contigs, bam_obj, bin_len, nclb, ncub):
         # Compute binned skew while we're computing binned coverage. In the
         # original analysis notebook these were two separate functions, but
         # it makes sense to do them all at once.
-        bin_skew = compute_skew(contig_seq[left_pos - 1 : right_pos])
+        bin_skew = skew(contig_seq[left_pos - 1 : right_pos])
         update_cumulative_binned_skews(cumulative_binned_skews, bin_skew)
 
         left_pos = right_pos + 1
@@ -184,7 +184,7 @@ def contig_covskew(contig, contigs, bam_obj, bin_len, nclb, ncub):
         binned_coverages.append(median(bin_covs))
 
         # ... and skew
-        bin_skew = compute_skew(contig_seq[left_pos - 1 :])
+        bin_skew = skew(contig_seq[left_pos - 1 :])
         update_cumulative_binned_skews(cumulative_binned_skews, bin_skew)
 
     # We've got binned coverages -- do normalization now.
