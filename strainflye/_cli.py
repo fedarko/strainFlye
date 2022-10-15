@@ -1167,7 +1167,7 @@ strainflye.add_command(smooth)
     is_flag=True,
     default=False,
     show_default=True,
-    help="Display extra details while generating reads.",
+    help=desc.VERBOSE_BASIC,
 )
 def create(
     contigs,
@@ -1283,7 +1283,7 @@ def create(
     is_flag=True,
     default=False,
     show_default=True,
-    help="Display extra details during the assembly process.",
+    help=desc.VERBOSE_BASIC,
 )
 def assemble(reads_dir, lja_params, lja_bin, output_dir, verbose):
     """Assemble contigs' smoothed and virtual reads using LJA.
