@@ -78,10 +78,10 @@ def contig_covskew(contig, contigs, bam_obj, bin_len, nclb, ncub):
         Bin length.
 
     nclb: float
-        Lower bound to which we'll clamp normalized coverages. Should be < 1.
+        Lower bound to which we'll clamp normalized coverages.
 
     ncub: float
-        Upper bound to which we'll clamp normalized coverages. Should be > 1.
+        Upper bound to which we'll clamp normalized coverages.
 
     Returns
     -------

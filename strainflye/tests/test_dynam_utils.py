@@ -112,8 +112,8 @@ def test_contig_covskew_c2_binlen2_lowclamp():
     check_lists_approx_equal(cbskews, [0, 0, 0, 1, 2, 3])
 
 
-def test_contig_covskew_c3_binlen1():
-    nbcovs, cbskews, lp, cp = du.contig_covskew("c3", FASTA, BAM, 1, 0.7, 1.3)
+def test_contig_covskew_c3_binlen1_upperclamp():
+    nbcovs, cbskews, lp, cp = du.contig_covskew("c3", FASTA, BAM, 1, 0.7, 0.8)
 
     just_1idxed_positions = list(range(1, 17))
     assert lp == just_1idxed_positions
@@ -121,8 +121,11 @@ def test_contig_covskew_c3_binlen1():
 
     # all positions but the last have coverage 15; the last position has
     # coverage 2. so, the median coverage is 15, and the last position's
-    # normalized coverage is clamped to the lower bound.
-    check_lists_approx_equal(nbcovs, ([1] * 15) + [0.7])
+    # normalized coverage is clamped to the lower bound. All other positions
+    # have a normalized coverage of 1, which gets clamped to the silly upper
+    # bound of 0.8 I set here. (This is just for testing -- in practice, the
+    # upper bound should always be > 1.)
+    check_lists_approx_equal(nbcovs, ([0.8] * 15) + [0.7])
 
     # c3's sequence is AAAAAAGGGGGG. Using bins of length 2:
     #
