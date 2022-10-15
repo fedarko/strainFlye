@@ -18,10 +18,13 @@ from a set of ad hoc analyses (https://github.com/fedarko/sheepgut) to an
 easier-to-use pipeline.
 
 As of writing, the steps of the pipeline shown in the
-main text of the paper are all implemented in the pipeline; the remaining
-tasks (see progress [here](https://github.com/fedarko/strainFlye/issues/1))
-are computing mutation matrices and growth dynamics information.
-In the meantime, if you have any questions, please feel free to open an issue.
+main text of the paper are all implemented in the pipeline; the primary
+remaining task (see progress [here](https://github.com/fedarko/strainFlye/issues/1))
+is computing mutation matrices. In the meantime, [this
+notebook](https://github.com/fedarko/sheepgut/blob/main/notebooks/Matrices-01-Compute.ipynb)
+demonstrates how to compute these matrices, and [this
+notebook](https://github.com/fedarko/sheepgut/blob/main/notebooks/Matrices-02-Viz.ipynb)
+demonstrates how to visualize these matrices.
 
 ## Installation
 
