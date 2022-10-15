@@ -142,7 +142,11 @@ def test_contig_covskew_c3_binlen1_upperclamp():
 def test_run_covskew_good_noverbose_binlen10(capsys, tmp_path):
     du.run_covskew(FASTA, BAM, 10, 0.3, tmp_path, False, mock_log)
 
-    assert sorted(os.listdir(tmp_path)) == ["c1_covskew.tsv", "c2_covskew.tsv", "c3_covskew.tsv"]
+    assert sorted(os.listdir(tmp_path)) == [
+        "c1_covskew.tsv",
+        "c2_covskew.tsv",
+        "c3_covskew.tsv",
+    ]
 
     # this one should be the same as test_contig_covskew_c1_binlen10() above
     c1 = pd.read_csv(tmp_path / "c1_covskew.tsv", sep="\t")
@@ -178,7 +182,7 @@ def test_run_covskew_good_noverbose_binlen10(capsys, tmp_path):
         pd.DataFrame(
             {
                 "LeftPos_1IndexedInclusive": [1, 11],
-                "CenterPos": [(1 + 10) / 2, (11 + 16)/2],
+                "CenterPos": [(1 + 10) / 2, (11 + 16) / 2],
                 "NormalizedCoverage": [1.0, 1.0],
                 "CumulativeSkew": [0, 0],
             }
@@ -199,7 +203,11 @@ def test_run_covskew_good_noverbose_binlen10(capsys, tmp_path):
 def test_run_covskew_good_verbose_binlen1000(capsys, tmp_path):
     du.run_covskew(FASTA, BAM, 1000, 0.5, tmp_path, True, mock_log)
 
-    assert sorted(os.listdir(tmp_path)) == ["c1_covskew.tsv", "c2_covskew.tsv", "c3_covskew.tsv"]
+    assert sorted(os.listdir(tmp_path)) == [
+        "c1_covskew.tsv",
+        "c2_covskew.tsv",
+        "c3_covskew.tsv",
+    ]
 
     c1 = pd.read_csv(tmp_path / "c1_covskew.tsv", sep="\t")
     pd.testing.assert_frame_equal(
@@ -209,7 +217,7 @@ def test_run_covskew_good_verbose_binlen1000(capsys, tmp_path):
                 "LeftPos_1IndexedInclusive": [1],
                 "CenterPos": [(1 + 23) / 2],
                 "NormalizedCoverage": [1.0],
-                "CumulativeSkew": [(1  - 10) / 11],
+                "CumulativeSkew": [(1 - 10) / 11],
             }
         ),
     )
@@ -220,7 +228,7 @@ def test_run_covskew_good_verbose_binlen1000(capsys, tmp_path):
         pd.DataFrame(
             {
                 "LeftPos_1IndexedInclusive": [1],
-                "CenterPos": [(1 + 12)/2],
+                "CenterPos": [(1 + 12) / 2],
                 "NormalizedCoverage": [1.0],
                 "CumulativeSkew": [1.0],
             }
@@ -233,7 +241,7 @@ def test_run_covskew_good_verbose_binlen1000(capsys, tmp_path):
         pd.DataFrame(
             {
                 "LeftPos_1IndexedInclusive": [1],
-                "CenterPos": [(1 + 16)/2],
+                "CenterPos": [(1 + 16) / 2],
                 "NormalizedCoverage": [1.0],
                 "CumulativeSkew": [0],
             }
