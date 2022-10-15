@@ -4,23 +4,61 @@
 import pysamstats
 from math import floor
 from statistics import median
-from strainflye import misc_utils, cli_utils, config
+from strainflye import misc_utils, fasta_utils, cli_utils, config
 
 
-def compute_nb_coverages(contig, contigs, bam_obj, bin_len, nclb, ncub):
-    """Computes normalized binned coverages (and bin center positions).
+def compute_skew(dna):
+    """Returns a single numeric value: (G - C) / (G + C) for a DNA sequence.
 
-    How does normalization work?
+    Parameters
+    ----------
+    dna: str
+        DNA sequence. This should *not* be a skbio.DNA object, since we are
+        going to check individual characters versus "C" or "G".
 
-    1. Compute the median coverage in each bin.
+    Returns
+    -------
+    skew: float
+        (G - C) / (G + C) for dna, where G = number of Gs and C = number of Cs.
 
-    2. Compute the median of these medians, agg_total_cov (we call it "M" in
-       the paper).
+        If G + C == 0, this value is undefined -- for convenience's sake, we
+        return 0 in this case.
 
-    3. Divide each bin's median coverage by agg_total_cov. This gives us
-       "normalized" coverages.
+    References
+    ----------
+    Computed as discussed in Grigoriev 1998, "Analyzing genomes with cumulative
+    skew diagrams."
+    """
+    g_ct = 0
+    c_ct = 0
+    for nt in dna:
+        if nt == "C":
+            c_ct += 1
+        if nt == "G":
+            g_ct += 1
 
-    4. Clamp normalized coverages to the range [nclb, ncub].
+    # Done out of convenience -- I'm not sure what the best practice is here
+    if g_ct + c_ct == 0:
+        return 0
+
+    return (g_ct - c_ct) / (g_ct + c_ct)
+
+
+def update_cumulative_binned_skews(cumulative_binned_skews, bin_skew):
+    """Updates a list of cumulative binned skews.
+
+    Basically: if this list is empty, we just add bin_skew to it. If this list
+    isn't empty, then we compute the *cumulative* skew by adding the rightmost
+    entry in it and bin_skew; then we add that to the right of the list.
+    """
+    if len(cumulative_binned_skews) == 0:
+        cumulative_binned_skews.append(bin_skew)
+    else:
+        cumulative_binned_skews.append(cumulative_binned_skews[-1] + bin_skew)
+
+
+def contig_covskew(contig, contigs, bam_obj, bin_len, nclb, ncub):
+    """Computes normalized binned coverages, binned skews, and bin centers.
 
     Parameters
     ----------
@@ -28,7 +66,7 @@ def compute_nb_coverages(contig, contigs, bam_obj, bin_len, nclb, ncub):
         Name of a contig for which we'll compute this information.
 
     contigs: str
-        Filepath to a FASTA file describing contigs. (pysamstats needs this.)
+        Filepath to a FASTA file describing contigs.
 
     bam_obj: pysam.AlignmentFile
         Describes an alignment of reads to contigs. We assume that "contig" is
@@ -45,17 +83,33 @@ def compute_nb_coverages(contig, contigs, bam_obj, bin_len, nclb, ncub):
 
     Returns
     -------
-    (binned_coverages, center_positions): (list, list)
+    (nb_coverages, cb_skews, center_positions): (list, list)
 
-        binned_coverages: Contains b entries, where b is the number of bins for
-                          this contig. The bi-th entry describes the median
-                          coverage of all positions in the bi-th bin.
+        Define "b" as the number of bins for this contig.
 
-        center_positions: Contains b entries, where b is the number of bins for
-                          this contig. The bi-th entry describes the center of
-                          this bin, computed as the average of the leftmost and
-                          rightmost positions included in this bin. Useful for
-                          plotting.
+        nb_coverages: Contains b entries. The bi-th entry describes the
+                      normalized coverage for the bi-th bin.
+
+        cb_skews: Contains b entries. The bi-th entry describes the cumulative
+                  GC skew for the bi-th bin.
+
+        center_positions: Contains b entries. The bi-th entry describes the
+                          center of this bin, computed as the average of the
+                          leftmost and rightmost positions included in this
+                          bin. Useful for plotting.
+
+    Note: How do we compute binned coverages and normalize them?
+    ------------------------------------------------------------
+
+    1. Compute the median coverage in each bin.
+
+    2. Compute the median of these medians, agg_total_cov (we call it "M" in
+       the paper).
+
+    3. Divide each bin's median coverage by agg_total_cov. This gives us
+       "normalized" coverages.
+
+    4. Clamp normalized coverages to the range [nclb, ncub].
     """
     covs = []
     for rec in pysamstats.stat_variation(
@@ -67,12 +121,15 @@ def compute_nb_coverages(contig, contigs, bam_obj, bin_len, nclb, ncub):
     ):
         covs.append(rec["A"] + rec["C"] + rec["G"] + rec["T"])
 
-    # we could just pass contig_name2len here, but this is easier (and we've
-    # already guaranteed thanks to misc_utils that this matches what
-    # contig_name2len says)
-    contig_len = bam_obj.get_reference_length(contig)
+    # NOTE: Using get_single_seq() like this, in the middle of a loop over all
+    # contigs, is inefficient. If this becomes a bottleneck, can do indexing or
+    # something. See notes on this in smooth_utils.write_smoothed_reads().
+    contig_seq = str(fasta_utils.get_single_seq(contigs, contig))
+
+    contig_len = len(contig_seq)
 
     binned_coverages = []
+    cumulative_binned_skews = []
     center_positions = []
     left_pos = 1
     while left_pos + bin_len - 1 <= contig_len:
@@ -91,9 +148,15 @@ def compute_nb_coverages(contig, contigs, bam_obj, bin_len, nclb, ncub):
         # right_pos because Python's half-open indexing means that we are
         # already excluding right_pos.)
         bin_covs = covs[left_pos - 1 : right_pos]
-        assert len(bin_covs) == bin_len
 
         binned_coverages.append(median(bin_covs))
+
+        # Compute binned skew while we're computing binned coverage. In the
+        # original analysis notebook these were two separate functions, but
+        # it makes sense to do them all at once.
+        bin_skew = compute_bin_skew(contig_seq[left_pos - 1 : right_pos])
+        update_cumulative_binned_skews(cumulative_binned_skews, bin_skew)
+
         left_pos = right_pos + 1
 
     # Unless contig_len was evenly divisible by bin_len, there will be some
@@ -104,8 +167,14 @@ def compute_nb_coverages(contig, contigs, bam_obj, bin_len, nclb, ncub):
         center_positions.append(
             (positions_in_bin[0] + positions_in_bin[-1]) / 2
         )
+
+        # compute this special tiny bin's coverage
         bin_covs = covs[left_pos - 1 :]
         binned_coverages.append(median(bin_covs))
+
+        # ... and skew
+        bin_skew = compute_bin_skew(contig_seq[left_pos - 1 :])
+        update_cumulative_binned_skews(cumulative_binned_skews, bin_skew)
 
     # We've got binned coverages -- do normalization now.
     agg_total_cov = median(binned_coverages)
@@ -122,7 +191,7 @@ def compute_nb_coverages(contig, contigs, bam_obj, bin_len, nclb, ncub):
 
         norm_binned_coverages.append(norm_cov)
 
-    return norm_binned_coverages, center_positions
+    return norm_binned_coverages, cumulative_binned_skews, center_positions
 
 
 def log_bin_ct_info(contig, contig_len, bin_len, verboselog):
@@ -200,7 +269,7 @@ def run_covskew(
         if verbose:
             log_bin_ct_info(contig, clen, bin_len, verboselog)
 
-        nb_coverages, center_positions = compute_nb_coverages(
+        nb_coverages, b_skews, center_positions = contig_covskew(
             contig, contigs, bam_obj, bin_len, ncl, ncu
         )
         # verboselog(nb_coverages, prefix="")

@@ -117,9 +117,10 @@ def get_single_seq(fasta_fp, contig_name):
     """Retrieves a single sequence from a FASTA file.
 
     In the worst case, this requires iteration over the entire file at once, so
-    please don't call it once for every contig in a for loop or something.
-    The goal is to just retrieve a single sequence relatively quickly, without
-    having to store every sequence in the file in memory or something.
+    it is not ideal to call this once for every contig in a "for" loop (or
+    something like that). The goal is to just retrieve a single sequence
+    relatively quickly, without having to store every sequence in the file in
+    memory or something.
 
     Parameters
     ----------
