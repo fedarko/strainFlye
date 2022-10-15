@@ -1636,8 +1636,9 @@ def covskew(
     \b
     How we compute GC skews
     -----------------------
-    For each bin, we compute (G - C) / (G + C), where G is the number of G
-    nucleotides in this bin and C is the number of C nucleotides in this bin.
+    For each bin, we compute the skew (G - C) / (G + C), where G is the number
+    of G nucleotides in this bin and C is the number of C nucleotides in this
+    bin.  (If a bin has zero G or C nucleotides, then we define its skew as 0.)
     We make these skews cumulative by, starting from the second-from-the-left
     bin, adding this bin's skew and the skew of the bin exactly to the left of
     it. This approach is based on (Grigoriev, 1998).
