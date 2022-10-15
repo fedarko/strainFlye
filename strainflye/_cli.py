@@ -1571,6 +1571,7 @@ strainflye.add_command(dynam)
     help=desc.INPUT_BAM,
 )
 @click.option(
+    "-l",
     "--bin-length",
     required=False,
     default=10000,
@@ -1615,7 +1616,9 @@ strainflye.add_command(dynam)
     show_default=True,
     help=desc.VERBOSE_BASIC,
 )
-def covskew(contigs, bam, bin_length, norm_coverage_epsilon, output_dir):
+def covskew(
+    contigs, bam, bin_length, norm_coverage_epsilon, output_dir, verbose
+):
     """Compare normalized coverage and skew within contigs."""
     fancylog = cli_utils.fancystart(
         "dynam covskew",
