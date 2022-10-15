@@ -1,6 +1,12 @@
+import os
 from pytest import approx
 from strainflye import dynam_utils as du
 from strainflye.tests.utils_for_testing import mock_log
+
+
+IN_DIR = os.path.join("strainflye", "tests", "inputs", "small")
+FASTA = os.path.join(IN_DIR, "contigs.fasta")
+BAM = os.path.join(IN_DIR, "alignment.bam")
 
 
 def test_skew():
@@ -62,3 +68,45 @@ def test_log_bin_ct_info(capsys):
     assert capsys.readouterr().out == (
         "MockLog: Creating 1 bin of length 1,234 bp for contig c1...\n"
     )
+
+
+def test_contig_covskew_c1_binlen10():
+    nbcovs, cbskews, lp, cp = du.contig_covskew("c1", FASTA, BAM, 10, 0.7, 1.3)
+    assert lp == [1, 11, 21]
+    assert cp == [(1 + 10) / 2, (11 + 20) / 2, (21 + 23) / 2]
+
+    # c1 has uniform coverage
+    assert nbcovs == [1, 1, 1]
+
+    # c1's sequence is ACTGACACCCAAACCAAACCTAC. Using bins of length 10:
+    #
+    # Bin 1: ACTGACACCC (5 C, 1 G): Skew = (1-5) / 6 = -4/6 = -0.6666...
+    # Bin 2: AAACCAAACC (4 C, 0 G): Skew = (0-4) / 4 = -1
+    # Bin 3: TAC        (1 C, 0 G): Skew = (0-1) / 1 = -1
+    check_lists_approx_equal(
+        cbskews, [-4 / 6, (-4 / 6) + (-1), (-4 / 6) + (-2)]
+    )
+
+
+def test_contig_covskew_c2_binlen2_lowclamp():
+    nbcovs, cbskews, lp, cp = du.contig_covskew(
+        "c2", FASTA, BAM, 2, 0.95, 1.05
+    )
+    assert lp == [1, 3, 5, 7, 9, 11]
+    check_lists_approx_equal(cp, [1.5, 3.5, 5.5, 7.5, 9.5, 11.5])
+
+    # First bin has median coverage 10; remaining bins have median coverage 11.
+    # So, median of medians is 11. The first bin's normalized coverage is thus
+    # 10 / 11 = 0.909090..., and -- since we've set the clamp range to [0.95,
+    # 1.05] -- we should clamp this coverage to 0.95.
+    check_lists_approx_equal(nbcovs, [0.95, 1, 1, 1, 1, 1])
+
+    # c2's sequence is AAAAAAGGGGGG. Using bins of length 2:
+    #
+    # Bin 1: AA: Skew = 0
+    # Bin 2: AA: Skew = 0
+    # Bin 3: AA: Skew = 0
+    # Bin 4: GG: Skew = 1
+    # Bin 5: GG: Skew = 1
+    # Bin 6: GG: Skew = 1
+    check_lists_approx_equal(cbskews, [0, 0, 0, 1, 2, 3])

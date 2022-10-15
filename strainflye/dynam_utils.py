@@ -67,7 +67,8 @@ def contig_covskew(contig, contigs, bam_obj, bin_len, nclb, ncub):
         Name of a contig for which we'll compute this information.
 
     contigs: str
-        Filepath to a FASTA file describing contigs.
+        Filepath to a FASTA file describing contigs. We assume that "contig" is
+        described in this file.
 
     bam_obj: pysam.AlignmentFile
         Describes an alignment of reads to contigs. We assume that "contig" is
