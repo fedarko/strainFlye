@@ -1979,7 +1979,7 @@ def get_unique_sorted_decoy_contexts(decoy_contexts):
 
     unrecognized_ctxs = set(decoy_contexts) - set(config.DCTX_ALL)
     if len(unrecognized_ctxs) > 0:
-        # Let's sort the "bad" contexts to make testing determinisitc
+        # Let's sort the "bad" contexts to make testing deterministic
         ucs = sorted(unrecognized_ctxs)
         raise WeirdError(f"Unrecognized decoy context option(s): {ucs}")
 
