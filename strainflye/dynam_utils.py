@@ -83,7 +83,8 @@ def contig_covskew(contig, contigs, bam_obj, bin_len, nclb, ncub):
 
     Returns
     -------
-    (nb_coverages, cb_skews, center_positions): (list, list)
+    (nb_coverages, cb_skews, left_positions, center_positions): (list, list,
+                                                                 list, list)
 
         Define "b" as the number of bins for this contig.
 
@@ -93,10 +94,16 @@ def contig_covskew(contig, contigs, bam_obj, bin_len, nclb, ncub):
         cb_skews: Contains b entries. The bi-th entry describes the cumulative
                   GC skew for the bi-th bin.
 
+        left_positions: Contains b entries. The bi-th entry describes the
+                        leftmost position in this bin, using 1-indexing.
+                        (I don't think we need to include the rightmost
+                        position, also, because that should be easy to figure
+                        out.)
+
         center_positions: Contains b entries. The bi-th entry describes the
                           center of this bin, computed as the average of the
                           leftmost and rightmost positions included in this
-                          bin. Useful for plotting.
+                          bin (using 1-indexing). Useful for plotting.
 
     Note: How do we compute binned coverages and normalize them?
     ------------------------------------------------------------
@@ -130,9 +137,11 @@ def contig_covskew(contig, contigs, bam_obj, bin_len, nclb, ncub):
 
     binned_coverages = []
     cumulative_binned_skews = []
+    left_positions = []
     center_positions = []
     left_pos = 1
     while left_pos + bin_len - 1 <= contig_len:
+        left_positions.append(left_pos)
 
         # The -1 is needed to fit things in properly.
         # For example, say our sequence is ABCDEFGHIJKLMNOP (start: 1, end: 16)
@@ -154,7 +163,7 @@ def contig_covskew(contig, contigs, bam_obj, bin_len, nclb, ncub):
         # Compute binned skew while we're computing binned coverage. In the
         # original analysis notebook these were two separate functions, but
         # it makes sense to do them all at once.
-        bin_skew = compute_bin_skew(contig_seq[left_pos - 1 : right_pos])
+        bin_skew = compute_skew(contig_seq[left_pos - 1 : right_pos])
         update_cumulative_binned_skews(cumulative_binned_skews, bin_skew)
 
         left_pos = right_pos + 1
@@ -163,6 +172,7 @@ def contig_covskew(contig, contigs, bam_obj, bin_len, nclb, ncub):
     # extra positions not in any bins yet (at the right end of the sequence).
     # Create a new bin to hold these.
     if left_pos <= contig_len:
+        left_positions.append(left_pos)
         positions_in_bin = range(left_pos, contig_len + 1)
         center_positions.append(
             (positions_in_bin[0] + positions_in_bin[-1]) / 2
@@ -173,7 +183,7 @@ def contig_covskew(contig, contigs, bam_obj, bin_len, nclb, ncub):
         binned_coverages.append(median(bin_covs))
 
         # ... and skew
-        bin_skew = compute_bin_skew(contig_seq[left_pos - 1 :])
+        bin_skew = compute_skew(contig_seq[left_pos - 1 :])
         update_cumulative_binned_skews(cumulative_binned_skews, bin_skew)
 
     # We've got binned coverages -- do normalization now.
@@ -191,7 +201,12 @@ def contig_covskew(contig, contigs, bam_obj, bin_len, nclb, ncub):
 
         norm_binned_coverages.append(norm_cov)
 
-    return norm_binned_coverages, cumulative_binned_skews, center_positions
+    return (
+        norm_binned_coverages,
+        cumulative_binned_skews,
+        left_positions,
+        center_positions,
+    )
 
 
 def log_bin_ct_info(contig, contig_len, bin_len, verboselog):
@@ -261,6 +276,7 @@ def run_covskew(
     fancylog(
         "Going through contigs and computing coverage/skew information..."
     )
+    misc_utils.make_output_dir(output_dir)
     for ci, contig in enumerate(contig_name2len, 1):
 
         clen = contig_name2len[contig]
@@ -269,8 +285,20 @@ def run_covskew(
         if verbose:
             log_bin_ct_info(contig, clen, bin_len, verboselog)
 
-        nb_coverages, b_skews, center_positions = contig_covskew(
-            contig, contigs, bam_obj, bin_len, ncl, ncu
-        )
-        # verboselog(nb_coverages, prefix="")
-        # verboselog(center_positions, prefix="")
+        (
+            nb_coverages,
+            b_skews,
+            left_positions,
+            center_positions,
+        ) = contig_covskew(contig, contigs, bam_obj, bin_len, ncl, ncu)
+        with open(f"{contig}_covskew.tsv", "w") as f:
+            f.write(
+                "LeftPos_1IndexedInclusive\tCenterPos\tNBCoverage\tCBSkew\n"
+            )
+            all_lists = zip(
+                nb_coverages, b_skews, left_positions, center_positions
+            )
+            for (cov, skew, left, center) in all_lists:
+                f.write(f"{left}\t{center}\t{cov}\t{skew}\n")
+
+    fancylog("Done.", prefix="")
