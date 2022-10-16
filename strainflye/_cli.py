@@ -11,6 +11,7 @@ from strainflye import (
     spot_utils,
     smooth_utils,
     link_utils,
+    matrix_utils,
     dynam_utils,
     config,
     __version__,
@@ -1586,16 +1587,66 @@ strainflye.add_command(matrix)
 
 
 @matrix.command(**cmd_params)
-def count():
+@click.option(
+    "-c",
+    "--contigs",
+    required=True,
+    type=click.Path(exists=True),
+    help=(
+        "FASTA file of contigs in which we'll count 3-mers aligned to codons "
+        f"in predicted genes. {desc.FASTA_SUBSET_BAM} We'll also ignore "
+        "contigs for which no gene coordinates are given."
+    ),
+)
+@click.option(
+    "-b",
+    "--bam",
+    required=True,
+    type=click.Path(exists=True),
+    help=desc.INPUT_BAM,
+)
+@click.option(
+    "-g",
+    "--genes",
+    required=True,
+    type=click.Path(exists=True),
+    help=(
+        "Generic Feature Format version 3 (GFF3) file describing gene "
+        "coordinates within contigs."
+    ),
+)
+@click.option(
+    "-o",
+    "--output-dir",
+    required=True,
+    type=click.Path(dir_okay=True, file_okay=False),
+    help=(
+        "Directory to which 3-mer count information for each contig will be "
+        'written. Each contig will be represented by one "pickle" file in '
+        "this directory named [contig]_3mers.pickle."
+    ),
+)
+@click.option(
+    "--verbose/--no-verbose",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help=desc.VERBOSE_BASIC,
+)
+def count(contigs, bam, genes, output_dir, verbose):
     """Count 3-mers aligned to contigs' codons."""
-    # Inputs: FASTA, BAM, gene predictions (GFF3 or SCO?)
-    #
-    # Output: seq2gene2codon2alignedcodons from matrix ntbk. Storing as pickle
-    # files might be easiest (one per seq?). We could probably compress this a
-    # decent amount by putting in some work (e.g. rather than storing actual
-    # codon coordinates, just figure them out after the fact...?), but it's
-    # easiest to just store all of the information explicitly. This would
-    # probably resemble "link nt" a lot -- produces a directory of these files.
+    fancylog = cli_utils.fancystart(
+        "matrix count",
+        (
+            ("contig file", contigs),
+            ("BAM file", bam),
+            ("Genes file", genes),
+        ),
+        (("directory", output_dir),),
+        extra_info=(f"Verbose?: {cli_utils.b2y(verbose)}",),
+    )
+    matrix_utils.run_count(contigs, bam, genes, output_dir, verbose, fancylog)
+    fancylog("Done.")
 
 
 @matrix.command(**cmd_params)
@@ -1724,6 +1775,7 @@ def covskew(
         extra_info=(
             f"Bin length: {bin_length:,} bp",
             f"Normalized coverage epsilon: {norm_coverage_epsilon}",
+            f"Verbose?: {cli_utils.b2y(verbose)}",
         ),
     )
     dynam_utils.run_covskew(

@@ -1481,13 +1481,16 @@ def parse_sco(sco_fp):
 
     This function is mostly intended for internal use at the moment, since I
     expect that -- in the case of e.g. the hotspot features stuff -- most
-    people will have GFF3 files. (But if a lot of people have SCO files, then
-    I guess we could modify that side of things to accept these as well.)
+    people will have GFF3 files. Also, we'd need to modify this parser if the
+    input SCO file describes multiple contigs' genes.
 
     Parameters
     ----------
     sco_fp: str
-        Filepath to a SCO ("Simple Coordinate Output") file.
+        Filepath to a SCO ("Simple Coordinate Output") file. This should only
+        describe gene predictions in a single contig / sequence -- if multiple
+        sequences' genes are included in this file, this will cause problems
+        (see "What does a SCO file look like?" below).
 
     Returns
     -------
@@ -1548,6 +1551,18 @@ def parse_sco(sco_fp):
 
     Here, we ignore the presence of a score / label, and just focus on
     processing the first four fields.
+
+    NOTE: When you tell Prodigal to create a SCO file for multiple contigs'
+    genes, it'll split up the gene coordinates by comments. We don't worry
+    about that here because we're just giving Prodigal this one contig, but --
+    if we were to try to parse such a SCO file -- we'd need to modify this
+    parser.
+
+    I'm not a huge fan of SCO files containing multiple contigs' genes because,
+    unlike GFF3 files, the contig on which a given line's gene exists is
+    ambiguous without looking elsewhere in the SCO file. I suspect that trying
+    to parse this sort of file would be tricky, or at least prone to problems
+    if we're not careful.
 
     +--------------------------------------+
     | ok but like why does this code exist |
