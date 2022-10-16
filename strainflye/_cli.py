@@ -1657,8 +1657,8 @@ strainflye.add_command(dynam)
     type=click.FloatRange(min=0, min_open=True),
     help=(
         "We clamp all bins' normalized coverages to within this distance of "
-        "1.0. For example, the default of 0.3 means we clamp to the range "
-        "[0.7, 1.3]."
+        "1.0. For example, the default of \u03f5 = 0.3 means we clamp to the "
+        "range [0.7, 1.3]."
     ),
 )
 @click.option(
@@ -1695,22 +1695,24 @@ def covskew(
     length is \u2264 --bin-length, we'll just create one bin for this contig.)
 
     \b
-    How we compute bin coverages
-    ----------------------------
+    Normalized coverages
+    --------------------
     For each bin, we compute the median coverage of all positions in this bin.
-    We then compute M, the median of these medians. We then compute
-    "normalized" coverages by dividing each bin's median coverage by M. We then
-    clamp these normalized coverages using --norm-coverage-epsilon.
+    We then compute M, the median of these medians (considering all bins in a
+    contig). We compute "normalized" coverages by dividing each bin's median
+    coverage by M, and then clamping these normalized coverages to the range
+    [1 - \u03f5, 1 + \u03f5]. (If M = 0, then we cannot do this normalization:
+    in this case, we define each bin's normalized coverage as "NA".)
 
     \b
-    How we compute GC skews
-    -----------------------
+    Cumulative GC skews
+    -------------------
     For each bin, we compute the skew (G - C) / (G + C), where G is the number
     of G nucleotides in this bin and C is the number of C nucleotides in this
     bin.  (If a bin has zero G or C nucleotides, then we define its skew as 0.)
     We make these skews cumulative by, starting from the second-from-the-left
     bin, adding this bin's skew and the skew of the bin exactly to the left of
-    it. This approach is based on (Grigoriev, 1998).
+    it. This approach is derived from (Grigoriev, 1998).
     """
     fancylog = cli_utils.fancystart(
         "dynam covskew",
