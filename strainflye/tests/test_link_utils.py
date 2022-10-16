@@ -534,7 +534,7 @@ def test_write_linkgraph_to_dot_good(tmp_path):
     g.add_edge((100, 1), (200, 0), link=0.25)
     g.add_edge((100, 2), (200, 0), link=0.75)
 
-    lu.write_linkgraph_to_dot(g, tmp_path, "borgar")
+    lu.write_linkgraph_to_dot(g, tmp_path, "borgar", 0.01, 5)
 
     with open(tmp_path / "borgar_linkgraph.gv", "r") as f:
         dot_txt = f.read()
@@ -545,9 +545,6 @@ def test_write_linkgraph_to_dot_good(tmp_path):
     # before iteration -- or, we could just fix this in the test by testing
     # that the sets of strings representing each line exist in both files.
     # Something like that. (But I'm not gonna do this until it's necessary.)
-    #
-    # Alternatively, this might start failing if you change config.MAX_PENWIDTH
-    # or config.MIN_PENWIDTH.
     assert dot_txt == (
         "graph {\n"
         '  "(100, 1)" [label="100 (C)\\n5x (25.00%)"];\n'
@@ -564,7 +561,7 @@ def test_write_linkgraph_to_dot_one_node_big_nums(tmp_path):
     # and that large numbers result in commas included in the node label
     g = nx.Graph()
     g.add_node((12345, 3), ct=56789, freq=0.56789)
-    lu.write_linkgraph_to_dot(g, tmp_path, "lonely")
+    lu.write_linkgraph_to_dot(g, tmp_path, "lonely", 0.01, 5)
 
     with open(tmp_path / "lonely_linkgraph.gv", "r") as f:
         dot_txt = f.read()
@@ -580,11 +577,11 @@ def test_write_linkgraph_to_dot_penwidth_clamp(tmp_path):
     g.add_node((12345, 3), ct=56789, freq=0.56789)
     g.add_node((12346, 0), ct=2, freq=1)
     g.add_edge((12345, 3), (12346, 0), link=(2 / 56789))
-    lu.write_linkgraph_to_dot(g, tmp_path, "clampy")
+    lu.write_linkgraph_to_dot(g, tmp_path, "clampy", 0.01, 5)
 
     with open(tmp_path / "clampy_linkgraph.gv", "r") as f:
         dot_txt = f.read()
-    # Verify that the penwidth of the edge is clamped to config.MIN_PENWIDTH
+    # Verify that the penwidth of the edge is clamped
     assert dot_txt == (
         "graph {\n"
         '  "(12345, 3)" [label="12,345 (T)\\n56,789x (56.79%)"];\n'
@@ -622,7 +619,7 @@ def test_run_graph_good_verbose_nx(capsys, tmp_path):
         pickle.dump({(7, 8): {(0, 3): 6, (0, 1): 1, (3, 1): 2, (3, 3): 4}}, f)
 
     gdir = tmp_path / "gdir"
-    lu.run_graph(ndir, 1, 1, 0, "nx", gdir, True, mock_log)
+    lu.run_graph(ndir, 1, 1, 0, "nx", 0.01, 5, gdir, True, mock_log)
 
     with open(gdir / "c3_linkgraph.pickle", "rb") as f:
         g = pickle.load(f)
@@ -656,7 +653,7 @@ def test_run_graph_empty_verbose_dot(capsys, tmp_path):
     # set min_nt_ct to 1,000 -- this prevents any of the nodes from being in
     # the graph, and triggers a unique branch of the code (it doesn't bother
     # trying to create edges and just spits out an empty graph)
-    lu.run_graph(ndir, 1000, 1, 0, "dot", gdir, True, mock_log)
+    lu.run_graph(ndir, 1000, 1, 0, "dot", 0.01, 5, gdir, True, mock_log)
 
     with open(gdir / "c3_linkgraph.gv", "r") as f:
         dot = f.read()
@@ -687,7 +684,7 @@ def test_run_graph_no_nt_info_at_all(tmp_path):
 
     # First, check that this raises an error.
     with pytest.raises(FileNotFoundError) as ei:
-        lu.run_graph(ndir, 1, 1, 0, "nx", gdir, True, mock_log)
+        lu.run_graph(ndir, 1, 1, 0, "nx", 0.01, 5, gdir, True, mock_log)
     assert str(ei.value) == (
         f"Didn't find any (co-)occurrence information in {ndir}."
     )
@@ -708,7 +705,7 @@ def test_run_graph_only_pos_info_file(tmp_path):
     gdir = tmp_path / "gdir"
 
     with pytest.raises(FileNotFoundError) as ei:
-        lu.run_graph(ndir, 1, 1, 0, "nx", gdir, True, mock_log)
+        lu.run_graph(ndir, 1, 1, 0, "nx", 0.01, 5, gdir, True, mock_log)
     assert str(ei.value) == f"Found file {pf}, but not file {ppf}."
 
     assert not os.path.exists(gdir)
@@ -729,7 +726,7 @@ def test_run_graph_only_pospair_info_file(tmp_path):
     gdir = tmp_path / "gdir"
 
     with pytest.raises(FileNotFoundError) as ei:
-        lu.run_graph(ndir, 1, 1, 0, "nx", gdir, True, mock_log)
+        lu.run_graph(ndir, 1, 1, 0, "nx", 0.01, 5, gdir, True, mock_log)
     assert str(ei.value) == (
         f"Didn't find any (co-)occurrence information in {ndir}."
     )
@@ -750,7 +747,7 @@ def test_run_graph_bad_output_format(tmp_path):
     gdir = tmp_path / "gdir"
 
     with pytest.raises(WeirdError) as ei:
-        lu.run_graph(ndir, 1, 1, 0, "Sus", gdir, True, mock_log)
+        lu.run_graph(ndir, 1, 1, 0, "Sus", 0.01, 5, gdir, True, mock_log)
     assert str(ei.value) == 'Unrecognized output format: "Sus"'
 
 
@@ -789,7 +786,7 @@ def test_link_graph_integration(tmp_path):
     lu.run_nt(FASTA, BAM, BCF, ndir, False, mock_log)
 
     gdir = tmp_path / "gdir"
-    lu.run_graph(ndir, 1, 1, 0, "dot", gdir, False, mock_log)
+    lu.run_graph(ndir, 1, 1, 0, "dot", 0.01, 5, gdir, False, mock_log)
 
     # there shouldn't be a c2 link graph b/c it has no mutations
     assert sorted(os.listdir(gdir)) == ["c1_linkgraph.gv", "c3_linkgraph.gv"]

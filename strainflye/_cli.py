@@ -1457,6 +1457,30 @@ def nt(contigs, bam, bcf, output_dir, verbose):
     ),
 )
 @click.option(
+    "--min-penwidth-clamp",
+    required=False,
+    default=0.01,
+    show_default=True,
+    type=click.FloatRange(min=0),
+    help=(
+        'Only used if --output-format is "dot". Edges will be assigned a '
+        '"penwidth" attribute by interpolating their link weight from the '
+        "range [0, 1] to the range [0, --max-penwidth]; penwidths less than "
+        "--min-penwidth-clamp will then be clamped to --min-penwdith-clamp."
+    ),
+)
+@click.option(
+    "--max-penwidth",
+    required=False,
+    default=5,
+    show_default=True,
+    type=click.FloatRange(min=0),
+    help=(
+        'Only used if --output-format is "dot". See the description for '
+        "--min-penwidth-clamp."
+    ),
+)
+@click.option(
     "-o",
     "--output-dir",
     required=True,
@@ -1480,6 +1504,8 @@ def graph(
     min_span,
     low_link,
     output_format,
+    min_penwidth_clamp,
+    max_penwidth,
     output_dir,
     verbose,
 ):
@@ -1528,6 +1554,11 @@ def graph(
                 f"must be > {low_link:,.2f}"
             ),
             f"Output graph file format: {output_format}",
+            (
+                "In dot output, edges' penwidths will be scaled from link "
+                f"weights to [0, {max_penwidth:,}] and then clamped to a "
+                f"minimum of {min_penwidth_clamp}"
+            ),
             f"Verbose?: {cli_utils.b2y(verbose)}",
         ),
     )
@@ -1537,6 +1568,8 @@ def graph(
         min_span,
         low_link,
         output_format,
+        min_penwidth_clamp,
+        max_penwidth,
         output_dir,
         verbose,
         fancylog,

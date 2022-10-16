@@ -52,7 +52,3 @@ I2N = "ACGT"
 # incompatible with future versions of "strainFlye link graph"...)
 POS_FILE_LBL = "pos2nt2ct"
 POSPAIR_FILE_LBL = "pospair2ntpair2ct"
-
-# Used when writing DOT files of link graphs in "strainFlye link graph"
-MIN_PENWIDTH = 0.01
-MAX_PENWIDTH = 5

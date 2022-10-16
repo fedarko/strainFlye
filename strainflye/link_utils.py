@@ -640,7 +640,9 @@ def make_linkgraph(
     return g
 
 
-def write_linkgraph_to_dot(g, output_dir, contig_name):
+def write_linkgraph_to_dot(
+    g, output_dir, contig_name, min_penwidth_clamp, max_penwidth
+):
     """Writes out a NetworkX link graph to a DOT file.
 
     This file will be named [contig_name]_linkgraph.gv, and will be
@@ -659,6 +661,10 @@ def write_linkgraph_to_dot(g, output_dir, contig_name):
 
     contig_name: str
         Used in the name of the DOT file to be created.
+
+    min_penwidth_clamp: float
+    max_penwidth: float
+        Used to determine edge penwidths. See run_graph()'s docs for details.
 
     Returns
     -------
@@ -715,7 +721,7 @@ def write_linkgraph_to_dot(g, output_dir, contig_name):
             # (0, 1] (the requirement that --low-link is at least 0 forces link
             # to be positive, if we have created an edge in the first place).
             # So doing interpolation to scale these values into
-            # (0, MAX_PENWIDTH] isn't too challenging.
+            # (0, max_penwidth] isn't too challenging.
             #
             # However, since a very tiny link value implies a very tiny
             # penwidth, we clamp the min penwidth.
@@ -725,9 +731,9 @@ def write_linkgraph_to_dot(g, output_dir, contig_name):
             # floating-point number. This is also how we write out diversity
             # indices, for reference. I guess we could try to format this to a
             # fixed number of digits but... not a big deal.
-            lw = g.edges[e]["link"] * config.MAX_PENWIDTH
-            if lw < config.MIN_PENWIDTH:
-                lw = config.MIN_PENWIDTH
+            lw = g.edges[e]["link"] * max_penwidth
+            if lw < min_penwidth_clamp:
+                lw = min_penwidth_clamp
             df.write(f'  "{e[0]}" -- "{e[1]}" ' f"[penwidth={lw}];\n")
 
         df.write("}")
@@ -739,6 +745,8 @@ def run_graph(
     min_span,
     low_link,
     output_format,
+    min_penwidth_clamp,
+    max_penwidth,
     output_dir,
     verbose,
     fancylog,
@@ -760,6 +768,16 @@ def run_graph(
 
     output_format: str
         Format of the output graphs to create. One of "nx", "dot".
+
+    min_penwidth_clamp: float
+    max_penwidth: float
+        For each edge, scale its link weights from [0, 1] to [0, max_penwidth];
+        then apply a lower clamp to min_penwidth_clamp. This gives us the
+        penwidth of this edge, which impacts how thick it is in the DOT file.
+        We don't apply any validation that min_penwidth_clamp < max_penwidth --
+        because maybe it could be useful to do so if you'd prefer uniform
+        penwidths. Also because I don't feel like writing a bunch of new
+        validation code for this.
 
     output_dir: str
         Directory to which we'll write link graphs.
@@ -834,7 +852,9 @@ def run_graph(
             if output_format == "nx":
                 write_obj_to_pickle(g, output_dir, contig, "linkgraph")
             elif output_format == "dot":
-                write_linkgraph_to_dot(g, output_dir, contig)
+                write_linkgraph_to_dot(
+                    g, output_dir, contig, min_penwidth_clamp, max_penwidth
+                )
             else:
                 # it's a WeirdError (not a ParameterError) because Click should
                 # have disallowed the selection of such an output format. (In
