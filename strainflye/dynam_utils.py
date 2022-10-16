@@ -190,18 +190,28 @@ def contig_covskew(contig, contigs, bam_obj, bin_len, nclb, ncub):
 
     # We've got binned coverages -- do normalization now.
     agg_total_cov = median(binned_coverages)
-    norm_binned_coverages = []
 
-    for bc in binned_coverages:
-        norm_cov = bc / agg_total_cov
+    if agg_total_cov == 0:
+        # If the median of medians is zero, then we can't do normalization.
+        # Set all normalized coverages to "NA" and leave it at that -- we can
+        # still give the user skew information, though. (This might actually
+        # happen in practice.)
+        norm_binned_coverages = ["NA"] * len(binned_coverages)
+    else:
+        # Thankfully, most cases should ... not have the above case happen.
+        # We can actually divide by agg_total_cov.
+        norm_binned_coverages = []
 
-        # Clamp norm_cov to [lower bound, upper bound] if needed
-        if norm_cov < nclb:
-            norm_cov = nclb
-        elif norm_cov > ncub:
-            norm_cov = ncub
+        for bc in binned_coverages:
+            norm_cov = bc / agg_total_cov
 
-        norm_binned_coverages.append(norm_cov)
+            # Clamp norm_cov to [lower bound, upper bound] if needed
+            if norm_cov < nclb:
+                norm_cov = nclb
+            elif norm_cov > ncub:
+                norm_cov = ncub
+
+            norm_binned_coverages.append(norm_cov)
 
     return (
         norm_binned_coverages,

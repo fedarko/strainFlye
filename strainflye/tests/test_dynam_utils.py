@@ -8,6 +8,7 @@ from strainflye.tests.utils_for_testing import mock_log
 IN_DIR = os.path.join("strainflye", "tests", "inputs", "small")
 FASTA = os.path.join(IN_DIR, "contigs.fasta")
 BAM = os.path.join(IN_DIR, "alignment.bam")
+NO_C1_BAM = os.path.join(IN_DIR, "no-c1-reads.bam")
 
 
 def test_skew():
@@ -137,6 +138,26 @@ def test_contig_covskew_c3_binlen1_upperclamp():
     # Bin 5: GG: Skew = 1
     # Bin 6: GG: Skew = 1
     assert cbskews == [0] * 16
+
+
+def test_contig_covskew_uncovered():
+    nbcovs, cbskews, lp, cp = du.contig_covskew(
+        "c1", FASTA, NO_C1_BAM, 10, 0.7, 1.3
+    )
+
+    # We still use c1 with a bin size of 10, so we can reuse results from
+    # test_contig_covskew_c1_binlen10() above. The actual bin locations are the
+    # same, as are the skews.
+    assert lp == [1, 11, 21]
+    assert cp == [(1 + 10) / 2, (11 + 20) / 2, (21 + 23) / 2]
+    check_lists_approx_equal(
+        cbskews, [-4 / 6, (-4 / 6) + (-1), (-4 / 6) + (-2)]
+    )
+
+    # However, the coverages should all be "NA", because the median of median
+    # coverages was zero -- this prevents normalization, at least not without
+    # some tricks.
+    assert nbcovs == ["NA", "NA", "NA"]
 
 
 def test_run_covskew_good_noverbose_binlen10(capsys, tmp_path):
