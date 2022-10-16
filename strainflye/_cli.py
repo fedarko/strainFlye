@@ -1612,7 +1612,8 @@ strainflye.add_command(matrix)
     type=click.Path(exists=True),
     help=(
         "Generic Feature Format version 3 (GFF3) file describing gene "
-        "coordinates within contigs."
+        "coordinates within contigs. We'll only focus on features with a type "
+        'of "CDS" or "SO:0000316".'
     ),
 )
 @click.option(

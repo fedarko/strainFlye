@@ -52,3 +52,11 @@ I2N = "ACGT"
 # incompatible with future versions of "strainFlye link graph"...)
 POS_FILE_LBL = "pos2nt2ct"
 POSPAIR_FILE_LBL = "pospair2ntpair2ct"
+
+# When going through contigs' gene predictions to compute mutation matrices,
+# we'll focus on predicted genes that have this as their type in the GFF3 file:
+# https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md
+#
+# This may be too conservative, but we'll try to be loud about ignoring these
+# features so it should be ok.
+GFF_CDS_TYPES = ["CDS", "SO:0000316"]
