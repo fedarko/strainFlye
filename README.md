@@ -96,10 +96,10 @@ Commands:
   align   Align reads to contigs, and filter the resulting alignment.
   call    [+] Call mutations in contigs naïvely & compute diversity indices.
   fdr     [+] Estimate and fix FDRs for contigs' naïve mutation calls.
-  spot    [+] Identify putative mutational hotspots or coldspots in contigs.
+  spot    [+] Identify putative mutational hotspots or coldspots.
   smooth  [+] Create and assemble smoothed and virtual reads.
   link    [+] Create link graphs showing co-occurring alleles.
-  matrix  [+] Create contig-specific codon and amino acid mutation matrices.
+  matrix  [+] Create codon and amino acid mutation matrices.
   dynam   [+] Compute simple information about growth dynamics.
   utils   [+] Miscellaneous utility commands provided with strainFlye.
 ```
