@@ -830,7 +830,7 @@ def fix(bcf, fdr_info, fdr, output_bcf, verbose):
 
 @click.group(name="spot", **grp_params, **cmd_params)
 def spot():
-    """[+] Identify putative mutational hotspots or coldspots in contigs.
+    """[+] Identify putative mutational hotspots or coldspots.
 
     Many methods exist for identifying these sorts of hotspots or coldspots;
     strainFlye's implementations of these methods are intended mostly as a
@@ -1546,7 +1546,7 @@ def graph(
 
 @click.group(name="matrix", **grp_params, **cmd_params)
 def matrix():
-    """[+] Create contig-specific codon and amino acid mutation matrices."""
+    """[+] Create codon and amino acid mutation matrices."""
 
 
 strainflye.add_command(matrix)
