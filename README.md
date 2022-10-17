@@ -3,11 +3,13 @@
 <a href="https://github.com/fedarko/strainFlye/actions/workflows/main.yml"><img src="https://github.com/fedarko/strainFlye/actions/workflows/main.yml/badge.svg" alt="strainFlye CI" /></a>
 <a href="https://codecov.io/gh/fedarko/strainFlye"><img src="https://codecov.io/gh/fedarko/strainFlye/branch/main/graph/badge.svg" alt="Code Coverage" /></a>
 
-strainFlye is a pipeline for calling, analyzing, and phasing rare mutations
-in metagenome-assembled genomes produced from HiFi sequencing data. The main
-inputs to strainFlye are 1) reads and 2) contigs.
+strainFlye is a pipeline for calling, analyzing, and phasing rare
+single-nucleotide mutations in metagenome-assembled genomes produced from
+HiFi sequencing data.
+
+The main inputs to strainFlye are 1) reads and 2) contigs.
 However, most steps in the pipeline can be "jumped to" if you already have
-other files (e.g. alignment, mutation calls) ready.
+other files (e.g. alignment, mutation calls).
 
 <img src="https://github.com/fedarko/strainFlye/raw/main/docs/strainflye-pipeline.png" alt="strainFlye pipeline diagram" />
 
