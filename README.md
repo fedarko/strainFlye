@@ -9,7 +9,7 @@ HiFi sequencing data.
 
 The main inputs to strainFlye are 1) reads and 2) contigs.
 However, most steps in the pipeline can be "jumped to" if you already have
-other files (e.g. alignment, mutation calls).
+other files prepared (e.g. alignment, mutation calls).
 
 <img src="https://github.com/fedarko/strainFlye/raw/main/docs/strainflye-pipeline.png" alt="strainFlye pipeline diagram" />
 
