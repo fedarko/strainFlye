@@ -12,6 +12,45 @@ def validate_basic(
     fancylog,
     zero_indexed_range=True,
 ):
+    """Performs basic validation on a feature in a GFF3 file.
+
+    Parameters
+    ----------
+    feature: skbio.metadata.Interval
+        Feature on which we are performing validation.
+
+    contig: str
+        Name of the contig on which this feature is located.
+
+    contig_length: int
+        Length of "contig".
+
+    seen_feature_ids: set
+        Set of seen feature IDs on this contig. We'll check this to make sure
+        that the ID of "feature" has not already been seen in this set; also,
+        we'll add the ID of "feature" to this set.
+
+    fancylog: function
+        Logging function. As of writing, we just use this to warn about
+        ambiguous 1-position features.
+
+    zero_indexed_range: bool
+        If True, return a zero-indexed position range for this feature; if
+        False, return a one-indexed position range for this feature.
+
+    Returns
+    -------
+    (fid, feature_range): (str, range)
+
+        fid: ID of this feature.
+
+        feature_range: Inclusive range of all positions this feature spans.
+
+    Raises
+    ------
+    ParameterError
+        If various things seem wrong with this feature.
+    """
     # We could definitely add support for multi-boundary (e.g.
     # discontiguous) features if desired, but for the sake of
     # simplicity we don't right now.
@@ -141,6 +180,37 @@ def validate_basic(
 
 
 def validate_if_cds(feature, contig, verboselog):
+    """Checks if a feature is a CDS, and if so performs extra validation.
+
+    "CDS" stands for coding sequence, I think. Or at least it would be pretty
+    awkward at this point if it didn't.
+
+    Parameters
+    ----------
+    feature: skbio.metadata.Interval
+        Feature on which we are performing validation.
+
+    contig: str
+        Name of the contig on which this feature is located.
+
+    verboselog: function
+        Logging function. As of writing, we just use this to let the user know
+        that we're ignoring non-CDS features.
+
+    Returns
+    -------
+    (is_cds, strand): (bool, str)
+
+        is_cds: True if this feature is a CDS, False otherwise.
+
+        strand: If is_cds is True, then this will be one of {"+", "-"}. If
+                is_cds is False, then this will be None.
+
+    Raises
+    ------
+    ParameterError
+        If various things seem wrong with this feature.
+    """
     fid = feature.metadata["ID"]
     prefix = f"Feature {fid} on contig {contig}"
     # Ignore features that don't aren't labelled as "CDS"s
