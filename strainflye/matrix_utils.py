@@ -79,12 +79,19 @@ def run_count(contigs, bam, genes, output_dir, verbose, fancylog):
         # spot_utils.run_hotspot_feature_detection() -- see that function for
         # context.
         for feature in im.query(metadata={}):
-            # Ignore features that don't look like CDSs
+            # Ignore features that don't aren't labelled as "CDS"s
+            # As far as I can tell, this is the only type (or at least the main
+            # one) that is used to identify coding sequences in GFF3 files.
+            # "Gene" is a possible type, for example, but it seems mostly to be
+            # used as a higher-level type for top-level genes containing
+            # multiple CDSs -- for reference, Prodigal's output seems to
+            # consist solely of CDSs.
             if feature.metadata["type"].upper() not in config.GFF_CDS_TYPES:
                 verboselog(
                     (
                         f"Ignoring feature {feature.metadata['ID']}, since "
-                        f"its type isn't one of {config.GFF_CDS_TYPES}."
+                        "its type isn't one of "
+                        f"{cli_utils.list2str(config.GFF_CDS_TYPES)}."
                     ),
                     prefix="",
                 )

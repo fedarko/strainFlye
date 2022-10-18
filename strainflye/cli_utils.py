@@ -149,3 +149,39 @@ def get_verboselog(fancylog, verbose):
             fancylog(*args, **kwargs)
 
     return verboselog
+
+
+def list2str(vals):
+    """Converts a list of strings to a fancy human-readable string.
+
+    You could also just call str() on the list, but this looks a bit gross.
+
+    Parameters
+    ----------
+    vals: list
+        A list (presumably of strings). Also, we don't check it, but we use
+        curly brackets to surround the output (which make people think of
+        sets), so the elements in this list should probably be unique.
+
+    Returns
+    -------
+    str_list: str
+        A fancy representation of vals.
+
+    Examples
+    --------
+    >>> str(["a", "b", "c"])
+    "['a', 'b', 'c']"
+    >>> list2str(["a", "b", "c"])
+    '{"a", "b", "c"}'
+    >>> list2str(["lonely"])
+    '{"lonely"}'
+    >>> list2str([])
+    '{}'
+    """
+    out = "{"
+    for vi, v in enumerate(vals):
+        if vi > 0:
+            out += ", "
+        out += f'"{v}"'
+    return out + "}"
