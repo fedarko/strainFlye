@@ -75,6 +75,14 @@ def run_count(contigs, bam, genes, output_dir, verbose, fancylog):
         )
 
         seen_feature_ids = set()
+        # TODO: It would probably make sense to construct a DataFrame from
+        # these genes. This would let us use vectorization to compute
+        # genes_overlapping_aln.
+        #
+        # I think we could probs also do this with just numpy arrays, but it
+        # seems tricky to relate feature bounds back to the corresponding
+        # IDs/strands/etc., and I already have code from the analysis notebooks
+        # that uses DataFrames lol
         fid2codon2alignedcodons = {}
         fid2range = {}
         fid2strand = {}
