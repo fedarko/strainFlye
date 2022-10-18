@@ -142,6 +142,7 @@ def validate_basic(
 
 def validate_if_cds(feature, contig, verboselog):
     fid = feature.metadata["ID"]
+    prefix = f"Feature {fid} on contig {contig}"
     # Ignore features that don't aren't labelled as "CDS"s
     # As far as I can tell, this is the only type (or at least the main
     # one) that is used to identify coding sequences in GFF3 files.
@@ -152,8 +153,8 @@ def validate_if_cds(feature, contig, verboselog):
     if feature.metadata["type"].upper() not in config.CDS_TYPES_LIST:
         verboselog(
             (
-                f"Ignoring feature {fid} on contig {contig}, since its type "
-                f"isn't one of {config.CDS_TYPES}."
+                f"{prefix} has a type that is not in {config.CDS_TYPES}; "
+                "ignoring it."
             ),
             prefix="",
         )
@@ -187,9 +188,8 @@ def validate_if_cds(feature, contig, verboselog):
             # 1 or 2, we'd need to add an extra check that would throw an error
             # if the phase isn't one of these three.
             raise ParameterError(
-                f"Feature {fid} on contig {contig} has a phase of {phase}. "
-                "This command does not support features with non-zero phases, "
-                "at least for now."
+                f"{prefix} has a phase of {phase}. This command does not "
+                "support features with non-zero phases, at least for now."
             )
     else:
         # As of writing, if you set the phase to "." in a GFF3 file (how you'd
@@ -198,16 +198,22 @@ def validate_if_cds(feature, contig, verboselog):
         # GFF3's spec mandates that all CDS features have a phase, so this
         # shouldn't happen much.)
         raise ParameterError(
-            f"Feature {fid} on contig {contig} does not have a phase "
-            "attribute; this is required (more specifically, required to be "
-            "0) here for all CDS features."
+            f"{prefix} does not have a phase attribute; this is required "
+            "(more specifically, required to be 0) here for all CDS features."
         )
 
     strand = feature.metadata["strand"]
     if strand != "+" and strand != "-":
         raise ParameterError(
-            f"Feature {fid} on contig {contig} has a strand of {strand}. We "
-            'require here that all CDS features have a strand of "+" or "-".'
+            f"{prefix} has a strand of {strand}. We require here that all CDS "
+            'features have a strand of "+" or "-".'
+        )
+
+    feature_length = len(range(*feature.bounds[0]))
+    if feature_length % 3 != 0:
+        raise ParameterError(
+            f"{prefix} has a length of {feature_length:,} bp. We require here "
+            "that all CDS features have lengths divisible by 3."
         )
 
     return True, strand
