@@ -1,3 +1,5 @@
+# Miscellaneous utilities.
+
 import os
 import pysam
 import pandas as pd

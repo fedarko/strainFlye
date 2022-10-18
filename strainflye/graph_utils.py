@@ -1,3 +1,5 @@
+# Utilities for dealing with assembly graph files (at the moment, just GFA).
+
 import networkx as nx
 from .errors import GraphParsingError, WeirdError
 

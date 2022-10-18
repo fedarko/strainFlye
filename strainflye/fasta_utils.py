@@ -1,4 +1,4 @@
-# General IO utilities.
+# Utilities for dealing with FASTA files.
 
 
 import skbio

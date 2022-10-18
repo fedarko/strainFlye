@@ -2,7 +2,8 @@
 
 
 import skbio
-from strainflye import cli_utils, misc_utils, config
+from collections import defaultdict
+from strainflye import cli_utils, misc_utils, gff_utils, config
 
 
 def run_count(contigs, bam, genes, output_dir, verbose, fancylog):
@@ -46,7 +47,7 @@ def run_count(contigs, bam, genes, output_dir, verbose, fancylog):
         contigs, bam, fancylog
     )
 
-    fancylog("Going through contigs and counting aligned 3-mers...")
+    fancylog("Counting aligned 3-mers to coding sequences in contigs...")
 
     # See spot_utils.run_hotspot_feature_detection() -- same idea here.
     contig_and_im_tuples = skbio.io.read(genes, format="gff3")
@@ -69,48 +70,53 @@ def run_count(contigs, bam, genes, output_dir, verbose, fancylog):
             continue
 
         verboselog(
-            f"Found {fs} belonging to contig {contig}...",
+            f"Found {fs} belonging to contig {contig}; inspecting...",
             prefix="",
         )
 
-        num_gene_features_seen = 0
-        # gene2codon2alignedcodons = {}
+        seen_feature_ids = set()
+        fid2codon2alignedcodons = {}
+        fid2range = {}
+        fid2strand = {}
         # This "hack" to go through all features in "im" is taken from
         # spot_utils.run_hotspot_feature_detection() -- see that function for
         # context.
         for feature in im.query(metadata={}):
-            # Ignore features that don't aren't labelled as "CDS"s
-            # As far as I can tell, this is the only type (or at least the main
-            # one) that is used to identify coding sequences in GFF3 files.
-            # "Gene" is a possible type, for example, but it seems mostly to be
-            # used as a higher-level type for top-level genes containing
-            # multiple CDSs -- for reference, Prodigal's output seems to
-            # consist solely of CDSs.
-            if feature.metadata["type"].upper() not in config.GFF_CDS_TYPES:
-                verboselog(
-                    (
-                        f"Ignoring feature {feature.metadata['ID']}, since "
-                        "its type isn't one of "
-                        f"{cli_utils.list2str(config.GFF_CDS_TYPES)}."
-                    ),
-                    prefix="",
-                )
-                continue
-            num_gene_features_seen += 1
+            fid, feature_range = gff_utils.validate_basic(
+                feature,
+                contig,
+                contig_name2len[contig],
+                seen_feature_ids,
+                fancylog,
+                zero_indexed_range=False,
+            )
+            is_cds, strand = gff_utils.validate_if_cds(
+                feature, contig, verboselog
+            )
+            if is_cds:
+                fid2range[fid] = feature_range
+                fid2strand[fid] = strand
+                fid2codon2alignedcodons[fid] = {}
+                for cp_left in range(
+                    feature_range[0], feature_range[-1] + 1, 3
+                ):
+                    fid2codon2alignedcodons[fid][cp_left] = defaultdict(int)
 
-            # TODO: read phase info -- if needed, we can just mandate that it
-            # be zero and raise an error if not. but i think accounting for it
-            # wouldn't be too bad
-            #
-            # Then, figure out strand.
-            #
-            # Then we can figure out codons in this gene. Update
-            # gene2codon2alignedcodons.
+        num_cds = len(fid2range)
+        feature_noun = "feature" if num_cds == 1 else "features"
+        fs = (
+            f"Found {num_cds:,} {feature_noun} with a type in "
+            f"{config.CDS_TYPES} in contig {contig}."
+        )
+        # This case is a bit weird, so it merits being loud about
+        if num_cds == 0:
+            fancylog(f"{fs} Ignoring this contig.", prefix="")
+            break
+        verboselog(f"{fs} Going through alignments...", prefix="")
 
         # OK, now we can go through the alignment file and figure out which
         # alignments span which codons. This'll let us "finalize"
-        # gene2codon2alignedcodons.
-        #
+        # fid2codon2alignedcodons.
         # After that, we can output that to a file for this contig.
 
     fancylog("Done.", prefix="")

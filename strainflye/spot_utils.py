@@ -6,7 +6,7 @@ import skbio
 from math import floor
 from decimal import Decimal as D
 from scipy.special import comb
-from strainflye import bcf_utils
+from strainflye import bcf_utils, gff_utils
 from strainflye.errors import ParameterError, WeirdError
 
 
@@ -144,6 +144,9 @@ def run_hotspot_feature_detection(
         # is safe.)
         contig_length = bcf_obj.header.contigs[contig].length
 
+        # All feature IDs seen in this contig. We'll update this (using
+        # gff_utils.validate_basic()) while making sure that we don't see any
+        # feature IDs more than once on this contig.
         seen_feature_ids = set()
 
         # Next, iterate through all features that belong to this contig.
@@ -157,127 +160,9 @@ def run_hotspot_feature_detection(
         # features containing zero mutated positions would never be called as
         # hotspots. But... let's not get too crazy optimizing this for now.
         for feature in im.query(metadata={}):
-            # We could definitely add support for multi-boundary (e.g.
-            # discontiguous) features if desired, but for the sake of
-            # simplicity we don't right now.
-            #
-            # GFF3 can encode hierarchies of features that happen to be
-            # discontiguous -- e.g. a parent gene that contains multiple exon
-            # features -- but we would still treat each of those exons as
-            # independent features. GFF3 can also have discontiguous features
-            # if multiple rows share the same ID. Currently, we will just treat
-            # features with different IDs as independent features entirely; and
-            # if multiple rows share the same ID, we'll raise an error.
-            # See "Nesting Features" and "Discontinuous Features",
-            # respectively, at http://gmod.org/wiki/GFF3.
-            #
-            # (NOTE: as of writing, skbio's GFF3 parser doesn't seem to output
-            # any features [Intervals] with multiple bounds at once, so this
-            # branch is technically untested. Maybe we could move this to
-            # another function that takes as input an Interval object [which
-            # would simplify unit-testing], but ... that's probs not necessary
-            # right now.)
-            if len(feature.bounds) != 1:
-                raise ParameterError(
-                    f"A feature in the GFF3 file on contig {contig} exists "
-                    f"without exactly one set of bounds: {feature}"
-                )
-
-            # This should rarely happen. scikit-bio's GFF3 parser makes the
-            # implicit assumption that at least one key=value pair is defined
-            # in the final "attributes" column in each row -- so, if this
-            # column is a "." for any feature, then scikit-bio will fail at
-            # this line:
-            # https://github.com/biocore/scikit-bio/blob/541498807b67554353fc8aeb65bb66c28966a1f6/skbio/io/format/gff3.py#L446
-            # ... However, if a row has attributes defined, but if none of
-            # these defined attributes is "ID", then yeah -- we'll run into
-            # this problem. And *this* case is something we test against.
-            if "ID" not in feature.metadata:
-                raise ParameterError(
-                    f"A feature in the GFF3 file on contig {contig} exists "
-                    f"without a defined ID: {feature}"
-                )
-
-            # Enforce that feature IDs are unique with respect to their contig
-            # (It's ok if features in different contigs happen to have
-            # different IDs, I guess, although this shouldn't happen with
-            # Prodigal output). Nonunique feature IDs are *probably* an
-            # indication that the GFF3 file describes discontinuous features,
-            # which we explicitly do not support yet. So raise an error.
-            fid = feature.metadata["ID"]
-            if fid in seen_feature_ids:
-                raise ParameterError(
-                    f"The feature ID {fid} is used in multiple GFF3 rows for "
-                    f"contig {contig}. Features of a contig must have unique "
-                    "IDs; this command does not support "
-                    '"discontinuous features" at the moment.'
-                )
-            else:
-                seen_feature_ids.add(fid)
-
-            # scikit-bio's GFF3 parser ensures that the start coordinate of a
-            # feature must be <= the end coordinate. So we can safely create
-            # ranges, etc. based on these coordinates. (Also, these bounds are
-            # zero-indexed and half-open, like Python intervals, so they can be
-            # directly be used as the inputs to range().)
-            #
-            # (Just for clarity: we access .bounds[0] because there should
-            # only be one [start, end] interval per feature -- otherwise our
-            # check above on len(feature.bounds) would have thrown an error.)
-            fs, fe = feature.bounds[0]
-            feature_range = range(fs, fe)
-
-            # See https://standage.github.io/on-genomic-interval-notation.html,
-            # and the references above. This is what we in the business refer
-            # to as a certified Bioinformatics Moment (TM) (no one actually
-            # says this, also hello i'm surprised someone is reading this code)
-            if len(feature_range) == 1:
-                fancylog(
-                    (
-                        f"Warning: feature {fid} on contig {contig} has equal "
-                        "start and end coordinates. We assume this refers to "
-                        "a feature of length 1 spanning this single position, "
-                        "rather than a feature of length 0."
-                    ),
-                    prefix="",
-                )
-
-            # This indicates that the GFF3 file is malformed, or maybe designed
-            # for a different contig with this same name.
-            # Recall that fs and fe are zero-indexed and half-open -- since
-            # it's ok for a feature to start at the last position in a contig
-            # (if, for example, it has a length of one), the first "invalid"
-            # start position is at contig_length
-            if fs >= contig_length:
-                # Although we use 0-indexing internally, the user's GFF3 file
-                # uses 1-indexing. So let's make this easy for them to
-                # understand.
-                raise ParameterError(
-                    f"Feature {fid} on contig {contig} has a (1-indexed) "
-                    f"start coordinate of {fs + 1:,}, which is greater than "
-                    f"the contig's length of {contig_length:,}."
-                )
-
-            # Unlike the above case (feature start past the contig length),
-            # having the feature end past the contig length is actually
-            # possible in valid GFF3 files. This indicates that this
-            # feature is circular, and "loops around" the contig.
-            #
-            # (fe is zero-indexed and "half-open", so its first "past the
-            # contig length" position is at contig_length + 1. If, on the other
-            # hand, fe == contig_length, this just indicates that the feature
-            # ends exactly at the rightmost position in the contig.)
-            #
-            # TODO: add support for this eventually? Since this is explicitly
-            # allowed in the GFF spec, and could conceivably happen with
-            # prokaryotic gene predictions or whatevs.
-            if fe > contig_length:
-                raise ParameterError(
-                    f"Feature {fid} on contig {contig} has a (1-indexed) end "
-                    f"coordinate of {fe:,}, which is greater than the "
-                    f"contig's length of {contig_length:,}. We do not support "
-                    "'circular' features yet."
-                )
+            fid, feature_range = gff_utils.validate_basic(
+                feature, contig, contig_length, seen_feature_ids, fancylog
+            )
 
             # This does the main work -- figure out what positions within the
             # "range" given by this feature are mutated.

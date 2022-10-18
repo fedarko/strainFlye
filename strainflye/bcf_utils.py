@@ -1,4 +1,4 @@
-# General BCF-related utilities.
+# Utilities for dealing with BCF (and VCF) files.
 
 
 import os

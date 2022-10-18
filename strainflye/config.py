@@ -1,3 +1,5 @@
+from strainflye.cli_utils import list2str
+
 # Max depth at any position in the alignment: needed for pysam, see the
 # pysamstats docs -- https://github.com/alimanfoo/pysamstats
 MAX_DEPTH_PYSAM = 100000000
@@ -59,4 +61,6 @@ POSPAIR_FILE_LBL = "pospair2ntpair2ct"
 #
 # This may be too conservative, but we'll try to be loud about ignoring these
 # features so it should be ok.
-GFF_CDS_TYPES = ["CDS", "SO:0000316"]
+CDS_TYPES_LIST = ["CDS", "SO:0000316"]
+# Fancy version we can use for logging messages
+CDS_TYPES = list2str(CDS_TYPES_LIST)

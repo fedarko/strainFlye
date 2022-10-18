@@ -1613,7 +1613,7 @@ strainflye.add_command(matrix)
     help=(
         "Generic Feature Format version 3 (GFF3) file describing gene "
         "coordinates within contigs. We'll only focus on features with a type "
-        f"of one of {cli_utils.list2str(config.GFF_CDS_TYPES)}."
+        f"of one of {config.CDS_TYPES}."
     ),
 )
 @click.option(
