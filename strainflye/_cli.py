@@ -1612,8 +1612,8 @@ strainflye.add_command(matrix)
     type=click.Path(exists=True),
     help=(
         "Generic Feature Format version 3 (GFF3) file describing gene "
-        "coordinates within contigs. We'll only focus on features with a type "
-        f"of one of {config.CDS_TYPES}."
+        "coordinates within contigs. We'll only consider features with a "
+        f'"type" of one of {config.CDS_TYPES}.'
     ),
 )
 @click.option(
@@ -1652,7 +1652,7 @@ def count(contigs, bam, genes, output_dir, verbose):
 
 @matrix.command(**cmd_params)
 def fill():
-    """Call codon mutations from 3-mer counts, filling in matrices."""
+    """Call codon mutations from 3-mer counts and fill in matrices."""
     # Inputs: Directory from "count".
     #
     # Params: p (optional), r (optional), min-alt-pos (only if p given)
