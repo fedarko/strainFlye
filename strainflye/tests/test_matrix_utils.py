@@ -1,3 +1,5 @@
+import os
+import pickle
 import skbio
 import pytest
 import pandas as pd
@@ -7,6 +9,12 @@ from collections import defaultdict
 from strainflye import config
 from strainflye.errors import ParameterError, WeirdError
 from strainflye.tests.utils_for_testing import mock_log, mock_log_2
+
+
+IN_DIR = os.path.join("strainflye", "tests", "inputs", "small")
+FASTA = os.path.join(IN_DIR, "contigs.fasta")
+BAM = os.path.join(IN_DIR, "alignment.bam")
+GFF = os.path.join(IN_DIR, "genes.gff")
 
 
 def test_get_contig_cds_info_good():
@@ -158,3 +166,9 @@ def test_get_contig_cds_info_inconsistent_contig_lengths():
         break
     if no_loops:
         raise WeirdError
+
+
+def test_run_count_good(capsys, tmp_path):
+    cdir = tmp_path / "cdir"
+    mu.run_count(FASTA, BAM, GFF, cdir, True, mock_log)
+    assert sorted(os.listdir(cdir)) == ["c1_3mers.pickle", "c2_3mers.pickle"]

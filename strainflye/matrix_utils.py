@@ -387,8 +387,8 @@ def run_count(contigs, bam, genes, output_dir, verbose, fancylog):
         # least one CDS feature, and we can count 3-mers in these feature(s).
         count_aligned_3mers(bam_obj, contig, cds_df, fid2codon2alignedcodons)
 
-        # Now that we've finished this counting operation, write out the 3-mer
-        # count information to a file.
+        # Now that we've finished counting, write out the 3-mer count
+        # information to a file.
         misc_utils.write_obj_to_pickle(
             fid2codon2alignedcodons, output_dir, contig, "3mers"
         )
