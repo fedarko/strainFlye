@@ -4,7 +4,7 @@
 import skbio
 import pandas as pd
 from collections import defaultdict
-from strainflye import cli_utils, misc_utils, gff_utils, config
+from strainflye import cli_utils, misc_utils, bam_utils, gff_utils, config
 
 
 def get_contig_cds_info(im, contig, contig_name2len, fancylog, verboselog):
@@ -151,6 +151,177 @@ def get_contig_cds_info(im, contig, contig_name2len, fancylog, verboselog):
     return cds_df, fid2codon2alignedcodons
 
 
+def count_aligned_3mers(bam_obj, contig, cds_df, fid2codon2alignedcodons):
+    """Counts 3-mers aligned to codons in CDS features in a contig.
+
+    This function doesn't return anything, but it will fill in
+    fid2codon2alignedcodons with this information.
+
+    Parameters
+    ----------
+    bam_obj: pysam.AlignmentFile
+        Object describing a BAM file mapping reads to contigs.
+
+    contig: str
+        Name of a contig. We assume that this contig already exists as a
+        reference in bam_obj.
+
+    cds_df: pd.DataFrame
+        Contains information about coordinates and strands of coding sequences
+        within this contig. Can be produced by get_contig_cds_info().
+
+    fid2codon2alignedcodons: dict
+        The other output from get_contig_cds_info(). This maps CDS IDs (the
+        indices in cds_df) --> the leftmost position of all codons in this CDS
+        --> an empty defaultdict(int). These empty defaultdicts will be updated
+        when this function is run.
+
+    Returns
+    -------
+    None
+    """
+    for aln in bam_obj.fetch(contig):
+        # Find all genes that this aln intersects in this contig
+
+        # Get one-indexed and inclusive coordinates
+        ref_start, ref_end = bam_utils.get_coords(aln, zero_indexed=False)
+
+        # Use vectorization to find genes overlapping this aln: see
+        # https://stackoverflow.com/a/17071908
+        # for details on why parentheses, etc., and
+        # https://engineering.upside.com/a-beginners-guide-to-optimizing-pandas-code-for-speed-c09ef2c6a4d6
+        # for justification on why this is useful (tldr: makes code go fast)
+        genes_overlapping_aln = list(
+            cds_df.loc[
+                (cds_df["RightEnd"] >= ref_start)
+                & (cds_df["LeftEnd"] <= ref_end)
+            ].itertuples()
+        )
+        # Note about the above thing: you may be shaking your fist and saying
+        # "wait itertuples is slow!" And yeah, kinda. But for whatever reason
+        # I've tried multiple times to keep genes_overlapping_aln as a
+        # DataFrame (and then later vectorize stuff like checking that a given
+        # aligned pair covers a codon within the genes, etc) and the overhead
+        # costs seem to slow things down. I am sure it's possible to speed
+        # things up more, but right now things seem good enough.
+
+        # If no genes overlap this aln, we are free to move on to the next aln.
+        if len(genes_overlapping_aln) > 0:
+
+            # Computing this is relatively slow, which is why we jump through
+            # so many hoops before we do this. Each entry in
+            # get_aligned_pairs() is a tuple with 2 elements:
+            # the first is the query/read pos and the second is the reference
+            # pos. TODO: would it be possible to only do this for certain
+            # positions we care about? get_aligned_pairs() returns a lot of
+            # stuff we don't need, e.g. regions of the aln that don't intersect
+            # with any genes.
+            ap = aln.get_aligned_pairs(matches_only=True)
+
+            # Doesn't look like getting this in advance saves much time, but I
+            # don't think it hurts.
+            read_seq = aln.query_sequence
+
+            # We only consider the leftmost position of each codon, so we don't
+            # need to bother checking the last two pairs of positions (since
+            # neither could be the leftmost position of a codon that this aln
+            # fully covers).
+            for api, pair1 in enumerate(ap[:-2]):
+
+                # Convert to 1-indexed position for ease of comparison with
+                # gene coordinates
+                pair1_refpos = pair1[1] + 1
+
+                havent_checked_next_pairs = True
+                for gene_data in genes_overlapping_aln:
+                    gl = gene_data.LeftEnd
+                    gr = gene_data.RightEnd
+
+                    # Check that this pair is located within this gene and is
+                    # the leftmost position of a codon in the gene. (Note that
+                    # this check works for both + or - strand genes. Whether
+                    # the leftmost position is the "start" [i.e. CP 1] or "end"
+                    # [i.e. CP 3] of the gene changes with the strand of the
+                    # gene, but we'll account for that later on when we
+                    # reverse-complement the codon if needed.)
+                    if (
+                        pair1_refpos >= gl
+                        and pair1_refpos <= gr - 2
+                        and ((pair1_refpos - gl) % 3 == 0)
+                    ):
+
+                        # Nice! Looks like this aln fully covers this codon.
+
+                        # If we haven't yet, check that this aln doesn't skip
+                        # over parts of the codon, or stuff like that. The
+                        # reason this check is located *here* (and not before
+                        # we loop over the genes) is that it seems like this
+                        # is a faster strategy: only run these checks once we
+                        # KNOW that this pair looks like it fully covers a
+                        # codon, since many pairs might not meet that criteria.
+                        #
+                        # (And by recording that we've run this check once, in
+                        # havent_checked_next_pairs, we can save the time cost
+                        # of running the check multiple times.)
+                        #
+                        # "I feel like an insane person trying to optimize this
+                        # so much lmao" -- Me when I originally wrote this
+                        # code in like April 2021 (it is now October 2022 and I
+                        # am getting a little tired of this project and also my
+                        # soul hurts)
+                        if havent_checked_next_pairs:
+                            # Check that the pairs are all consecutive (i.e. no
+                            # "jumps" in the read, and no "jumps" in the
+                            # reference). Since we don't consider the last two
+                            # pairs in ap, pair2 and pair3 should always be
+                            # available.
+                            pair2 = ap[api + 1]
+                            pair3 = ap[api + 2]
+
+                            # Ensure that the read positions are consecutive
+                            p10 = pair1[0]
+                            p20 = pair2[0]
+                            p30 = pair3[0]
+                            readpos_consec = ((p10 + 1) == p20) and (
+                                (p20 + 1) == p30
+                            )
+                            if not readpos_consec:
+                                break
+
+                            # Ensure that the ref. positions are consecutive
+                            p11 = pair1[1]
+                            p21 = pair2[1]
+                            p31 = pair3[1]
+                            refpos_consec = ((p11 + 1) == p21) and (
+                                (p21 + 1) == p31
+                            )
+                            if not refpos_consec:
+                                break
+
+                            havent_checked_next_pairs = False
+
+                        # Figure out what the read actually *says* in the
+                        # alignment here. (It'll probably be a complete match
+                        # most of the time, but there will be some occasional
+                        # mismatches -- and seeing those is ... the whole point
+                        # of this notebook.)
+
+                        # We make sure to index the read by read coords, not
+                        # reference coords!
+                        aligned_codon = read_seq[p10 : p10 + 3]
+
+                        # Finally, update information about codon counts.
+                        gi = gene_data.Index
+                        if gene_data.Strand == "-":
+                            true_aligned_codon = config.CODON2RC[aligned_codon]
+                        else:
+                            true_aligned_codon = aligned_codon
+
+                        fid2codon2alignedcodons[gi][pair1_refpos][
+                            true_aligned_codon
+                        ] += 1
+
+
 def run_count(contigs, bam, genes, output_dir, verbose, fancylog):
     """Counts the 3-mers aligned to each predicted gene in each contig.
 
@@ -192,6 +363,8 @@ def run_count(contigs, bam, genes, output_dir, verbose, fancylog):
         contigs, bam, fancylog
     )
 
+    misc_utils.make_output_dir(output_dir)
+
     fancylog("Counting aligned 3-mers to coding sequences in contigs...")
 
     # See spot_utils.run_hotspot_feature_detection() -- same idea here.
@@ -210,7 +383,14 @@ def run_count(contigs, bam, genes, output_dir, verbose, fancylog):
         if cds_df is None:
             continue
 
-        # ... But if we've made it here, then we know that this contig has at
-        # least one CDS feature, so we can count 3-mers here.
+        # ... So if we've made it here, then we know that this contig has at
+        # least one CDS feature, and we can count 3-mers in these feature(s).
+        count_aligned_3mers(bam_obj, contig, cds_df, fid2codon2alignedcodons)
+
+        # Now that we've finished this counting operation, write out the 3-mer
+        # count information to a file.
+        misc_utils.write_obj_to_pickle(
+            fid2codon2alignedcodons, output_dir, contig, "3mers"
+        )
 
     fancylog("Done.", prefix="")

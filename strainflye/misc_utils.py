@@ -1,6 +1,7 @@
 # Miscellaneous utilities.
 
 import os
+import pickle
 import pysam
 import pandas as pd
 from strainflye import config, fasta_utils, bcf_utils
@@ -10,6 +11,35 @@ from strainflye.errors import ParameterError
 def make_output_dir(output_dir):
     """Creates an output directory, if it doesn't already exist."""
     os.makedirs(output_dir, exist_ok=True)
+
+
+def write_obj_to_pickle(obj, output_dir, contig_name, obj_name):
+    """Writes out an object to a pickle file.
+
+    This file will be named [contig_name]_[obj_name].pickle, and will be
+    located in the directory [output_dir].
+
+    Parameters
+    ----------
+    obj: object
+        Something to write out to a pickle file.
+
+    output_dir: str
+        Directory to which we'll write this pickle file. Should already exist.
+
+    contig_name: str
+        Used as the first part of the filename.
+
+    obj_name: str
+        Used as the second part of the filename.
+
+    Returns
+    -------
+    None
+    """
+    fp = os.path.join(output_dir, f"{contig_name}_{obj_name}.pickle")
+    with open(fp, "wb") as dumpster:
+        pickle.dump(obj, dumpster)
 
 
 def verify_contig_subset(child, parent, child_desc, parent_desc, exact=False):

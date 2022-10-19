@@ -289,35 +289,6 @@ def get_pos_nt_info(readname2pos2nt):
     return pos2nt2ct, pospair2ntpair2ct
 
 
-def write_obj_to_pickle(obj, output_dir, contig_name, obj_name):
-    """Writes out an object to a pickle file.
-
-    This file will be named [contig_name]_[obj_name].pickle, and will be
-    located in the directory [output_dir].
-
-    Parameters
-    ----------
-    obj: object
-        Something to write out to a pickle file.
-
-    output_dir: str
-        Directory to which we'll write this pickle file. Should already exist.
-
-    contig_name: str
-        Used as the first part of the filename.
-
-    obj_name: str
-        Used as the second part of the filename.
-
-    Returns
-    -------
-    None
-    """
-    fp = os.path.join(output_dir, f"{contig_name}_{obj_name}.pickle")
-    with open(fp, "wb") as dumpster:
-        pickle.dump(obj, dumpster)
-
-
 def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
     """Computes (co-)occurrence information for nucleotides at mutations.
 
@@ -438,8 +409,10 @@ def run_nt(contigs, bam, bcf, output_dir, verbose, fancylog):
 
         pos2nt2ct, pospair2ntpair2ct = get_pos_nt_info(readname2mutpos2nt)
 
-        write_obj_to_pickle(pos2nt2ct, output_dir, contig, config.POS_FILE_LBL)
-        write_obj_to_pickle(
+        misc_utils.write_obj_to_pickle(
+            pos2nt2ct, output_dir, contig, config.POS_FILE_LBL
+        )
+        misc_utils.write_obj_to_pickle(
             pospair2ntpair2ct, output_dir, contig, config.POSPAIR_FILE_LBL
         )
 
@@ -850,7 +823,9 @@ def run_graph(
                 havent_created_first_graph_yet = False
 
             if output_format == "nx":
-                write_obj_to_pickle(g, output_dir, contig, "linkgraph")
+                misc_utils.write_obj_to_pickle(
+                    g, output_dir, contig, "linkgraph"
+                )
             elif output_format == "dot":
                 write_linkgraph_to_dot(
                     g, output_dir, contig, min_penwidth_clamp, max_penwidth
