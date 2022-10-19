@@ -392,5 +392,9 @@ def run_count(contigs, bam, genes, output_dir, verbose, fancylog):
         misc_utils.write_obj_to_pickle(
             fid2codon2alignedcodons, output_dir, contig, "3mers"
         )
+        verboselog(
+            f"Wrote out 3-mer count info for contig {contig}.",
+            prefix="",
+        )
 
     fancylog("Done.", prefix="")
