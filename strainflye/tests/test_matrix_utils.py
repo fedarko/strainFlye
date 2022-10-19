@@ -41,6 +41,58 @@ def test_get_contig_cds_info_good():
         raise WeirdError
 
 
+def test_get_contig_cds_info_multi_features():
+    gff = """##gff-version 3
+c1	marcus	cds	5	19	.	+	0	ID=hi
+c1	marcus	gene	1	5	.	+	0	ID=2
+c1	marcus	CDS	18	20	.	-	0	ID=3
+c2	marcus	cds	1	6	50	+	0	ID=another_thing"""
+    cim_tuples = skbio.io.read(sio(gff), format="gff3")
+    seen_contigs = set()
+    for contig, im in cim_tuples:
+        seen_contigs.add(contig)
+        cds_df, fid2codon2alignedcodons = mu.get_contig_cds_info(
+            im, contig, {"c1": 23, "c2": 12}, mock_log, mock_log_2
+        )
+        if contig == "c1":
+            pd.testing.assert_frame_equal(
+                cds_df,
+                pd.DataFrame(
+                    {
+                        "LeftEnd": [5, 18],
+                        "RightEnd": [19, 20],
+                        "Strand": ["+", "-"],
+                    },
+                    index=pd.Index(["hi", "3"]),
+                ),
+            )
+            assert fid2codon2alignedcodons == {
+                "hi": {
+                    5: defaultdict(int),
+                    8: defaultdict(int),
+                    11: defaultdict(int),
+                    14: defaultdict(int),
+                    17: defaultdict(int),
+                },
+                "3": {18: defaultdict(int)},
+            }
+        else:
+            pd.testing.assert_frame_equal(
+                cds_df,
+                pd.DataFrame(
+                    {"LeftEnd": [1], "RightEnd": [6], "Strand": ["+"]},
+                    index=pd.Index(["another_thing"]),
+                ),
+            )
+            assert fid2codon2alignedcodons == {
+                "another_thing": {
+                    1: defaultdict(int),
+                    4: defaultdict(int),
+                },
+            }
+    assert seen_contigs == set(["c1", "c2"])
+
+
 def test_get_contig_cds_info_contig_not_in_name2len(capsys):
     gff = "##gff-version 3\nc1	marcus	cds	5	19	.	+	0	ID=hi"
     cim_tuples = skbio.io.read(sio(gff), format="gff3")
