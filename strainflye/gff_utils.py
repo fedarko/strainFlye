@@ -275,8 +275,8 @@ def validate_if_cds(feature, contig, verboselog):
     strand = feature.metadata["strand"]
     if strand != "+" and strand != "-":
         raise ParameterError(
-            f"{prefix} has a strand of {strand}. We require here that all CDS "
-            'features have a strand of "+" or "-".'
+            f'{prefix} has a strand of "{strand}". We require here that all '
+            'CDS features have a strand of "+" or "-".'
         )
 
     feature_length = len(range(*feature.bounds[0]))

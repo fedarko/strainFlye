@@ -105,3 +105,29 @@ def test_validate_if_cds_nophase():
             "attribute; this is required (more specifically, required to be "
             "0) here for all CDS features."
         )
+
+
+def test_validate_if_cds_badstrand():
+    gff = "##gff-version 3\nc1	marcus	cds	5	19	.	.	0	ID=hi"
+    cim_tuples = skbio.io.read(sio(gff), format="gff3")
+    for contig, im in cim_tuples:
+        feature = next(im.query(metadata={}))
+        with pytest.raises(ParameterError) as ei:
+            gu.validate_if_cds(feature, "c1", mock_log)
+        assert str(ei.value) == (
+            'Feature hi on contig c1 has a strand of ".". We require here '
+            'that all CDS features have a strand of "+" or "-".'
+        )
+
+
+def test_validate_if_cds_badlength():
+    gff = "##gff-version 3\nc1	marcus	cds	5	20	.	+	0	ID=hi"
+    cim_tuples = skbio.io.read(sio(gff), format="gff3")
+    for contig, im in cim_tuples:
+        feature = next(im.query(metadata={}))
+        with pytest.raises(ParameterError) as ei:
+            gu.validate_if_cds(feature, "c1", mock_log)
+        assert str(ei.value) == (
+            "Feature hi on contig c1 has a length of 16 bp. We require here "
+            "that all CDS features have lengths divisible by 3."
+        )
