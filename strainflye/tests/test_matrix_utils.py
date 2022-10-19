@@ -172,3 +172,28 @@ def test_run_count_good(capsys, tmp_path):
     cdir = tmp_path / "cdir"
     mu.run_count(FASTA, BAM, GFF, cdir, True, mock_log)
     assert sorted(os.listdir(cdir)) == ["c1_3mers.pickle", "c2_3mers.pickle"]
+
+    with open(tmp_path / "cdir" / "c1_3mers.pickle", "rb") as f:
+        c1data = pickle.load(f)
+        # These are 1-indexed codon "left" positions. The "left" doesn't take
+        # strand into account.
+        # This should directly match the alignment pileup at these codons
+        # (unless a gene is on the - strand, in which case each codon should
+        # be RC'd here)
+        assert c1data == {
+            "c1g1": {
+                3: {"TGA": 6, "TTA": 3, "TCA": 2, "TAA": 1},
+                6: {"CAC": 12},
+                9: {"CCA": 5, "CCG": 7},
+                12: {"AAC": 5, "AGC": 7},
+            },
+            # These are reverse complemented from AAA and CCT, respectively.
+            "c1g2": {
+                16: {"TTT": 12},
+                19: {"AGG": 12},
+            },
+        }
+
+    with open(tmp_path / "cdir" / "c2_3mers.pickle", "rb") as f:
+        c1data = pickle.load(f)
+        assert c1data == {"c2g1": {6: {"AGG": 11}}}
