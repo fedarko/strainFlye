@@ -49,3 +49,22 @@ def test_get_contig_cds_info_contig_not_in_name2len(capsys):
             "file. Ignoring this sequence and its feature, since c1 isn't in "
             "the FASTA file.\n"
         )
+
+
+def test_get_contig_cds_info_no_cds_features(capsys):
+    gff = "##gff-version 3\nc1	marcus	gene	5	19	.	+	0	ID=hi"
+    cim_tuples = skbio.io.read(sio(gff), format="gff3")
+    for contig, im in cim_tuples:
+        cds_df, fid2codon2alignedcodons = mu.get_contig_cds_info(
+            im, contig, {"c1": 23}, mock_log, mock_log_2
+        )
+        assert cds_df is None
+        assert fid2codon2alignedcodons is None
+        assert capsys.readouterr().out == (
+            "MockLog2: Found 1 feature belonging to contig c1; "
+            "inspecting...\n"
+            "MockLog2: Feature hi on contig c1 has a type that is not in "
+            f"{config.CDS_TYPES}; ignoring it.\n"
+            f"MockLog: Found 0 features with a type in {config.CDS_TYPES} in "
+            "contig c1. Ignoring this contig.\n"
+        )
