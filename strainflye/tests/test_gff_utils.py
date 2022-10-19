@@ -78,3 +78,30 @@ def test_validate_if_cds_noncds(capsys):
             f"{config.CDS_TYPES}; ignoring it.\n"
         )
         break
+
+
+def test_validate_if_cds_badphase():
+    gff = "##gff-version 3\nc1	marcus	cds	5	19	.	+	1	ID=hi"
+    cim_tuples = skbio.io.read(sio(gff), format="gff3")
+    for contig, im in cim_tuples:
+        feature = next(im.query(metadata={}))
+        with pytest.raises(ParameterError) as ei:
+            gu.validate_if_cds(feature, "c1", mock_log)
+        assert str(ei.value) == (
+            "Feature hi on contig c1 has a phase of 1. This command "
+            "does not support features with non-zero phases, at least for now."
+        )
+
+
+def test_validate_if_cds_nophase():
+    gff = "##gff-version 3\nc1	marcus	cds	5	19	.	+	.	ID=hi"
+    cim_tuples = skbio.io.read(sio(gff), format="gff3")
+    for contig, im in cim_tuples:
+        feature = next(im.query(metadata={}))
+        with pytest.raises(ParameterError) as ei:
+            gu.validate_if_cds(feature, "c1", mock_log)
+        assert str(ei.value) == (
+            "Feature hi on contig c1 does not have a phase "
+            "attribute; this is required (more specifically, required to be "
+            "0) here for all CDS features."
+        )
