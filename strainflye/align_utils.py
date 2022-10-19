@@ -10,7 +10,6 @@ from . import graph_utils, fasta_utils, misc_utils, cli_utils, bam_utils
 from .errors import ParameterError, SequencingDataError, WeirdError
 
 
-
 def check_contigs_in_graph(fasta_name2len, graph_fp):
     """Checks that all contigs from a FASTA file match segments in a GFA file.
 
@@ -803,7 +802,9 @@ def run(
     # enough (e.g. upwards of 70 GB for the SheepGut dataset) that keeping all
     # three around at the same time might exceed the space limit on a user's
     # system.
-    bam_utils.rm_bam(first_output_bam, "before-filtering BAM", rm_tmp_bam, fancylog)
+    bam_utils.rm_bam(
+        first_output_bam, "before-filtering BAM", rm_tmp_bam, fancylog
+    )
 
     pm_filter_bam = os.path.join(output_dir, "final.bam")
     filter_pm_reads(graph, osa_filter_bam, pm_filter_bam, fancylog, verbose)
@@ -812,4 +813,6 @@ def run(
     # Similarly, we can remove the OSA-filtered (but not PM-filtered) BAM now.
     # The PM-filtered BAM represents the "final" BAM produced by the alignment
     # step, and is the one that should be used in downstream analyses.
-    bam_utils.rm_bam(osa_filter_bam, "just-OSA-filtered BAM", rm_tmp_bam, fancylog)
+    bam_utils.rm_bam(
+        osa_filter_bam, "just-OSA-filtered BAM", rm_tmp_bam, fancylog
+    )

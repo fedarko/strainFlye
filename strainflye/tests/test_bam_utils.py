@@ -4,6 +4,7 @@ import strainflye.bam_utils as bu
 
 TI_DIR = os.path.join("strainflye", "tests", "inputs")
 
+
 def test_get_coords_good():
     # TODO FIX
     samfile = pysam.AlignmentFile(os.path.join(TI_DIR, "camp-sf.sam"), "r")

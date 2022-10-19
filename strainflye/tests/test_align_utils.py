@@ -11,7 +11,6 @@ TI_DIR = os.path.join("strainflye", "tests", "inputs")
 S1 = os.path.join(TI_DIR, "sample1.gfa")
 
 
-
 def test_check_contigs_in_graph_good():
     au.check_contigs_in_graph(
         {"1": 8, "2": 10, "3": 21, "4": 7, "5": 8, "6": 4}, S1
