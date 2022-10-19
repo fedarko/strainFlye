@@ -5,14 +5,16 @@ import strainflye.matrix_utils as mu
 from io import StringIO as sio
 from collections import defaultdict
 from strainflye import config
-from strainflye.errors import ParameterError
+from strainflye.errors import ParameterError, WeirdError
 from strainflye.tests.utils_for_testing import mock_log, mock_log_2
 
 
 def test_get_contig_cds_info_good():
     gff = "##gff-version 3\nc1	marcus	cds	5	19	.	+	0	ID=hi"
     cim_tuples = skbio.io.read(sio(gff), format="gff3")
+    no_loops = True
     for contig, im in cim_tuples:
+        no_loops = False
         cds_df, fid2codon2alignedcodons = mu.get_contig_cds_info(
             im, contig, {"c1": 23}, mock_log, mock_log_2
         )
@@ -33,12 +35,18 @@ def test_get_contig_cds_info_good():
             },
         }
         break
+    # account for the silly case where skbio breaks and cim_tuples is empty, in
+    # which case the for loop's body will never execute.
+    if no_loops:
+        raise WeirdError
 
 
 def test_get_contig_cds_info_contig_not_in_name2len(capsys):
     gff = "##gff-version 3\nc1	marcus	cds	5	19	.	+	0	ID=hi"
     cim_tuples = skbio.io.read(sio(gff), format="gff3")
+    no_loops = True
     for contig, im in cim_tuples:
+        no_loops = False
         cds_df, fid2codon2alignedcodons = mu.get_contig_cds_info(
             im, contig, {"c3": 16}, mock_log, mock_log_2
         )
@@ -49,12 +57,17 @@ def test_get_contig_cds_info_contig_not_in_name2len(capsys):
             "file. Ignoring this sequence and its feature, since c1 isn't in "
             "the FASTA file.\n"
         )
+        break
+    if no_loops:
+        raise WeirdError
 
 
 def test_get_contig_cds_info_no_cds_features(capsys):
     gff = "##gff-version 3\nc1	marcus	gene	5	19	.	+	0	ID=hi"
     cim_tuples = skbio.io.read(sio(gff), format="gff3")
+    no_loops = True
     for contig, im in cim_tuples:
+        no_loops = False
         cds_df, fid2codon2alignedcodons = mu.get_contig_cds_info(
             im, contig, {"c1": 23}, mock_log, mock_log_2
         )
@@ -68,3 +81,28 @@ def test_get_contig_cds_info_no_cds_features(capsys):
             f"MockLog: Found 0 features with a type in {config.CDS_TYPES} in "
             "contig c1. Ignoring this contig.\n"
         )
+        break
+    if no_loops:
+        raise WeirdError
+
+
+def test_get_contig_cds_info_inconsistent_contig_lengths():
+    # The code that makes this check is already tested elsewhere, but it makes
+    # sense to verify that we are properly making this check from this point...
+    gff = "##gff-version 3\nc1	marcus	cds	5	19	.	+	0	ID=hi"
+    cim_tuples = skbio.io.read(sio(gff), format="gff3")
+    no_loops = True
+    for contig, im in cim_tuples:
+        no_loops = False
+        with pytest.raises(ParameterError) as ei:
+            mu.get_contig_cds_info(
+                im, contig, {"c1": 14}, mock_log, mock_log_2
+            )
+        assert str(ei.value) == (
+            "Feature hi on contig c1 has a (1-indexed) end coordinate of 19, "
+            "which is greater than the contig's length of 14. We do not "
+            "support 'circular' features yet."
+        )
+        break
+    if no_loops:
+        raise WeirdError

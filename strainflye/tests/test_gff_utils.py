@@ -9,14 +9,16 @@ import pytest
 import strainflye.gff_utils as gu
 from io import StringIO as sio
 from strainflye import config
-from strainflye.errors import ParameterError
+from strainflye.errors import ParameterError, WeirdError
 from strainflye.tests.utils_for_testing import mock_log
 
 
 def test_validate_basic_good():
     gff = "##gff-version 3\nc1	marcus	cds	5	19	.	+	0	ID=hi"
     cim_tuples = skbio.io.read(sio(gff), format="gff3")
+    no_loops = True
     for contig, im in cim_tuples:
+        no_loops = False
         feature = next(im.query(metadata={}))
         sfi = set()
         fid, frange = gu.validate_basic(feature, "c1", 20, sfi, mock_log)
@@ -24,12 +26,20 @@ def test_validate_basic_good():
         assert frange == range(4, 19)
         assert sfi == set(["hi"])
         break
+    # this check mandates that we pass through the body of the for loop at
+    # least once. it's a safeguard against scikit-bio's GFF3 parser suddenly
+    # malfunctioning, causing this test to trivially "pass" due to cim_tuples
+    # being incorrectly empty.
+    if no_loops:
+        raise WeirdError
 
 
 def test_validate_basic_good_zero_indexed():
     gff = "##gff-version 3\nc1	marcus	cds	5	19	.	+	0	ID=hi"
     cim_tuples = skbio.io.read(sio(gff), format="gff3")
+    no_loops = True
     for contig, im in cim_tuples:
+        no_loops = False
         feature = next(im.query(metadata={}))
         sfi = set(["bye"])
         fid, frange = gu.validate_basic(
@@ -39,6 +49,8 @@ def test_validate_basic_good_zero_indexed():
         assert frange == range(5, 20)
         assert sfi == set(["hi", "bye"])
         break
+    if no_loops:
+        raise WeirdError
 
 
 def test_validate_basic_multi_bound_feature():
@@ -57,18 +69,24 @@ def test_validate_basic_multi_bound_feature():
 def test_validate_if_cds_good():
     gff = "##gff-version 3\nc1	marcus	cds	5	19	.	+	0	ID=hi"
     cim_tuples = skbio.io.read(sio(gff), format="gff3")
+    no_loops = True
     for contig, im in cim_tuples:
+        no_loops = False
         feature = next(im.query(metadata={}))
         is_cds, strand = gu.validate_if_cds(feature, "c1", mock_log)
         assert is_cds
         assert strand == "+"
         break
+    if no_loops:
+        raise WeirdError
 
 
 def test_validate_if_cds_noncds(capsys):
     gff = "##gff-version 3\nc1	marcus	gene	5	19	.	+	0	ID=hi"
     cim_tuples = skbio.io.read(sio(gff), format="gff3")
+    no_loops = True
     for contig, im in cim_tuples:
+        no_loops = False
         feature = next(im.query(metadata={}))
         is_cds, strand = gu.validate_if_cds(feature, "c1", mock_log)
         assert not is_cds
@@ -78,12 +96,16 @@ def test_validate_if_cds_noncds(capsys):
             f"{config.CDS_TYPES}; ignoring it.\n"
         )
         break
+    if no_loops:
+        raise WeirdError
 
 
 def test_validate_if_cds_badphase():
     gff = "##gff-version 3\nc1	marcus	cds	5	19	.	+	1	ID=hi"
     cim_tuples = skbio.io.read(sio(gff), format="gff3")
+    no_loops = True
     for contig, im in cim_tuples:
+        no_loops = False
         feature = next(im.query(metadata={}))
         with pytest.raises(ParameterError) as ei:
             gu.validate_if_cds(feature, "c1", mock_log)
@@ -91,12 +113,17 @@ def test_validate_if_cds_badphase():
             "Feature hi on contig c1 has a phase of 1. This command "
             "does not support features with non-zero phases, at least for now."
         )
+        break
+    if no_loops:
+        raise WeirdError
 
 
 def test_validate_if_cds_nophase():
     gff = "##gff-version 3\nc1	marcus	cds	5	19	.	+	.	ID=hi"
     cim_tuples = skbio.io.read(sio(gff), format="gff3")
+    no_loops = True
     for contig, im in cim_tuples:
+        no_loops = False
         feature = next(im.query(metadata={}))
         with pytest.raises(ParameterError) as ei:
             gu.validate_if_cds(feature, "c1", mock_log)
@@ -105,12 +132,16 @@ def test_validate_if_cds_nophase():
             "attribute; this is required (more specifically, required to be "
             "0) here for all CDS features."
         )
+    if no_loops:
+        raise WeirdError
 
 
 def test_validate_if_cds_badstrand():
     gff = "##gff-version 3\nc1	marcus	cds	5	19	.	.	0	ID=hi"
     cim_tuples = skbio.io.read(sio(gff), format="gff3")
+    no_loops = True
     for contig, im in cim_tuples:
+        no_loops = False
         feature = next(im.query(metadata={}))
         with pytest.raises(ParameterError) as ei:
             gu.validate_if_cds(feature, "c1", mock_log)
@@ -118,12 +149,16 @@ def test_validate_if_cds_badstrand():
             'Feature hi on contig c1 has a strand of ".". We require here '
             'that all CDS features have a strand of "+" or "-".'
         )
+    if no_loops:
+        raise WeirdError
 
 
 def test_validate_if_cds_badlength():
     gff = "##gff-version 3\nc1	marcus	cds	5	20	.	+	0	ID=hi"
     cim_tuples = skbio.io.read(sio(gff), format="gff3")
+    no_loops = True
     for contig, im in cim_tuples:
+        no_loops = False
         feature = next(im.query(metadata={}))
         with pytest.raises(ParameterError) as ei:
             gu.validate_if_cds(feature, "c1", mock_log)
@@ -131,3 +166,5 @@ def test_validate_if_cds_badlength():
             "Feature hi on contig c1 has a length of 16 bp. We require here "
             "that all CDS features have lengths divisible by 3."
         )
+    if no_loops:
+        raise WeirdError
