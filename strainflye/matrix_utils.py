@@ -73,8 +73,8 @@ def get_contig_cds_info(im, contig, contig_name2len, fancylog, verboselog):
         verboselog(
             (
                 f"Found {fs} belonging to sequence {contig} in the GFF3 "
-                "file. Ignoring them, since this sequence isn't in the "
-                "FASTA file."
+                f"file. Ignoring this sequence and its {feature_noun}, "
+                f"since {contig} isn't in the FASTA file."
             ),
             prefix="",
         )

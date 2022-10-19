@@ -33,3 +33,19 @@ def test_get_contig_cds_info_good():
             },
         }
         break
+
+
+def test_get_contig_cds_info_contig_not_in_name2len(capsys):
+    gff = "##gff-version 3\nc1	marcus	cds	5	19	.	+	0	ID=hi"
+    cim_tuples = skbio.io.read(sio(gff), format="gff3")
+    for contig, im in cim_tuples:
+        cds_df, fid2codon2alignedcodons = mu.get_contig_cds_info(
+            im, contig, {"c3": 16}, mock_log, mock_log_2
+        )
+        assert cds_df is None
+        assert fid2codon2alignedcodons is None
+        assert capsys.readouterr().out == (
+            "MockLog2: Found 1 feature belonging to sequence c1 in the GFF3 "
+            "file. Ignoring this sequence and its feature, since c1 isn't in "
+            "the FASTA file.\n"
+        )
