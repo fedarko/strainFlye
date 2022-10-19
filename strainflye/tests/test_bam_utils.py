@@ -9,4 +9,4 @@ def test_get_coords_good():
     # TODO FIX
     samfile = pysam.AlignmentFile(os.path.join(TI_DIR, "camp-sf.sam"), "r")
     for aln in samfile.fetch():
-        assert bu.get_coords(aln) == (1162486, 1259415)
+        assert bu.get_coords(aln) == (1162486, 1259413)

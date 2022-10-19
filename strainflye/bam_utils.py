@@ -63,37 +63,60 @@ def rm_bam(bam_fp, bam_descriptor, do_removal, fancylog):
         fancylog("Done removing these files.", prefix="")
 
 
-def get_coords(aln):
-    """Returns a linear alignment's coordinates.
+def get_coords(aln, zero_indexed=True):
+    """Returns and checks a linear alignment's coordinates on the reference.
 
     Parameters
     ----------
-    alnseg: pysam.AlignedSegment
+    aln: pysam.AlignedSegment
+        Representation of a linear alignment. We don't say "read" because a
+        single read can have multiple linear alignments, since we allow
+        supplementary alignments.
+
+    zero_indexed: bool
+        If True, return 0-indexed coordinates; if False, return 1-indexed
+        coordinates.
 
     Returns
     -------
-    (s, e): (int, int, str)
-        Segment start and end.
-
-        The start and end are both inclusive, to simplify comparison of
-        alignment ranges for detecting overlaps.
+    (ref_start, ref_end): (int, int)
+        Segment start and end. These are inclusive coordinates, so this linear
+        alignment should span the range [ref_start, ref_end].
 
     Raises
     ------
     WeirdError
-        If the segment's start is greater than its end (both in inclusive
-        coordinates). (If this ends up being a problem in practice, maybe
-        because there of reverse-mapped reads or something (???), then this
-        could probs be modified to just reverse the start and end in this
-        case.)
+        If either the start or end are None (which is technically possible
+        due to weird phenomena like unmapped reads, per the pysam docs).
+
+        If the start is greater than the end (both in inclusive coordinates).
+        We allow start == end in the rare case that this alignment is exactly
+        one nucleotide long.
     """
-    # We add 1 to the end since this is a half-open interval -- we want
-    # the coordinates we use for computing overlap to be completely
-    # inclusive intervals. TODO NOPE FIX
+    # These are 0-indexed positions -- so e really points to the rightmost
+    # position plus one.
     s = aln.reference_start
-    e = aln.reference_end + 1
+    e = aln.reference_end
+
+    # However, they could be None -- check for this and error out if so.
+    if s is None or e is None:
+        raise WeirdError(f"Alignment {aln.query_name} is unmapped?")
+
+    # Now that we know that these are not None, we can assume they're numbers.
+    if zero_indexed:
+        # Subtract 1 from the end to make this range inclusive.
+        e -= 1
+    else:
+        # If we are converting from 0- to 1-indexing, then e is already "good"
+        # -- we just need to add 1 to s.
+        s += 1
+
+    # In any case, now that these coordinates define an inclusive range, we can
+    # verify that they represent a valid start and end.
     if s > e:
+        idx = "0" if zero_indexed else "1"
         raise WeirdError(
-            f"Malformed linear alignment coordinates: start {s}, end {e}"
+            f"Malformed linear alignment coordinates for {aln.query_name}: "
+            f"start {s:,} is > end {e:,} (both {idx}-indexed and inclusive)"
         )
     return (s, e)
