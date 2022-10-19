@@ -6,102 +6,9 @@ import subprocess
 import pysam
 from itertools import combinations
 from collections import defaultdict
-from . import graph_utils, fasta_utils, misc_utils, cli_utils
+from . import graph_utils, fasta_utils, misc_utils, cli_utils, bam_utils
 from .errors import ParameterError, SequencingDataError, WeirdError
 
-
-def index_bam(in_bam, bam_descriptor, fancylog):
-    """Indexes a BAM file using samtools.
-
-    This creates a .bam.bai file in the same location as the BAM file.
-
-    Parameters
-    ----------
-    in_bam: str
-        Location of the BAM file to be indexed.
-
-    bam_descriptor: str
-        Description of the in_bam file, to be used in the logging message.
-
-    fancylog: function
-        Logging function.
-
-    Returns
-    -------
-    None
-    """
-    fancylog(f"Indexing the {bam_descriptor}...")
-    subprocess.run(["samtools", "index", in_bam], check=True)
-    fancylog(f"Done indexing the {bam_descriptor}.", prefix="")
-
-
-def rm_bam(bam_fp, bam_descriptor, do_removal, fancylog):
-    """Removes a temporary BAM file and its index.
-
-    Parameters
-    ----------
-    bam_fp: str
-        Location of the BAM file to be removed. We assume another file in the
-        same directory (with the same name, and ending in .bai) exists; we'll
-        remove this "index" file as well.
-
-    bam_descriptor: str
-        Description of the bam_fp file, to be used in the logging message.
-
-    do_removal: bool
-        If True, actually remove the BAM file and its index; if False, don't do
-        anything.
-
-    fancylog: function
-        Logging function.
-
-    Returns
-    -------
-    None
-    """
-    if do_removal:
-        fancylog(
-            f"Removing the {bam_descriptor} and its index to save space..."
-        )
-        os.remove(bam_fp)
-        os.remove(bam_fp + ".bai")
-        fancylog("Done removing these files.", prefix="")
-
-
-def get_coords(alnseg):
-    """Returns a linear alignment's coordinates.
-
-    Parameters
-    ----------
-    alnseg: pysam.AlignedSegment
-
-    Returns
-    -------
-    (s, e): (int, int, str)
-        Segment start and end.
-
-        The start and end are both inclusive, to simplify comparison of
-        alignment ranges for detecting overlaps.
-
-    Raises
-    ------
-    WeirdError
-        If the segment's start is greater than its end (both in inclusive
-        coordinates). (If this ends up being a problem in practice, maybe
-        because there of reverse-mapped reads or something (???), then this
-        could probs be modified to just reverse the start and end in this
-        case.)
-    """
-    # We add 1 to the end since this is a half-open interval -- we want
-    # the coordinates we use for computing overlap to be completely
-    # inclusive intervals
-    s = alnseg.reference_start
-    e = alnseg.reference_end + 1
-    if s > e:
-        raise WeirdError(
-            f"Malformed linear alignment coordinates: start {s}, end {e}"
-        )
-    return (s, e)
 
 
 def check_contigs_in_graph(fasta_name2len, graph_fp):
@@ -225,7 +132,7 @@ def filter_osa_reads(in_bam, out_bam, fancylog, verbose):
         readname2Coords = defaultdict(list)
         for num_lin_alns, linearaln in enumerate(bf.fetch(seq), 1):
             rn = linearaln.query_name
-            alncoords = get_coords(linearaln)
+            alncoords = bam_utils.get_coords(linearaln)
             readname2Coords[rn].append(alncoords)
 
         # How many (unique) reads are aligned total to this contig?
@@ -882,27 +789,27 @@ def run(
     subprocess.run(cmd, shell=True, check=True)
     fancylog(f"Done running {threesteps}.", prefix="")
 
-    index_bam(first_output_bam, "sorted BAM", fancylog)
+    bam_utils.index_bam(first_output_bam, "sorted BAM", fancylog)
 
     # at this point, we *could* bail out if desired -- we've got our sorted and
     # indexed BAM file. but we'll do some more filtering on this BAM file.
 
     osa_filter_bam = os.path.join(output_dir, "sorted-osa-filtered.bam")
     filter_osa_reads(first_output_bam, osa_filter_bam, fancylog, verbose)
-    index_bam(osa_filter_bam, "OSA-filtered BAM", fancylog)
+    bam_utils.index_bam(osa_filter_bam, "OSA-filtered BAM", fancylog)
 
     # Now that we've finished the OSA filter step, we can remove its input BAM
     # -- the first one we generated -- to save space. These files are big
     # enough (e.g. upwards of 70 GB for the SheepGut dataset) that keeping all
     # three around at the same time might exceed the space limit on a user's
     # system.
-    rm_bam(first_output_bam, "before-filtering BAM", rm_tmp_bam, fancylog)
+    bam_utils.rm_bam(first_output_bam, "before-filtering BAM", rm_tmp_bam, fancylog)
 
     pm_filter_bam = os.path.join(output_dir, "final.bam")
     filter_pm_reads(graph, osa_filter_bam, pm_filter_bam, fancylog, verbose)
-    index_bam(pm_filter_bam, "final BAM", fancylog)
+    bam_utils.index_bam(pm_filter_bam, "final BAM", fancylog)
 
     # Similarly, we can remove the OSA-filtered (but not PM-filtered) BAM now.
     # The PM-filtered BAM represents the "final" BAM produced by the alignment
     # step, and is the one that should be used in downstream analyses.
-    rm_bam(osa_filter_bam, "just-OSA-filtered BAM", rm_tmp_bam, fancylog)
+    bam_utils.rm_bam(osa_filter_bam, "just-OSA-filtered BAM", rm_tmp_bam, fancylog)

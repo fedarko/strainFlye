@@ -3,17 +3,13 @@ import subprocess
 import pysam
 import pytest
 import strainflye.align_utils as au
+import strainflye.bam_utils as bu
 from strainflye.tests.utils_for_testing import mock_log
 from strainflye.errors import SequencingDataError, GraphParsingError
 
 TI_DIR = os.path.join("strainflye", "tests", "inputs")
 S1 = os.path.join(TI_DIR, "sample1.gfa")
 
-
-def test_get_coords_good():
-    samfile = pysam.AlignmentFile(os.path.join(TI_DIR, "camp-sf.sam"), "r")
-    for aln in samfile.fetch():
-        assert au.get_coords(aln) == (1162486, 1259415)
 
 
 def test_check_contigs_in_graph_good():
@@ -111,7 +107,7 @@ def test_filter_osa_reads_basic(capsys, tmp_path):
         ["samtools", "view", "-b", sam_fp, "-o", in_bam_fp], check=True
     )
     # i mean i guess let's incidentally test this also
-    au.index_bam(in_bam_fp, "test BAM", mock_log)
+    bu.index_bam(in_bam_fp, "test BAM", mock_log)
     assert capsys.readouterr().out == (
         "PREFIX\nMockLog: Indexing the test BAM...\n"
         "MockLog: Done indexing the test BAM.\n"
@@ -155,7 +151,7 @@ def test_filter_osa_reads_basic(capsys, tmp_path):
     # Inspect the OSA-filtered BAM -- verify it's actually correct!
 
     # (we have to index it to load it in pysam, tho)
-    au.index_bam(out_bam_fp, "OSA-filtered test BAM", mock_log)
+    bu.index_bam(out_bam_fp, "OSA-filtered test BAM", mock_log)
     assert capsys.readouterr().out == (
         "PREFIX\nMockLog: Indexing the OSA-filtered test BAM...\n"
         "MockLog: Done indexing the OSA-filtered test BAM.\n"

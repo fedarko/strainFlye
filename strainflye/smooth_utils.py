@@ -433,9 +433,11 @@ def write_smoothed_reads(
         ref_end = aln.reference_end - 1
 
         # This should never happen (TM)
+        # ref_end could equal ref_start, in the pathological case where this
+        # alignment is a single nucleotide. But that shouldn't happen often.
         if ref_start > ref_end:
             raise WeirdError(
-                f"Ref start {ref_start:,} >= ref end {ref_end:,} for "
+                f"Ref start {ref_start:,} > ref end {ref_end:,} for "
                 f"linear alignment {new_readname}?"
             )
 
