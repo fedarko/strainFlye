@@ -9,6 +9,7 @@ from collections import defaultdict
 from statistics import mean
 from strainflye import (
     cli_utils,
+    bam_utils,
     bcf_utils,
     misc_utils,
     fasta_utils,
@@ -422,30 +423,14 @@ def write_smoothed_reads(
                 f"{new_readname} is already in the smoothed read buffer?"
             )
 
-        # Figure out where on the contig this alignment "hits." These are
-        # 0-indexed positions. (reference_end points to the position after
-        # the actual final position, since these are designed to be
-        # interoperable with Python's half-open intervals.)
-        #
-        # Of course, there likely will be indels within this range: we're
-        # purposefully ignoring those here.
-        ref_start = aln.reference_start
-        ref_end = aln.reference_end - 1
-
-        # This should never happen (TM)
-        # ref_end could equal ref_start, in the pathological case where this
-        # alignment is a single nucleotide. But that shouldn't happen often.
-        if ref_start > ref_end:
-            raise WeirdError(
-                f"Ref start {ref_start:,} > ref end {ref_end:,} for "
-                f"linear alignment {new_readname}?"
-            )
-
         repls = get_smooth_aln_replacements(aln, mutated_positions, mp2ra)
 
         if repls is None:
             num_ignored_alns += 1
         else:
+            # Get zero-indexed and inclusive coordinates for this aln
+            ref_start, ref_end = bam_utils.get_coords(aln)
+
             # Smoothed read sequence from the start to end of the linear
             # alignment, completely skipping over indels and mutations.
             # Edit this seq so that if the alignment has (mis)matches to
