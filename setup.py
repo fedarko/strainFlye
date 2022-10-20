@@ -45,10 +45,13 @@ setup(
         "matplotlib >= 3.0",
         # Also not a hard requirement.
         "pandas >= 1.0",
-        # Needed by recent versions of black, apparently:
-        # https://pythonissues.com/issues/2903160 (click 7.0 results in the
-        # call to black on GitHub Actions failing with this error)
-        "click >= 8.0",
+        # We use the min_open and max_open parameters of click.IntRange and
+        # click.FloatRange, which need click >= 8.0; and we use the executable
+        # parameter of click.Path, which needs click >= 8.1. If desired we
+        # could avoid using these newer click features and re-implement the
+        # checks ourselves (to avoid reliance on newer click versions), but I
+        # don't think that is worth the extra effort right now.
+        "click >= 8.1",
     ],
     setup_requires=[
         "cython",
