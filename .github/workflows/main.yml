@@ -11,9 +11,12 @@ jobs:
     # it seems like pysamstats + pysam only works with Python 3.7 and lower.
     # Ideally we could un-pin this eventually -- I suspect pysamstats being
     # able to work with pysam 0.16 and up will remove this restriction.
+    #
+    # Also, we can't use Python 3.6 due to relying on Click 8.1.0 (which needs
+    # Python 3.7).
     strategy:
       matrix:
-        python-version: [3.6, 3.7]
+        python-version: [3.7]
 
     steps:
 

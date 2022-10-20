@@ -77,5 +77,9 @@ setup(
             "strainflye=strainflye._cli:strainflye",
         ],
     },
-    python_requires=">=3.6",
+    # We need python >= 3.7 in order to use click >= 8.1; and we need python <
+    # 3.8 in order to use pysam < 0.16 (in order to use pysamstats). Phew! So,
+    # for now, we need Python 3.7; but pysamstats being updated should allow
+    # for later versions of Python.
+    python_requires="3.7",
 )
