@@ -1163,6 +1163,7 @@ def run_assemble(
     verboselog = cli_utils.get_verboselog(fancylog, verbose)
 
     lja_bin_loc = find_lja_bin(lja_bin, fancylog)
+    misc_utils.check_executable(lja_bin_loc)
 
     misc_utils.make_output_dir(output_dir)
 

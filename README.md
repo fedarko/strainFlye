@@ -15,9 +15,10 @@ other files prepared (e.g. alignment, mutation calls).
 
 ## Installation
 
-Long story short, strainFlye is an ordinary Python package. However, it
-dependends on a few external non-Python tools (e.g. minimap2, Prodigal,
-SAMtools); most of these can be installed using [conda](https://conda.io).
+Long story short, strainFlye is an ordinary Python package (currently
+supporting Python 3.6 and 3.7). strainFlye dependends on a few external
+non-Python tools (e.g. minimap2, Prodigal, SAMtools); most of these can be
+installed using [conda](https://conda.io).
 
 Assuming that you already have conda installed, the following installation
 instructions should work for most Linux or macOS systems. (However, please feel
@@ -39,7 +40,7 @@ conda activate strainflye
 pip install git+https://github.com/fedarko/strainFlye.git
 ```
 
-This should be set up as a conda package soon.
+strainFlye should be set up as a conda package soon.
 
 ### Optional: install LJA in order to run `strainFlye smooth assemble`
 

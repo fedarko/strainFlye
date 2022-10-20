@@ -46,12 +46,11 @@ setup(
         # Also not a hard requirement.
         "pandas >= 1.0",
         # We use the min_open and max_open parameters of click.IntRange and
-        # click.FloatRange, which need click >= 8.0; and we use the executable
-        # parameter of click.Path, which needs click >= 8.1. If desired we
-        # could avoid using these newer click features and re-implement the
-        # checks ourselves (to avoid reliance on newer click versions), but I
-        # don't think that is worth the extra effort right now.
-        "click >= 8.1",
+        # click.FloatRange, which need click >= 8.0. We explicitly avoid
+        # needing to rely on click >= 8.1.0 (e.g. using the newly-added
+        # "executable" parameter of click.Path), because click 8.1.0 removes
+        # support for python 3.6.
+        "click >= 8.0",
     ],
     setup_requires=[
         "cython",
@@ -77,9 +76,5 @@ setup(
             "strainflye=strainflye._cli:strainflye",
         ],
     },
-    # We need python >= 3.7 in order to use click >= 8.1; and we need python <
-    # 3.8 in order to use pysam < 0.16 (in order to use pysamstats). Phew! So,
-    # for now, we need Python 3.7; but pysamstats being updated should allow
-    # for later versions of Python.
-    python_requires="3.7",
+    python_requires=">=3.6,<3.8",
 )

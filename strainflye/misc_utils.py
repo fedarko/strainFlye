@@ -42,6 +42,48 @@ def write_obj_to_pickle(obj, output_dir, contig_name, obj_name):
         pickle.dump(obj, dumpster)
 
 
+def check_executable(fp):
+    """Checks that a file is executable. If not, raises a ParameterError.
+
+    Parameters
+    ----------
+    fp: str
+        Filepath to a file whose "executability" (is that a word?) we will
+        check.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    ParameterError
+        If fp does not point to an executable file.
+
+    Notes
+    -----
+    If fp points to a directory, this function will still work -- and I think
+    it should always succeed because directories are technically "executable"
+    (see https://superuser.com/a/169418). That said, this function is designed
+    to test *files* for being executable or not.
+
+    References
+    ----------
+    Originally, I used click's "executable" parameter (added in click 8.1.0,
+    https://click.palletsprojects.com/en/8.1.x/changes/#version-8-1-0) to
+    perform this check -- but click 8.1.0 requires Python >= 3.7, and thus
+    breaks Python 3.6 support. (So if someone would try to install strainFlye
+    into a Python 3.6 environment, they'd install an older version of click,
+    and then get an error about our use of the "executable" parameter.)
+
+    To avoid this problem, I added this function, which re-uses the same check
+    that click performs when the "executable" parameter is given: see
+    https://github.com/pallets/click/blob/a8910b382d37cce14adeb44a73aca1d4e87c2413/src/click/types.py#L903-L910
+    """
+    if not os.access(fp, os.X_OK):
+        raise ParameterError(f"{fp} is not executable.")
+
+
 def verify_contig_subset(child, parent, child_desc, parent_desc, exact=False):
     """Verifies that one set of contig names is a subset of another set.
 

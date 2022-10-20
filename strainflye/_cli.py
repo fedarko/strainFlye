@@ -1259,9 +1259,7 @@ def create(
     required=False,
     default=None,
     show_default="Look for LJA's bin in the $PATH environment variable",
-    type=click.Path(
-        exists=True, file_okay=True, dir_okay=False, executable=True
-    ),
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
     help=(
         'Location of LJA\'s "lja" binary file, which can be used to run LJA. '
         "This should be located in the bin/ directory constructed when you "

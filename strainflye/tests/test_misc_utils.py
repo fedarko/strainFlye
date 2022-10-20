@@ -1,4 +1,5 @@
 import os
+import stat
 import shutil
 import tempfile
 import pytest
@@ -303,3 +304,24 @@ def test_load_triplet_fasta_not_in_bam_all():
         "All contigs in the FASTA file must also be contained in the BAM "
         "file."
     )
+
+
+def test_check_executable_nonexecutable_file(tmp_path):
+    nonex_file = tmp_path / "nonex_file.sh"
+    with open(nonex_file, "w") as f:
+        f.write('#! /usr/bin/env bash\necho "hi"\n')
+    with pytest.raises(ParameterError) as ei:
+        mu.check_executable(nonex_file)
+    assert str(ei.value) == f"{nonex_file} is not executable."
+
+
+def test_check_executable_actually_executable_file(tmp_path):
+    exf = tmp_path / "ex"
+    with open(exf, "w") as f:
+        f.write('#! /usr/bin/env bash\necho "hi"\n')
+    # yoinked over from test_smooth_utils
+    new_mode_bits = (
+        os.stat(exf).st_mode | stat.S_IXGRP | stat.S_IXUSR | stat.S_IXOTH
+    )
+    os.chmod(exf, new_mode_bits)
+    mu.check_executable(exf)
