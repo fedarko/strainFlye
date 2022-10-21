@@ -179,6 +179,49 @@ def validate_basic(
     return fid, feature_range
 
 
+def check_cds_attrs(cds_id, contig, cds_length, strand):
+    """Sanity-checks attributes of a coding sequence.
+
+    Parameters
+    ----------
+    cds_id: str
+        ID of this coding sequence. This isn't checked or anything, but it is
+        used in the resulting error message, if applicable.
+
+    contig: str
+        Contig on which this CDS is located. As with cds_id, this is only used
+        in the error message, if applicable.
+
+    cds_length: int
+        Length of the CDS. We check that this is divisible by 3.
+
+    strand: str
+        Strand of the CDS. We check that this is one of {"+", "-"}.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    ParameterError
+        If the strand or length checks fail.
+    """
+    if strand != "+" and strand != "-":
+        raise ParameterError(
+            f'Feature {cds_id} on contig {contig} has a strand of "{strand}". '
+            'We require here that all CDS features have a strand of "+" or '
+            '"-".'
+        )
+
+    if cds_length % 3 != 0:
+        raise ParameterError(
+            f"Feature {cds_id} on contig {contig} has a length of "
+            f"{cds_length:,} bp. We require here that all CDS features have "
+            "lengths divisible by 3."
+        )
+
+
 def validate_if_cds(feature, contig, verboselog):
     """Checks if a feature is a CDS, and if so performs extra validation.
 
@@ -212,7 +255,6 @@ def validate_if_cds(feature, contig, verboselog):
         If various things seem wrong with this feature.
     """
     fid = feature.metadata["ID"]
-    prefix = f"Feature {fid} on contig {contig}"
     # Ignore features that don't aren't labelled as "CDS"s
     # As far as I can tell, this is the only type (or at least the main
     # one) that is used to identify coding sequences in GFF3 files.
@@ -223,8 +265,8 @@ def validate_if_cds(feature, contig, verboselog):
     if feature.metadata["type"].upper() not in config.CDS_TYPES_LIST:
         verboselog(
             (
-                f"{prefix} has a type that is not in {config.CDS_TYPES}; "
-                "ignoring this feature."
+                f"Feature {fid} on contig {contig} has a type that is not in "
+                f"{config.CDS_TYPES}; ignoring this feature."
             ),
             prefix="",
         )
@@ -258,8 +300,9 @@ def validate_if_cds(feature, contig, verboselog):
             # 1 or 2, we'd need to add an extra check that would throw an error
             # if the phase isn't one of these three.
             raise ParameterError(
-                f"{prefix} has a phase of {phase}. This command does not "
-                "support features with non-zero phases, at least for now."
+                f"Feature {fid} on contig {contig} has a phase of {phase}. "
+                "This command does not support features with non-zero phases, "
+                "at least for now."
             )
     else:
         # As of writing, if you set the phase to "." in a GFF3 file (how you'd
@@ -268,22 +311,13 @@ def validate_if_cds(feature, contig, verboselog):
         # GFF3's spec mandates that all CDS features have a phase, so this
         # shouldn't happen much.)
         raise ParameterError(
-            f"{prefix} does not have a phase attribute; this is required "
-            "(more specifically, required to be 0) here for all CDS features."
+            f"Feature {fid} on contig {contig} does not have a phase "
+            "attribute; this is required (more specifically, required to be "
+            "0) here for all CDS features."
         )
 
     strand = feature.metadata["strand"]
-    if strand != "+" and strand != "-":
-        raise ParameterError(
-            f'{prefix} has a strand of "{strand}". We require here that all '
-            'CDS features have a strand of "+" or "-".'
-        )
-
-    feature_length = len(range(*feature.bounds[0]))
-    if feature_length % 3 != 0:
-        raise ParameterError(
-            f"{prefix} has a length of {feature_length:,} bp. We require here "
-            "that all CDS features have lengths divisible by 3."
-        )
+    cds_len = len(range(*feature.bounds[0]))
+    check_cds_attrs(fid, contig, cds_len, strand)
 
     return True, strand

@@ -57,16 +57,9 @@ class CodonCounter(object):
         return f"CodonCounter({self.contig}, {clen:,} bp, {num_cds:,} {noun})"
 
     def add_cds(self, cds_id, cds_left, cds_right, strand):
-        # (cds_left and cds_right should be 1-indexed coordinates of this CDS)
-        # this is overkill because we should've already validated this feature
-        # using gff_utils, but better safe than sorry
-        if (cds_right - cds_left + 1) % 3 != 0:
-            raise WeirdError(
-                f"{cds_id} has left = {cds_left:,}, right = {cds_right:,}: "
-                "not divisible by 3?"
-            )
-        if strand != "+" and strand != "-":
-            raise WeirdError(f"{cds_id} has strand = {strand}?")
+        gff_utils.check_cds_attrs(
+            cds_id, self.contig, cds_right - cds_left + 1, strand
+        )
 
         if cds_id in self.cds2left2counter:
             raise WeirdError(f"CDS {cds_id} already has been added.")
