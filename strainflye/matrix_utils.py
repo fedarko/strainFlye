@@ -339,7 +339,7 @@ def run_count(contigs, bam, genes, output_dir, verbose, fancylog):
         Filepath to a GFF3 file describing gene coordinates in contigs.
 
     output_dir: str
-        Directory to which we'll write out information for each contig.
+        Directory to which we'll write out count information for each contig.
 
     verbose: bool
         Log extra info.
@@ -398,3 +398,53 @@ def run_count(contigs, bam, genes, output_dir, verbose, fancylog):
         )
 
     fancylog("Done.", prefix="")
+
+
+def run_fill(
+    count_dir, p, min_alt_pos, r, output_format, output_dir, verbose, fancylog
+):
+    """Calls codon mutations and creates mutation matrices.
+
+    For each contig, creates a subdirectory within output_dir containing
+    codon2codon2ct, aa2aa2ct, codon2ct, and aa2ct files. The x2x2ct files
+    represent mutation matrices, and the x2ct files can be useful in
+    visualizing these.
+
+    Parameters
+    ----------
+    count_dir: str
+        Directory containing 3-mer count information from run_count().
+
+    p: int >= 1 or None
+        If specified, is a value of p used for calling p-mutations.
+
+    min_alt_pos: int
+        During p-mutation calling, the second-most-common aligned nucleotide's
+        frequency must be at least this to call a p-mutation at a position. Not
+        used when calling r-mutations.
+
+    r: int >= 1 or None
+        If specified, is a value of r used for calling r-mutations.
+
+    output_format: str
+        Should be one of {"tsv", "json"}.
+
+    output_dir: str
+        Directory to which we'll write out matrix information for each contig.
+
+    verbose: bool
+        Log extra info.
+
+    fancylog: function
+        Logging function.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    TBD
+    """
+    verboselog = cli_utils.get_verboselog(fancylog, verbose)
+    fancylog("Going through aligned 3-mer counts and creating matrices...")

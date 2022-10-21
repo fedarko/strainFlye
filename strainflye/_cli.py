@@ -931,11 +931,11 @@ def hot_features(
         extra_info=(
             (
                 "Minimum number of mutations needed to call a feature a "
-                f"hotspot: {min_num_mutations:,}"
+                f"hotspot: {min_num_mutations}"
             ),
             (
                 "Minimum % of mutations needed to call a feature a hotspot: "
-                f"{min_perc_mutations:.2f}%"
+                f"{min_perc_mutations}"
             ),
         ),
     )
@@ -1273,8 +1273,8 @@ def create(
     required=True,
     type=click.Path(dir_okay=True, file_okay=False),
     help=(
-        "Directory to which output LJA assemblies (one top-level directory "
-        " per *.fasta.gz file in the input --reads-dir) will be written."
+        "Directory to which output LJA assemblies (one subdirectory per "
+        "*.fasta.gz file in the input --reads-dir) will be written."
     ),
 )
 @click.option(
@@ -1449,7 +1449,7 @@ def nt(contigs, bam, bcf, output_dir, verbose):
     default="dot",
     show_default=True,
     help=(
-        'Format in which to write out each contig\'s link graph. "dot" will '
+        'Output format used for each contig\'s link graph. "dot" will '
         'write out graphs in Graphviz\' DOT language; "nx" will write out '
         'graphs to "pickle" files, in which each link graph is a NetworkX '
         "object."
@@ -1649,18 +1649,118 @@ def count(contigs, bam, genes, output_dir, verbose):
 
 
 @matrix.command(**cmd_params)
-def fill():
-    """Call codon mutations from 3-mer counts and fill in matrices."""
-    # Inputs: Directory from "count".
-    #
-    # Params: p (optional), r (optional), min-alt-pos (only if p given)
-    #
-    # Outputs: Four things -- codon2codon2freq, codon2freq, aa2aa2freq, aa2freq
-    # It should be fairly simple to support multiple output formats. Definitely
-    # TSV, and probably also JSON / pickle. Again, produce a directory of these
-    # files. I'm not sure if we could easily bundle all four of these into one
-    # output file per contig, and I'm not sure that'd be worth it honestly. (We
-    # could also create an output subdirectory for each contig but ehhhhh)
+@click.option(
+    "-c",
+    "--count-dir",
+    required=True,
+    type=click.Path(exists=True, dir_okay=True, file_okay=False),
+    help=(
+        'Directory produced by "strainFlye matrix count" containing "pickle" '
+        "files describing the counts of 3-mers aligned to contigs' codons."
+    ),
+)
+@click.option(
+    "-p",
+    required=False,
+    default=None,
+    show_default="nothing",
+    type=click.IntRange(min=0, max=5000, min_open=True),
+    help=(
+        "If specified, we'll call codon p-mutations at this p threshold. "
+        "This is scaled up by 100 (i.e. the default of 50 corresponds to 50 "
+        "/ 100 = 0.5%) in order to bypass floating-point precision issues. "
+        "Mutually exclusive with -r."
+    ),
+)
+@click.option(
+    "--min-alt-pos",
+    default=2,
+    required=False,
+    show_default=True,
+    type=click.IntRange(min=1),
+    help=(
+        "Only used if -p is specified. In order for us to call a p-mutation "
+        "at a position, this position's alternate nucleotide must be "
+        "supported by at least this many reads."
+    ),
+)
+@click.option(
+    "-r",
+    required=False,
+    default=None,
+    show_default="nothing",
+    type=click.IntRange(min=1),
+    help=(
+        "If specified, we'll call codon r-mutations at this r threshold. "
+        "Mutually exclusive with -p."
+    ),
+)
+@click.option(
+    "-f",
+    "--output-format",
+    required=False,
+    type=click.Choice(["tsv", "json"], case_sensitive=False),
+    default="tsv",
+    show_default=True,
+    help="Output format for matrix information.",
+)
+@click.option(
+    "-o",
+    "--output-dir",
+    required=True,
+    type=click.Path(dir_okay=True, file_okay=False),
+    help=(
+        "Directory to which matrix information will be written. Within this "
+        "directory, we'll create one subdirectory for each contig represented "
+        "in --count-dir. Each subdirectory will contain codon mutation "
+        "counts, the derived amino acid mutation counts, and counts of codons "
+        "and amino acids in the contig."
+    ),
+)
+@click.option(
+    "--verbose/--no-verbose",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help=desc.VERBOSE_BASIC,
+)
+def fill(count_dir, p, min_alt_pos, r, output_format, output_dir, verbose):
+    """Call codon mutations from 3-mer counts and fill in matrices.
+
+    You can call either p-mutations (based on codon frequencies) or r-mutations
+    (based just on codon counts) using -p or -r. These methods work analogously
+    to how they are described in "strainFlye call", with the addition that we
+    do not call codon mutations for "unreasonable" codons where the most common
+    aligned 3-mer (or, in the case of a tie, any of the most common aligned
+    3-mers) at this codon is not exactly the same as the "reference" codon's
+    3-mer.
+    """
+    fancylog = cli_utils.fancystart(
+        "matrix fill",
+        (("3-mer count directory", count_dir),),
+        (("directory", output_dir),),
+        extra_info=(
+            f"p: {p}",
+            (
+                "Minimum number of supporting reads needed to call a "
+                f"p-mutation: {min_alt_pos:,}"
+            ),
+            f"r: {r}",
+            f"Output matrix information file format: {output_format}",
+            f"Verbose?: {cli_utils.b2y(verbose)}",
+        ),
+    )
+    matrix_utils.run_fill(
+        count_dir,
+        p,
+        min_alt_pos,
+        r,
+        output_format,
+        output_dir,
+        verbose,
+        fancylog,
+    )
+    fancylog("Done.")
 
 
 @click.group(name="dynam", **grp_params, **cmd_params)

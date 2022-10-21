@@ -253,7 +253,8 @@ def run(
 
     min_alt_pos: int >= 1 or None
         During p-mutation calling, the second-most-common aligned nucleotide's
-        frequency must be at least this. Not used when calling r-mutations.
+        frequency must be at least this to call a p-mutation at a position. Not
+        used when calling r-mutations.
 
     div_index_p_list: list of int, or None
         List of values of p for which we'll compute the diversity index.
