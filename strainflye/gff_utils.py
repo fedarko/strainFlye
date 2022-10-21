@@ -224,7 +224,7 @@ def validate_if_cds(feature, contig, verboselog):
         verboselog(
             (
                 f"{prefix} has a type that is not in {config.CDS_TYPES}; "
-                "ignoring it."
+                "ignoring this feature."
             ),
             prefix="",
         )

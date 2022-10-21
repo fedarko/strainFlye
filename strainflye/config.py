@@ -60,7 +60,8 @@ POSPAIR_FILE_LBL = "pospair2ntpair2ct"
 # https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md
 #
 # This may be too conservative, but we'll try to be loud about ignoring these
-# features so it should be ok.
+# features so it should be ok. These should all be in uppercase! We'll convert
+# the types we see to uppercase also to make comparison case-insensitive.
 CDS_TYPES_LIST = ["CDS", "SO:0000316"]
 # Fancy version we can use for logging messages
 CDS_TYPES = list2str(CDS_TYPES_LIST)

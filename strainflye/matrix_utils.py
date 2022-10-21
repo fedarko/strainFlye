@@ -420,7 +420,9 @@ def run_count(contigs, bam, genes, output_dir, verbose, fancylog):
 
     misc_utils.make_output_dir(output_dir)
 
-    fancylog("Counting aligned 3-mers to coding sequences in contigs...")
+    fancylog(
+        "Counting aligned 3-mers to codons in coding sequences in contigs..."
+    )
 
     # See spot_utils.run_hotspot_feature_detection() -- same idea here.
     contig_and_im_tuples = skbio.io.read(genes, format="gff3")

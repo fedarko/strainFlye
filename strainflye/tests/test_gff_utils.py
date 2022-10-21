@@ -93,7 +93,7 @@ def test_validate_if_cds_noncds(capsys):
         assert strand is None
         assert capsys.readouterr().out == (
             "MockLog: Feature hi on contig c1 has a type that is not in "
-            f"{config.CDS_TYPES}; ignoring it.\n"
+            f"{config.CDS_TYPES}; ignoring this feature.\n"
         )
         break
     if no_loops:
