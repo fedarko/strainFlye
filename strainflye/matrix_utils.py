@@ -53,7 +53,8 @@ class CodonCounter(object):
     def __str__(self):
         num_cds = len(self.cds2left2counter)
         clen = len(self.contig_seq)
-        return f"CodonCounter({self.contig}, {clen:,} bp, {num_cds:,} CDSs)"
+        noun = "CDSs" if num_cds != 1 else "CDS"
+        return f"CodonCounter({self.contig}, {clen:,} bp, {num_cds:,} {noun})"
 
     def add_cds(self, cds_id, cds_left, cds_right, strand):
         # (cds_left and cds_right should be 1-indexed coordinates of this CDS)
@@ -66,6 +67,9 @@ class CodonCounter(object):
             )
         if strand != "+" and strand != "-":
             raise WeirdError(f"{cds_id} has strand = {strand}?")
+
+        if cds_id in self.cds2left2counter:
+            raise WeirdError(f"CDS {cds_id} already has been added.")
 
         self.cds2left2counter[cds_id] = {}
         for cp_left in range(cds_left, cds_right + 1, 3):
