@@ -2,7 +2,6 @@
 
 
 import os
-import pickle
 import networkx as nx
 from itertools import combinations
 from collections import defaultdict
@@ -793,8 +792,7 @@ def run_graph(
     for fp in sorted(os.listdir(nt_dir)):
         if fp.lower().endswith(pnf_suffix):
             pnf_abs_fp = os.path.join(nt_dir, fp)
-            with open(pnf_abs_fp, "rb") as loadster:
-                pos2nt2ct = pickle.load(loadster)
+            pos2nt2ct = misc_utils.load_from_pickle(pnf_abs_fp)
 
             contig = fp[: -len(pnf_suffix)]
             corresponding_pair_abs_fp = os.path.join(
@@ -805,8 +803,9 @@ def run_graph(
                     f"Found file {pnf_abs_fp}, but not file "
                     f"{corresponding_pair_abs_fp}."
                 )
-            with open(corresponding_pair_abs_fp, "rb") as loadster:
-                pospair2ntpair2ct = pickle.load(loadster)
+            pospair2ntpair2ct = misc_utils.load_from_pickle(
+                corresponding_pair_abs_fp
+            )
 
             g = make_linkgraph(
                 pos2nt2ct,

@@ -65,7 +65,9 @@ CDS_TYPES_LIST = ["CDS", "SO:0000316"]
 # Fancy version we can use for logging messages
 CDS_TYPES = list2str(CDS_TYPES_LIST)
 
-# Pre-computed information about codons and reverse complements. I figure it
+CT_FILE_LBL = "3mers"
+
+# Pre-computed information about codons and amino acids. I figure it
 # makes more sense to store this here than it does to re-compute this every
 # time the user needs to run "matrix count" or whatever lol
 CODONS = [
@@ -134,6 +136,7 @@ CODONS = [
     "TTG",
     "TTT",
 ]
+# codon --> reverse complement codon
 CODON2RC = {
     "AAA": "TTT",
     "AAC": "GTT",
@@ -200,3 +203,27 @@ CODON2RC = {
     "TTG": "CAA",
     "TTT": "AAA",
 }
+# all (standard genetic code, proteinogenic) amino acids
+AAS = [
+    "*",
+    "A",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "K",
+    "L",
+    "M",
+    "N",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "V",
+    "W",
+    "Y",
+]

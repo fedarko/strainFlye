@@ -42,6 +42,13 @@ def write_obj_to_pickle(obj, output_dir, contig_name, obj_name):
         pickle.dump(obj, dumpster)
 
 
+def load_from_pickle(fp):
+    """Loads an object from a pickle file."""
+    # nothing special here, just abstracted code i wanted to reuse quickly
+    with open(fp, "rb") as loadster:
+        return pickle.load(loadster)
+
+
 def check_executable(fp):
     """Checks that a file is executable. If not, raises a ParameterError.
 

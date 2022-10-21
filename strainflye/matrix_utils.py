@@ -390,7 +390,7 @@ def run_count(contigs, bam, genes, output_dir, verbose, fancylog):
         # Now that we've finished counting, write out the 3-mer count
         # information to a file.
         misc_utils.write_obj_to_pickle(
-            fid2codon2alignedcodons, output_dir, contig, "3mers"
+            fid2codon2alignedcodons, output_dir, contig, config.CT_FILE_LBL
         )
         verboselog(
             f"Wrote out 3-mer count info for contig {contig}.",
@@ -398,6 +398,29 @@ def run_count(contigs, bam, genes, output_dir, verbose, fancylog):
         )
 
     fancylog("Done.", prefix="")
+
+
+def init_matrix_structs():
+    # 64x63 dict: each key is a codon string, and each value is
+    # another dict with all the other codons
+    codon2codon2ct = {c: defaultdict(int) for c in config.CODONS}
+
+    # 21x20 dict: each key is a proteinogenic amino acid (A, C, D,
+    # E, F, ...), limited to just stuff in the standard genetic code
+    # (i.e. ignoring selenocystine and pyrrolsine) but including "*",
+    # representing a stop codon.
+    aa2aa2ct = {a: defaultdict(int) for a in config.AAS}
+
+    # 64-key dict: maps each codon to an integer indicating how
+    # frequently this codon occurs in all CDSs in the "reference"
+    # contig (i.e. not counting mutations into this codon).
+    codon2ct = defaultdict(int)
+
+    # 21-key dict: maps amino acid/stop codon to integer indicating
+    # frequency across all CDSs in this contig.
+    aa2ct = defaultdict(int)
+
+    return codon2codon2ct, aa2aa2ct, codon2ct, aa2ct
 
 
 def run_fill(
@@ -447,4 +470,11 @@ def run_fill(
     TBD
     """
     verboselog = cli_utils.get_verboselog(fancylog, verbose)
+
+    ctf_suffix = f"_{config.CT_FILE_LBL}.pickle"
+
     fancylog("Going through aligned 3-mer counts and creating matrices...")
+    for fp in sorted(os.listdir(ct_dir)):
+        if fp.lower().endswith(ctf_suffix):
+            cts = misc_utils.load_from_pickle(os.path.join(ct_dir, fp))
+            c2c2ct, c2ct, a2a2ct, a2ct = init_matrix_structs()
