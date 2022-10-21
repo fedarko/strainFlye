@@ -5,10 +5,84 @@ import os
 import skbio
 import pandas as pd
 from collections import defaultdict
-from strainflye import cli_utils, misc_utils, bam_utils, gff_utils, config
+from strainflye import (
+    cli_utils,
+    misc_utils,
+    bam_utils,
+    gff_utils,
+    fasta_utils,
+    config,
+)
+from strainflye.errors import WeirdError
 
 
-def get_contig_cds_info(im, contig, contig_name2len, fancylog, verboselog):
+class CodonCounter(object):
+    """Represents counts of 3-mers aligned to codons in a contig.
+
+    It's worth noting that this is a fairly "naive" implementation of this. We
+    store codons as strings, for example. It should be possible to convert
+    codons to 0-based indices into config.CODONS, and thus compress this, but
+    I am erring on the side of simplicity for now.
+    """
+
+    def __init__(self, contig, contig_seq):
+        """Initializes the object.
+
+        Parameters
+        ----------
+        contig: str
+            Name of the contig.
+
+        contig_seq: skbio.DNA
+            Sequence of the contig. Including this information here is one of
+            the main reasons for having this be its own class -- this is a lot
+            more convenient than making the user pass the contigs FASTA file to
+            "strainFlye matrix fill" again, double-checking that things are
+            consistent, etc. (We could try to save space by only storing the
+            sequence for codons in CDSs, but that's an optimization for another
+            day. Also, for densely packed overlapping genes on a contig, that
+            might actually increase storage space without using some tricks.)
+        """
+        self.contig = contig
+        self.contig_seq = contig_seq
+        # The main object we use to store counts
+        self.cds2left2counter = {}
+        self.cds2strand = {}
+
+    def __str__(self):
+        num_cds = len(self.cds2left2counter)
+        clen = len(self.contig_seq)
+        return f"CodonCounter({self.contig}, {clen:,} bp, {num_cds:,} CDSs)"
+
+    def add_cds(self, cds_id, cds_left, cds_right, strand):
+        # this is overkill because we should've already validated this feature
+        # using gff_utils, but better safe than sorry
+        if (cds_right - cds_left + 1) % 3 != 0:
+            raise WeirdError(
+                f"{cds_id} has left = {cds_left:,}, right = {cds_right:,}: "
+                "not divisible by 3?"
+            )
+        if strand != "+" and strand != "-":
+            raise WeirdError(f"{cds_id} has strand = {strand}?")
+
+        self.cds2left2counter[cds_id] = {}
+        for cp_left in range(cds_left, cds_right + 1, 3):
+            self.cds2left2counter[cds_id][cp_left] = defaultdict(int)
+
+        self.cds2strand[cds_id] = strand
+
+    def add_count(self, cds_id, cp_left, raw_aligned_codon):
+        # We'll have to reverse-complement the codons aligned to - strand genes
+        # eventually, so we might as well do it here.
+        if self.cds2strand[cds_id] == "-":
+            true_aligned_codon = config.CODON2RC[raw_aligned_codon]
+        else:
+            true_aligned_codon = raw_aligned_codon
+
+        self.cds2left2counter[cds_id][cp_left][true_aligned_codon] += 1
+
+
+def get_contig_cds_info(im, contig, contig_seq, fancylog, verboselog):
     """Returns information about the CDS feature(s) in a contig.
 
     Parameters
@@ -20,10 +94,8 @@ def get_contig_cds_info(im, contig, contig_name2len, fancylog, verboselog):
         Name of the contig that these feature(s) belong to, according to
         the GFF3 file from which this information was parsed.
 
-    contig_name2len: dict
-        Maps contig names to lengths; this should have been obtained from
-        parsing a FASTA file. There is no guarantee that "contig",
-        specifically, is present within this dict as a key.
+    contig_seq: skbio.DNA
+        Sequence of this contig.
 
     fancylog: function
         Logging function. We'll use this to log particularly unusual things
@@ -34,10 +106,9 @@ def get_contig_cds_info(im, contig, contig_name2len, fancylog, verboselog):
 
     Returns
     -------
-    (cds_df, fid2codon2alignedcodons): (pd.DataFrame, dict)
+    (cds_df, cc): (pd.DataFrame, CodonCounter)
 
-        If no CDS features belong to "contig" -- and/or if "contig" is not in
-        contig_name2len -- then both cds_df and fid2codon2alignedcodons will be
+        If no CDS features belong to "contig", then both cds_df and cc will be
         None. Otherwise:
 
         cds_df describes all of the CDS features in "im". Having this
@@ -51,12 +122,9 @@ def get_contig_cds_info(im, contig, contig_name2len, fancylog, verboselog):
         feature. Each row has an index (the feature ID) and LeftEnd, RightEnd,
         and Strand values.
 
-        fid2codon2alignedcodons maps CDS IDs (the indices in cds_df) --> the
-        leftmost position of all codons in this CDS --> an empty
-        defaultdict(int). This innermost defaultdict(int) can be used to count
-        how many times a given 3-mer is aligned to this codon. Note that we say
-        "leftmost" position regardless of strand -- we'll figure out
-        reverse-complementing stuff later.
+        cc is an object that can be used to count aligned 3-mers to the codons
+        in the CDSs in a contig. (Although at this point it is "empty," because
+        we have not considered the alignment yet.)
 
     Raises
     ------
@@ -69,18 +137,11 @@ def get_contig_cds_info(im, contig, contig_name2len, fancylog, verboselog):
     feature_noun = "feature" if num_features == 1 else "features"
     fs = f"{num_features:,} {feature_noun}"
 
-    # Ignore "extra" contigs in the GFF3 but not the FASTA
-    if contig not in contig_name2len:
-        verboselog(
-            (
-                f"Found {fs} belonging to sequence {contig} in the GFF3 "
-                f"file. Ignoring this sequence and its {feature_noun}, "
-                f"since {contig} isn't in the FASTA file."
-            ),
-            prefix="",
-        )
-        return None, None
-
+    # I assume that, if a contig is described in the GFF3 file (to the point
+    # where scikit-bio's parser returns a pair of (contig, IntervalMetadata),
+    # then there is at least one feature for this contig in the GFF3 file. (If
+    # a contig has zero features total but it still shows up here for some
+    # bizarre reason, then the zero-CDS-features case should still be hit.)
     verboselog(
         f"Found {fs} belonging to contig {contig}; inspecting...",
         prefix="",
@@ -98,7 +159,7 @@ def get_contig_cds_info(im, contig, contig_name2len, fancylog, verboselog):
     feature_right_ends = []
     feature_strands = []
 
-    fid2codon2alignedcodons = {}
+    cc = CodonCounter(contig, contig_seq)
 
     # This "hack" to go through all features in "im" is taken from
     # spot_utils.run_hotspot_feature_detection() -- see that function for
@@ -107,7 +168,7 @@ def get_contig_cds_info(im, contig, contig_name2len, fancylog, verboselog):
         fid, feature_range = gff_utils.validate_basic(
             feature,
             contig,
-            contig_name2len[contig],
+            len(contig_seq),
             seen_feature_ids,
             fancylog,
             zero_indexed_range=False,
@@ -118,12 +179,12 @@ def get_contig_cds_info(im, contig, contig_name2len, fancylog, verboselog):
         is_cds, strand = gff_utils.validate_if_cds(feature, contig, verboselog)
         if is_cds:
             feature_ids.append(fid)
-            feature_left_ends.append(feature_range[0])
-            feature_right_ends.append(feature_range[-1])
+            left = feature_range[0]
+            right = feature_range[-1]
+            feature_left_ends.append(left)
+            feature_right_ends.append(right)
             feature_strands.append(strand)
-            fid2codon2alignedcodons[fid] = {}
-            for cp_left in range(feature_range[0], feature_range[-1] + 1, 3):
-                fid2codon2alignedcodons[fid][cp_left] = defaultdict(int)
+            cc.add_cds(fid, left, right, strand)
 
     num_cds = len(feature_ids)
     feature_noun = "feature" if num_cds == 1 else "features"
@@ -149,14 +210,14 @@ def get_contig_cds_info(im, contig, contig_name2len, fancylog, verboselog):
         },
         index=feature_ids,
     )
-    return cds_df, fid2codon2alignedcodons
+    return cds_df, cc
 
 
-def count_aligned_3mers(bam_obj, contig, cds_df, fid2codon2alignedcodons):
+def count_aligned_3mers(bam_obj, contig, cds_df, cc):
     """Counts 3-mers aligned to codons in CDS features in a contig.
 
-    This function doesn't return anything, but it will fill in
-    fid2codon2alignedcodons with this information.
+    This function doesn't return anything, but it will fill in cc with this
+    information.
 
     Parameters
     ----------
@@ -171,11 +232,10 @@ def count_aligned_3mers(bam_obj, contig, cds_df, fid2codon2alignedcodons):
         Contains information about coordinates and strands of coding sequences
         within this contig. Can be produced by get_contig_cds_info().
 
-    fid2codon2alignedcodons: dict
-        The other output from get_contig_cds_info(). This maps CDS IDs (the
-        indices in cds_df) --> the leftmost position of all codons in this CDS
-        --> an empty defaultdict(int). These empty defaultdicts will be updated
-        when this function is run.
+    cc: CodonCounter
+        The other output from get_contig_cds_info(). This stores count
+        information of 3-mers aligned to the codons of the CDSs of this contig.
+        We'll update this object.
 
     Returns
     -------
@@ -305,22 +365,16 @@ def count_aligned_3mers(bam_obj, contig, cds_df, fid2codon2alignedcodons):
                         # alignment here. (It'll probably be a complete match
                         # most of the time, but there will be some occasional
                         # mismatches -- and seeing those is ... the whole point
-                        # of this notebook.)
+                        # of this analysis.)
 
                         # We make sure to index the read by read coords, not
                         # reference coords!
                         aligned_codon = read_seq[p10 : p10 + 3]
-
-                        # Finally, update information about codon counts.
-                        gi = gene_data.Index
-                        if gene_data.Strand == "-":
-                            true_aligned_codon = config.CODON2RC[aligned_codon]
-                        else:
-                            true_aligned_codon = aligned_codon
-
-                        fid2codon2alignedcodons[gi][pair1_refpos][
-                            true_aligned_codon
-                        ] += 1
+                        # Finally, count this aligned codon! (or 3-mer,
+                        # depending on your terminology preferences)
+                        cc.add_count(
+                            gene_data.Index, pair1_refpos, aligned_codon
+                        )
 
 
 def run_count(contigs, bam, genes, output_dir, verbose, fancylog):
@@ -372,8 +426,23 @@ def run_count(contigs, bam, genes, output_dir, verbose, fancylog):
     contig_and_im_tuples = skbio.io.read(genes, format="gff3")
     for contig, im in contig_and_im_tuples:
 
-        cds_df, fid2codon2alignedcodons = get_contig_cds_info(
-            im, contig, contig_name2len, fancylog, verboselog
+        # Ignore "extra" contigs in the GFF3 but not the FASTA
+        if contig not in contig_name2len:
+            verboselog(
+                (
+                    f"Contig {contig} is in the GFF3 file but not the FASTA "
+                    "file; ignoring it."
+                ),
+                prefix="",
+            )
+            continue
+
+        # NOTE: Using get_single_seq() like this is inefficient, but it gets
+        # the job done; see notes in smooth_utils.write_smoothed_reads().
+        contig_seq = fasta_utils.get_single_seq(contigs, contig)
+
+        cds_df, cc = get_contig_cds_info(
+            im, contig, contig_seq, fancylog, verboselog
         )
 
         # This DataFrame will be None if we couldn't get any CDS information
@@ -386,12 +455,12 @@ def run_count(contigs, bam, genes, output_dir, verbose, fancylog):
 
         # ... So if we've made it here, then we know that this contig has at
         # least one CDS feature, and we can count 3-mers in these feature(s).
-        count_aligned_3mers(bam_obj, contig, cds_df, fid2codon2alignedcodons)
+        count_aligned_3mers(bam_obj, contig, cds_df, cc)
 
         # Now that we've finished counting, write out the 3-mer count
         # information to a file.
         misc_utils.write_obj_to_pickle(
-            fid2codon2alignedcodons, output_dir, contig, config.CT_FILE_LBL
+            cc, output_dir, contig, config.CT_FILE_LBL
         )
         verboselog(
             f"Wrote out 3-mer count info for contig {contig}.",
@@ -470,12 +539,16 @@ def run_fill(
     ------
     TBD
     """
-    # verboselog = cli_utils.get_verboselog(fancylog, verbose)
+    verboselog = cli_utils.get_verboselog(fancylog, verbose)
 
     ctf_suffix = f"_{config.CT_FILE_LBL}.pickle"
 
     fancylog("Going through aligned 3-mer counts and creating matrices...")
     for fp in sorted(os.listdir(ct_dir)):
         if fp.lower().endswith(ctf_suffix):
-            # cts = misc_utils.load_from_pickle(os.path.join(ct_dir, fp))
+
+            # Load the CodonCounter object for this contig
+            cc = misc_utils.load_from_pickle(os.path.join(ct_dir, fp))
+            verboselog(cc)
+
             c2c2ct, c2ct, a2a2ct, a2ct = init_matrix_structs()
