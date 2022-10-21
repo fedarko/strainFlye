@@ -198,6 +198,21 @@ def get_min_sufficient_coverages_r(r_vals, min_cov_factor):
     return [min_cov_factor * r for r in r_vals]
 
 
+def check_p_r(p, r):
+    # Sanity-check whether we're using p or r. Since (currently) p-mutation and
+    # r-mutation calling are separate commands, we should never see these
+    # errors in practice, but you never know.
+    using_p = p is not None
+    using_r = r is not None
+    if using_p and using_r:
+        raise ParameterError(
+            "p and r can't be specified at the same time. Please choose one."
+        )
+    if not using_p and not using_r:
+        raise ParameterError("Either p or r needs to be specified.")
+    return using_p
+
+
 def run(
     contigs,
     bam,
@@ -284,18 +299,7 @@ def run(
         should've taken care of that for the div index lists). However, we do
         check here that only one of (min_p, min_r) is specified.
     """
-    # Sanity-check whether we're using p or r. Since (currently) p-mutation and
-    # r-mutation calling are separate commands, we should never see these
-    # errors in practice, but you never know.
-    using_p = min_p is not None
-    using_r = min_r is not None
-
-    if using_p and using_r:
-        raise ParameterError(
-            "p and r can't be specified at the same time. Please choose one."
-        )
-    if not using_p and not using_r:
-        raise ParameterError("Either p or r needs to be specified.")
+    using_p = check_p_r(min_p, min_r)
 
     # load_fasta_and_bam() will throw an error if there are < 2 contigs in the
     # FASTA. The naive calling stuff requires the use of a decoy contig, so

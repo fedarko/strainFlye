@@ -1,6 +1,7 @@
 # Miscellaneous utilities.
 
 import os
+import json
 import pickle
 import pysam
 import pandas as pd
@@ -40,6 +41,12 @@ def write_obj_to_pickle(obj, output_dir, contig_name, obj_name):
     fp = os.path.join(output_dir, f"{contig_name}_{obj_name}.pickle")
     with open(fp, "wb") as dumpster:
         pickle.dump(obj, dumpster)
+
+
+def write_obj_to_json(obj, output_dir, contig_name, obj_name):
+    fp = os.path.join(output_dir, f"{contig_name}_{obj_name}.pickle")
+    with open(fp, "w") as dumpster:
+        dumpster.write(json.dumps(obj))
 
 
 def load_from_pickle(fp):

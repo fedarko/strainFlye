@@ -205,8 +205,9 @@ CODON2RC = {
     "TTT": "AAA",
 }
 # all (standard genetic code, proteinogenic) amino acids
+# this is almost sorted, but i'm putting * at the end rather than the beginning
+# to match the paper (and also b/c i think this looks nicer)
 AAS = [
-    "*",
     "A",
     "C",
     "D",
@@ -227,4 +228,5 @@ AAS = [
     "V",
     "W",
     "Y",
+    "*",
 ]

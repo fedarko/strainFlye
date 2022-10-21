@@ -6,11 +6,12 @@ import skbio
 import pandas as pd
 from collections import defaultdict
 from strainflye import (
-    cli_utils,
-    misc_utils,
     bam_utils,
-    gff_utils,
+    call_utils,
+    cli_utils,
     fasta_utils,
+    gff_utils,
+    misc_utils,
     config,
 )
 from strainflye.errors import WeirdError
@@ -55,6 +56,7 @@ class CodonCounter(object):
         return f"CodonCounter({self.contig}, {clen:,} bp, {num_cds:,} CDSs)"
 
     def add_cds(self, cds_id, cds_left, cds_right, strand):
+        # (cds_left and cds_right should be 1-indexed coordinates of this CDS)
         # this is overkill because we should've already validated this feature
         # using gff_utils, but better safe than sorry
         if (cds_right - cds_left + 1) % 3 != 0:
@@ -72,6 +74,7 @@ class CodonCounter(object):
         self.cds2strand[cds_id] = strand
 
     def add_count(self, cds_id, cp_left, raw_aligned_codon):
+        # (raw_aligned_codon should be a str)
         # We'll have to reverse-complement the codons aligned to - strand genes
         # eventually, so we might as well do it here.
         if self.cds2strand[cds_id] == "-":
@@ -80,6 +83,14 @@ class CodonCounter(object):
             true_aligned_codon = raw_aligned_codon
 
         self.cds2left2counter[cds_id][cp_left][true_aligned_codon] += 1
+
+    def get_ref_codon_and_aa(self, cds_id, cp_left):
+        # self.contig_seq is 0-indexed and cpleft is 1-indexed, so we've
+        # gotta convert here
+        ref_codon = self.contig_seq[cp_left - 1 : cp_left + 2]
+        if self.cds2strand[cds_id] == "-":
+            ref_codon = ref_codon.reverse_complement()
+        return str(ref_codon), str(ref_codon.translate())
 
 
 def get_contig_cds_info(im, contig, contig_seq, fancylog, verboselog):
@@ -492,7 +503,115 @@ def init_matrix_structs():
     # frequency across all CDSs in this contig.
     aa2ct = defaultdict(int)
 
-    return codon2codon2ct, aa2aa2ct, codon2ct, aa2ct
+    return codon2codon2ct, codon2ct, aa2aa2ct, aa2ct
+
+
+def ct2matrix(cc, p, min_alt_pos, r):
+    c2c2ct, c2ct, a2a2ct, a2ct = init_matrix_structs()
+    for cds in cc.cds2left2counter:
+        for cpleft in cc.cds2left2counter[cds]:
+            ref_codon, ref_aa = cc.get_ref_codon_and_aa(cds, cpleft)
+
+            # Update occurrence counts
+            c2ct[ref_codon] += 1
+            a2ct[ref_aa] += 1
+
+            # Finally, we can call codon mutations
+            aligned_codons = cc.cds2left2counter[cds][cpleft]
+            if len(aligned_codons) > 0:
+                max_ac_ct = max(aligned_codons.values())
+                # Ignore "unreasonable" codons where the ref codon isn't at
+                # least tied for the most common aligned codon
+                if (
+                    ref_codon in aligned_codons
+                    and aligned_codons[ref_codon] == max_ac_ct
+                ):
+
+                    # Figure out the most common alternate codon, breaking ties
+                    # arbitrarily. The max(d, key=d.get) trick is from
+                    # https://stackoverflow.com/a/280156
+                    alt_codons = {
+                        c: aligned_codons[c]
+                        for c in aligned_codons
+                        if c != ref_codon
+                    }
+                    if len(alt_codons) > 0:
+                        max_ct_alt_codon = max(alt_codons, key=alt_codons.get)
+                        alt_freq = alt_codons[max_ct_alt_codon]
+                    else:
+                        # the only codon aligned to here is the ref codon -- no
+                        # possible mutation here.
+                        alt_freq = 0
+
+                    cov = sum(aligned_codons.values())
+
+                    if p is not None:
+                        is_mut = call_utils.call_p_mutation(
+                            alt_freq, cov, p, min_alt_pos
+                        )
+                    else:
+                        is_mut = call_utils.call_r_mutation(alt_freq, r)
+
+                    if is_mut:
+                        c2c2ct[ref_codon][max_ct_alt_codon] += 1
+                        # Note that we could in theory derive amino acid
+                        # mutations a different way, by doing separate mutation
+                        # calling (we translate all aligned codons and *then*
+                        # do calling on these AAs) -- this is described in
+                        # detail in
+                        # https://github.com/fedarko/sheepgut/blob/main/notebooks/Matrices-01-Compute.ipynb
+                        alt_codon_aa = str(
+                            skbio.DNA(max_ct_alt_codon).translate()
+                        )
+                        # we don't limit this to cases where alt_codon_aa !=
+                        # ref_aa, because (at least in the AA mutation matrix
+                        # shown in the paper, as of writing) we count these
+                        # sorts of synonymous mutations on the diagonal
+                        a2a2ct[ref_aa][alt_codon_aa] += 1
+    return c2c2ct, c2ct, a2a2ct, a2ct
+
+
+def get_objs(obj_type):
+    if obj_type == "codon":
+        return config.CODONS
+    elif obj_type == "aa":
+        return config.AAS
+    else:
+        raise WeirdError(f"Unrecognized obj_type: {obj_type}")
+
+
+def get_obj_type_hr(obj_type):
+    if obj_type == "codon":
+        return "Codon"
+    elif obj_type == "aa":
+        return "AminoAcid"
+    else:
+        raise WeirdError(f"Unrecognized obj_type: {obj_type}")
+
+
+def write_matrix_to_tsv(obj2obj2ct, output_dir, contig_name, obj_type):
+    objs = get_objs(obj_type)
+    fp = os.path.join(output_dir, f"{contig_name}_{obj_type}_matrix.tsv")
+    with open(fp, "w") as f:
+        f.write(("\t".join(objs)) + "\n")
+        for o1 in objs:
+            row = o1
+            for o2 in objs:
+                if o1 == o2 and obj_type == "codon":
+                    row += "\tNA"
+                else:
+                    row += f"\t{obj2obj2ct[o1][o2]}"
+            f.write(row + "\n")
+
+
+def write_refcounts_to_tsv(obj2ct, output_dir, contig_name, obj_type):
+    objs = get_objs(obj_type)
+    fp = os.path.join(output_dir, f"{contig_name}_{obj_type}_refcounts.tsv")
+    with open(fp, "w") as f:
+        hr = get_obj_type_hr(obj_type)
+        f.write(f"{hr}\tCount\n")
+        for o1 in objs:
+            f.write(f"{o1}\t{obj2ct[o1]}\n")
 
 
 def run_fill(
@@ -541,8 +660,9 @@ def run_fill(
     ------
     TBD
     """
+    call_utils.check_p_r(p, r)
     verboselog = cli_utils.get_verboselog(fancylog, verbose)
-
+    havent_made_output_dir_yet = True
     ctf_suffix = f"_{config.CT_FILE_LBL}.pickle"
 
     fancylog("Going through aligned 3-mer counts and creating matrices...")
@@ -551,6 +671,55 @@ def run_fill(
 
             # Load the CodonCounter object for this contig
             cc = misc_utils.load_from_pickle(os.path.join(ct_dir, fp))
-            verboselog(cc)
+            contig = cc.contig
+            verboselog(f"Creating matrices for contig {contig}...", prefix="")
 
-            c2c2ct, c2ct, a2a2ct, a2ct = init_matrix_structs()
+            c2c2ct, c2ct, a2a2ct, a2ct = ct2matrix(cc, p, min_alt_pos, r)
+
+            if havent_made_output_dir_yet:
+                misc_utils.make_output_dir(output_dir)
+                havent_made_output_dir_yet = False
+
+            contig_dir = os.path.join(output_dir, contig)
+            # TODO fail if this already exists? or not.
+            misc_utils.make_output_dir(contig_dir)
+
+            if output_format == "tsv":
+                write_matrix_to_tsv(c2c2ct, contig_dir, contig, "codon")
+                write_matrix_to_tsv(a2a2ct, contig_dir, contig, "aa")
+                write_refcounts_to_tsv(c2ct, contig_dir, contig, "codon")
+                write_refcounts_to_tsv(a2ct, contig_dir, contig, "aa")
+            elif output_format == "json":
+                misc_utils.write_obj_to_json(
+                    c2c2ct, contig_dir, contig, "codon_matrix"
+                )
+                misc_utils.write_obj_to_json(
+                    a2a2ct, contig_dir, contig, "aa_matrix"
+                )
+                misc_utils.write_obj_to_json(
+                    c2ct, contig_dir, contig, "ref_codon_cts"
+                )
+                misc_utils.write_obj_to_json(
+                    a2ct, contig_dir, contig, "ref_aa_cts"
+                )
+            else:
+                raise WeirdError(
+                    f'Unrecognized output format: "{output_format}"'
+                )
+            verboselog(
+                f"Created an output directory for contig {contig}.", prefix=""
+            )
+        else:
+            fancylog(
+                (
+                    f"Warning: found an unexpectedly named file ({fp}) in "
+                    f"{ct_dir}. Ignoring it."
+                ),
+                prefix="",
+            )
+
+    if havent_made_output_dir_yet:
+        raise FileNotFoundError(
+            f"Didn't find any 3-mer count information in {ct_dir}."
+        )
+    fancylog("Done.", prefix="")
