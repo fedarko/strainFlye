@@ -1,6 +1,7 @@
 # Utilities for strainFlye matrix.
 
 
+import os
 import skbio
 import pandas as pd
 from collections import defaultdict
@@ -424,7 +425,7 @@ def init_matrix_structs():
 
 
 def run_fill(
-    count_dir, p, min_alt_pos, r, output_format, output_dir, verbose, fancylog
+    ct_dir, p, min_alt_pos, r, output_format, output_dir, verbose, fancylog
 ):
     """Calls codon mutations and creates mutation matrices.
 
@@ -469,12 +470,12 @@ def run_fill(
     ------
     TBD
     """
-    verboselog = cli_utils.get_verboselog(fancylog, verbose)
+    # verboselog = cli_utils.get_verboselog(fancylog, verbose)
 
     ctf_suffix = f"_{config.CT_FILE_LBL}.pickle"
 
     fancylog("Going through aligned 3-mer counts and creating matrices...")
     for fp in sorted(os.listdir(ct_dir)):
         if fp.lower().endswith(ctf_suffix):
-            cts = misc_utils.load_from_pickle(os.path.join(ct_dir, fp))
+            # cts = misc_utils.load_from_pickle(os.path.join(ct_dir, fp))
             c2c2ct, c2ct, a2a2ct, a2ct = init_matrix_structs()
