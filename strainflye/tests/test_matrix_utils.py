@@ -486,7 +486,8 @@ def test_matrix_integration(capsys, tmp_path):
     pd.testing.assert_frame_equal(
         c1cr,
         pd.DataFrame(
-            {"Count": exp_codon_counts}, index=pd.Index(config.CODONS, name="Codon")
+            {"Count": exp_codon_counts},
+            index=pd.Index(config.CODONS, name="Codon"),
         ),
     )
     c1ar = pd.read_csv(
@@ -504,7 +505,8 @@ def test_matrix_integration(capsys, tmp_path):
     pd.testing.assert_frame_equal(
         c1ar,
         pd.DataFrame(
-            {"Count": exp_aa_counts}, index=pd.Index(config.AAS, name="AminoAcid")
+            {"Count": exp_aa_counts},
+            index=pd.Index(config.AAS, name="AminoAcid"),
         ),
     )
 
@@ -512,8 +514,11 @@ def test_matrix_integration(capsys, tmp_path):
     c1cm = pd.read_csv(
         mdir / "c1" / "c1_codon_matrix.tsv", sep="\t", index_col=0
     )
-    exp_matrix = pd.DataFrame({c: [0] * len(config.CODONS) for c in
-        config.CODONS}, index=pd.Index(config.CODONS), columns=config.CODONS)
+    exp_matrix = pd.DataFrame(
+        {c: [0] * len(config.CODONS) for c in config.CODONS},
+        index=pd.Index(config.CODONS),
+        columns=config.CODONS,
+    )
     for codon in config.CODONS:
         exp_matrix[codon][codon] = np.nan
     # in order to modify a df, we need to access the column first -- so this is
@@ -523,13 +528,55 @@ def test_matrix_integration(capsys, tmp_path):
     # mutations -- CCA and AAC are not the most common 3-mers in the alignment
     # to their codon, interestingly (i forgor about this lol). So there should
     # be just one entry in the codon mutation matrix.
-    pd.testing.assert_frame_equal( c1cm, exp_matrix)
+    pd.testing.assert_frame_equal(c1cm, exp_matrix)
 
-    c1am = pd.read_csv(
-        mdir / "c1" / "c1_aa_matrix.tsv", sep="\t", index_col=0
+    c1am = pd.read_csv(mdir / "c1" / "c1_aa_matrix.tsv", sep="\t", index_col=0)
+    exp_matrix = pd.DataFrame(
+        {c: [0] * len(config.AAS) for c in config.AAS},
+        index=pd.Index(config.AAS),
+        columns=config.AAS,
     )
-    exp_matrix = pd.DataFrame({c: [0] * len(config.AAS) for c in
-        config.AAS}, index=pd.Index(config.AAS), columns=config.AAS)
     # again, this is backwards, and really represents * --> L
     exp_matrix["L"]["*"] = 1
-    pd.testing.assert_frame_equal( c1am, exp_matrix)
+    pd.testing.assert_frame_equal(c1am, exp_matrix)
+
+    # also check c2 stuff agoihsdoifaoidfj
+    # it doesn't have any mutations so this is simpler
+    c2cr = pd.read_csv(
+        mdir / "c2" / "c2_codon_refcounts.tsv", sep="\t", index_col=0
+    )
+    exp_c2cr = pd.DataFrame(
+        {"Count": [0] * len(config.CODONS)},
+        index=pd.Index(config.CODONS, name="Codon"),
+    )
+    exp_c2cr["Count"]["AGG"] = 1
+    pd.testing.assert_frame_equal(c2cr, exp_c2cr)
+
+    c2ar = pd.read_csv(
+        mdir / "c2" / "c2_aa_refcounts.tsv", sep="\t", index_col=0
+    )
+    exp_c2ar = pd.DataFrame(
+        {"Count": [0] * len(config.AAS)},
+        index=pd.Index(config.AAS, name="AminoAcid"),
+    )
+    exp_c2ar["Count"]["R"] = 1
+    pd.testing.assert_frame_equal(c2ar, exp_c2ar)
+    c2cm = pd.read_csv(
+        mdir / "c2" / "c2_codon_matrix.tsv", sep="\t", index_col=0
+    )
+    exp_matrix = pd.DataFrame(
+        {c: [0] * len(config.CODONS) for c in config.CODONS},
+        index=pd.Index(config.CODONS),
+        columns=config.CODONS,
+    )
+    for codon in config.CODONS:
+        exp_matrix[codon][codon] = np.nan
+    pd.testing.assert_frame_equal(c2cm, exp_matrix)
+
+    c2am = pd.read_csv(mdir / "c2" / "c2_aa_matrix.tsv", sep="\t", index_col=0)
+    exp_matrix = pd.DataFrame(
+        {c: [0] * len(config.AAS) for c in config.AAS},
+        index=pd.Index(config.AAS),
+        columns=config.AAS,
+    )
+    pd.testing.assert_frame_equal(c2am, exp_matrix)
