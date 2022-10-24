@@ -373,3 +373,20 @@ def test_codon_counter_get_ref_codon_and_aa_bad():
         str(ei.value)
         == "No CDS named cds3 has been added to this CodonCounter."
     )
+
+def test_get_objs():
+    assert mu.get_objs("codon") == config.CODONS
+    assert mu.get_objs("aa") == config.AAS
+    for bt in ("Codon", "CODON", "AA", "codons", "aas", "lol", "", 123, 0):
+        with pytest.raises(WeirdError) as ei:
+            mu.get_objs(bt)
+        assert str(ei.value) == f"Unrecognized obj_type: {bt}"
+
+
+def test_get_obj_type_hr():
+    assert mu.get_obj_type_hr("codon") == "Codon"
+    assert mu.get_obj_type_hr("aa") == "AminoAcid"
+    for bt in ("Codon", "CODON", "AA", "codons", "aas", "lol", "", 123, 0):
+        with pytest.raises(WeirdError) as ei:
+            mu.get_obj_type_hr(bt)
+        assert str(ei.value) == f"Unrecognized obj_type: {bt}"

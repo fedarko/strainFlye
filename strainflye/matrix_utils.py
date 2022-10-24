@@ -719,7 +719,12 @@ def raise_bad_obj_err(obj_type):
 
 
 def get_objs(obj_type):
-    """Returns a list of codons or amino acids, depending on obj_type."""
+    """Returns a list of codons or amino acids, depending on obj_type.
+
+    obj_type should be either "codon" or "aa". It should only be set
+    internally -- i.e. this isn't us parsing a user trying to write out "codon"
+    or something -- so we don't bother making this check case-insensitive, etc.
+    """
     if obj_type == "codon":
         return config.CODONS
     elif obj_type == "aa":
