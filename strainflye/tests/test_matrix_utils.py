@@ -2,6 +2,7 @@ import os
 import pickle
 import skbio
 import pytest
+import numpy as np
 import pandas as pd
 import strainflye.matrix_utils as mu
 from io import StringIO as sio
@@ -405,3 +406,130 @@ def test_run_fill_no_counts(tmp_path):
     # creation of the output directory should be deferred until just before we
     # are ready to write out the first contig's matrix information
     assert not os.path.exists(mdir)
+
+
+def test_matrix_integration(capsys, tmp_path):
+    cdir = tmp_path / "cdir"
+    mu.run_count(FASTA, BAM, GFF, cdir, True, mock_log)
+
+    mdir = tmp_path / "mdir"
+    # call matrix r-mutations for r = 1 (simplifies figuring out expected
+    # output)
+    mu.run_fill(cdir, None, 2, 1, "tsv", mdir, True, mock_log)
+
+    # check that output directories / files look as expected
+    assert os.path.exists(mdir)
+    # no c3 because no CDSs in it
+    contigs = ["c1", "c2"]
+    assert sorted(os.listdir(mdir)) == contigs
+    for contig in contigs:
+        assert sorted(os.listdir(mdir / contig)) == [
+            f"{contig}_aa_matrix.tsv",
+            f"{contig}_aa_refcounts.tsv",
+            f"{contig}_codon_matrix.tsv",
+            f"{contig}_codon_refcounts.tsv",
+        ]
+
+    # check c1's output info in depth
+    # for reference, here's all reads aligned to positions 3 -- 14 in c1 (c1g1)
+    # ---------------
+    # TGA CAC CCA AAC <-- Reference c1 sequence
+    # ---------------     (Note that c1g1 is a + strand CDS)
+    # TGA CAC CCA AAC
+    # TTA CAC CCA AAC
+    # TCA CAC CCA AAC
+    # TAA CAC CCA AAC
+    # TCA CAC CCA AAC
+    # TTA CAC CCG AGC
+    # TTA CAC CCG AGC
+    # TGA CAC CCG AGC
+    # TGA CAC CCG AGC
+    # TGA CAC CCG AGC
+    # TGA CAC CCG AGC
+    # TGA CAC CCG AGC
+    #
+    # ... and all aligned to positions 16 -- 21 in c1 (c1g2, - strand)
+    # -------
+    # AAA CCT
+    # -------
+    # AAA CCT
+    # AAA CCT
+    # AAA CCT
+    # AAA CCT
+    # AAA CCT
+    # AAA CCT
+    # AAA CCT
+    # AAA CCT
+    # AAA CCT
+    # AAA CCT
+    # AAA CCT
+    # AAA CCT
+    #
+    # (... of course, these are fake genes -- obviously, real genes wouldn't
+    # just start with a stop codon. we don't actually test the composition of
+    # CDSs because we assume that whatever tool has produced them knows
+    # better.)
+
+    # 1. check ref counts -- the counts of codons and amino acids in c1's CDSs
+    c1cr = pd.read_csv(
+        mdir / "c1" / "c1_codon_refcounts.tsv", sep="\t", index_col=0
+    )
+    exp_codon_counts = [0] * len(config.CODONS)
+    # c1g1 codons
+    exp_codon_counts[config.CODONS.index("TGA")] = 1
+    exp_codon_counts[config.CODONS.index("CAC")] = 1
+    exp_codon_counts[config.CODONS.index("CCA")] = 1
+    exp_codon_counts[config.CODONS.index("AAC")] = 1
+    # c1g2 codons (reverse-complemented)
+    exp_codon_counts[config.CODONS.index("AGG")] = 1
+    exp_codon_counts[config.CODONS.index("TTT")] = 1
+    pd.testing.assert_frame_equal(
+        c1cr,
+        pd.DataFrame(
+            {"Count": exp_codon_counts}, index=pd.Index(config.CODONS, name="Codon")
+        ),
+    )
+    c1ar = pd.read_csv(
+        mdir / "c1" / "c1_aa_refcounts.tsv", sep="\t", index_col=0
+    )
+    exp_aa_counts = [0] * len(config.AAS)
+    # c1g1 AAs (same order as above)
+    exp_aa_counts[config.AAS.index("*")] = 1
+    exp_aa_counts[config.AAS.index("H")] = 1
+    exp_aa_counts[config.AAS.index("P")] = 1
+    exp_aa_counts[config.AAS.index("N")] = 1
+    # c1g2 AAs
+    exp_aa_counts[config.AAS.index("R")] = 1
+    exp_aa_counts[config.AAS.index("F")] = 1
+    pd.testing.assert_frame_equal(
+        c1ar,
+        pd.DataFrame(
+            {"Count": exp_aa_counts}, index=pd.Index(config.AAS, name="AminoAcid")
+        ),
+    )
+
+    # 2. check actual mutation matrices
+    c1cm = pd.read_csv(
+        mdir / "c1" / "c1_codon_matrix.tsv", sep="\t", index_col=0
+    )
+    exp_matrix = pd.DataFrame({c: [0] * len(config.CODONS) for c in
+        config.CODONS}, index=pd.Index(config.CODONS), columns=config.CODONS)
+    for codon in config.CODONS:
+        exp_matrix[codon][codon] = np.nan
+    # in order to modify a df, we need to access the column first -- so this is
+    # backwards, we're making note of a mutation from TGA --> TTA
+    exp_matrix["TTA"]["TGA"] = 1
+    # Two of the codons in c1g1 are mutated, but both are "unreasonable" codon
+    # mutations -- CCA and AAC are not the most common 3-mers in the alignment
+    # to their codon, interestingly (i forgor about this lol). So there should
+    # be just one entry in the codon mutation matrix.
+    pd.testing.assert_frame_equal( c1cm, exp_matrix)
+
+    c1am = pd.read_csv(
+        mdir / "c1" / "c1_aa_matrix.tsv", sep="\t", index_col=0
+    )
+    exp_matrix = pd.DataFrame({c: [0] * len(config.AAS) for c in
+        config.AAS}, index=pd.Index(config.AAS), columns=config.AAS)
+    # again, this is backwards, and really represents * --> L
+    exp_matrix["L"]["*"] = 1
+    pd.testing.assert_frame_equal( c1am, exp_matrix)

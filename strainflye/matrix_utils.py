@@ -824,7 +824,13 @@ def run_fill(
     WeirdError
         If output_format isn't one of {"tsv", "json"}.
     """
-    call_utils.check_p_r(p, r)
+    using_p = call_utils.check_p_r(p, r)
+    if using_p:
+        call_str = f"p-mutation calling (p = {p / 100:.2f}%)"
+    else:
+        call_str = f"r-mutation calling (r = {r:,})"
+    fancylog(f"Performing codon {call_str}.")
+
     verboselog = cli_utils.get_verboselog(fancylog, verbose)
     havent_made_output_dir_yet = True
     ctf_suffix = f"_{config.CT_FILE_LBL}.pickle"
