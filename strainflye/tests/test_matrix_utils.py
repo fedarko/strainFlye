@@ -412,21 +412,12 @@ def test_run_fill_no_counts(tmp_path):
     assert not os.path.exists(mdir)
 
 
-def test_matrix_integration(capsys, tmp_path):
-    cdir = tmp_path / "cdir"
-    mu.run_count(FASTA, BAM, GFF, cdir, True, mock_log)
-    check_run_count_logs(capsys.readouterr().out)
-
-    mdir = tmp_path / "mdir"
-    # call matrix r-mutations for r = 1 (simplifies figuring out expected
-    # output)
-    mu.run_fill(cdir, None, 2, 1, "tsv", mdir, True, mock_log)
-
+def check_matrix_fill_output(mdir):
     # check that output directories / files look as expected
     assert os.path.exists(mdir)
     # no c3 because no CDSs in it
     contigs = ["c1", "c2"]
-    assert sorted(os.listdir(mdir)) == contigs
+    assert set(contigs).issubset(set(os.listdir(mdir)))
     for contig in contigs:
         assert sorted(os.listdir(mdir / contig)) == [
             f"{contig}_aa_matrix.tsv",
@@ -586,6 +577,17 @@ def test_matrix_integration(capsys, tmp_path):
     )
     pd.testing.assert_frame_equal(c2am, exp_matrix)
 
+
+def test_matrix_integration(capsys, tmp_path):
+    cdir = tmp_path / "cdir"
+    mu.run_count(FASTA, BAM, GFF, cdir, True, mock_log)
+    check_run_count_logs(capsys.readouterr().out)
+
+    mdir = tmp_path / "mdir"
+    # call matrix r-mutations for r = 1 (simplifies figuring out expected
+    # output)
+    mu.run_fill(cdir, None, 2, 1, "tsv", mdir, True, mock_log)
+    check_matrix_fill_output(mdir)
     assert capsys.readouterr().out == (
         "PREFIX\nMockLog: Performing codon r-mutation calling (r = 1).\n"
         "PREFIX\nMockLog: Going through aligned 3-mer counts and creating "
@@ -594,5 +596,43 @@ def test_matrix_integration(capsys, tmp_path):
         "MockLog: Created an output directory for contig c1.\n"
         "MockLog: Creating matrices for contig c2...\n"
         "MockLog: Created an output directory for contig c2.\n"
+        "MockLog: Done.\n"
+    )
+
+
+def test_matrix_integration_extra_file_in_matrix_dir_pmuts(capsys, tmp_path):
+    # just testing other branches in the code...
+    cdir = tmp_path / "cdir"
+    mu.run_count(FASTA, BAM, GFF, cdir, True, mock_log)
+    check_run_count_logs(capsys.readouterr().out)
+
+    # add an extra file to the folder of counts -- make sure that we ignore it,
+    # and warn the user about it
+    with open(cdir / "sus_file.txt", "w") as f:
+        f.write("I'm inconvenient!")
+
+    mdir = tmp_path / "mdir"
+
+    # call matrix p-mutations for p = 25% -- the lone codon mutation in c1 (TGA
+    # --> TTA) occurs with frequency 3/12 = 25%, so this should pass (and the
+    # mutation calls should thus be indistinguishable from
+    # test_matrix_integration() above)
+    mu.run_fill(cdir, 2500, 2, None, "tsv", mdir, True, mock_log)
+
+    check_matrix_fill_output(mdir)
+    # make sure sus_file didn't get overwritten or anything
+    with open(cdir / "sus_file.txt", "r") as f:
+        assert f.read() == "I'm inconvenient!"
+
+    assert capsys.readouterr().out == (
+        "PREFIX\nMockLog: Performing codon p-mutation calling (p = 25.00%).\n"
+        "PREFIX\nMockLog: Going through aligned 3-mer counts and creating "
+        "matrices...\n"
+        "MockLog: Creating matrices for contig c1...\n"
+        "MockLog: Created an output directory for contig c1.\n"
+        "MockLog: Creating matrices for contig c2...\n"
+        "MockLog: Created an output directory for contig c2.\n"
+        "MockLog: Warning: found an unexpectedly named file (sus_file.txt) in "
+        f"{cdir}. Ignoring it.\n"
         "MockLog: Done.\n"
     )
