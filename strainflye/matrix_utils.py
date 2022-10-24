@@ -739,6 +739,7 @@ def get_obj_type_hr(obj_type):
 
 
 def write_matrix_to_tsv(obj2obj2ct, output_dir, contig_name, obj_type):
+    """Writes a matrix to a TSV file."""
     objs = get_objs(obj_type)
     fp = os.path.join(output_dir, f"{contig_name}_{obj_type}_matrix.tsv")
     with open(fp, "w") as f:
@@ -754,6 +755,7 @@ def write_matrix_to_tsv(obj2obj2ct, output_dir, contig_name, obj_type):
 
 
 def write_refcounts_to_tsv(obj2ct, output_dir, contig_name, obj_type):
+    """Writes reference codon or amino acid count information to a TSV file."""
     objs = get_objs(obj_type)
     fp = os.path.join(output_dir, f"{contig_name}_{obj_type}_refcounts.tsv")
     with open(fp, "w") as f:
@@ -813,6 +815,9 @@ def run_fill(
     FileNotFoundError
         If ct_dir does not contain any count information, at least in files
         named as we would expect.
+
+    WeirdError
+        If output_format isn't one of {"tsv", "json"}.
     """
     call_utils.check_p_r(p, r)
     verboselog = cli_utils.get_verboselog(fancylog, verbose)
