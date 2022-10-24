@@ -271,10 +271,22 @@ def test_run_count_contigs_in_gff_but_not_fasta(capsys, tmp_path):
     )
 
 
-def test_codon_counter():
+def test_codon_counter_good():
     cc = mu.CodonCounter("c1", skbio.DNA("ACTGACACCCAAACCAAACCTAC"))
     assert str(cc) == "CodonCounter(c1, 23 bp, 0 CDSs)"
     cc.add_cds("cds1", 5, 7, "-")
     assert str(cc) == "CodonCounter(c1, 23 bp, 1 CDS)"
     cc.add_cds("cds2", 6, 8, "+")
     assert str(cc) == "CodonCounter(c1, 23 bp, 2 CDSs)"
+
+
+def test_codon_counter_add_cds_twice():
+    cc = mu.CodonCounter("c1", skbio.DNA("ACTGACACCCAAACCAAACCTAC"))
+    assert str(cc) == "CodonCounter(c1, 23 bp, 0 CDSs)"
+    cc.add_cds("cds1", 5, 7, "-")
+    assert str(cc) == "CodonCounter(c1, 23 bp, 1 CDS)"
+    with pytest.raises(WeirdError) as ei:
+        cc.add_cds("cds1", 6, 8, "+")
+    assert str(ei.value) == (
+        "CDS cds1 has already been added to this CodonCounter."
+    )

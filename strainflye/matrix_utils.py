@@ -104,7 +104,9 @@ class CodonCounter(object):
         )
 
         if cds_id in self.cds2left2counter:
-            raise WeirdError(f"CDS {cds_id} already has been added.")
+            raise WeirdError(
+                f"CDS {cds_id} has already been added to this CodonCounter."
+            )
 
         self.cds2left2counter[cds_id] = {}
         for cp_left in range(cds_left, cds_right + 1, 3):
