@@ -299,7 +299,7 @@ def test_codon_counter_add_cds_twice():
     )
 
 
-def test_codon_counter_add_count():
+def test_codon_counter_add_count_good():
     cc = mu.CodonCounter("c1", skbio.DNA("ACTGACACCCAAACCAAACCTAC"))
     assert str(cc) == "CodonCounter(c1, 23 bp, 0 CDSs)"
     cc.add_cds("cds1", 5, 7, "-")
@@ -319,5 +319,57 @@ def test_codon_counter_add_count():
     assert cc.cds2left2counter == {"cds1": {5: {"AGT": 1, "ACT": 3, "TAA": 1}}}
 
 
-def test_codon_counter_get_ref_codon_and_aa():
-    pass
+def test_codon_counter_add_count_missing_cds_id_or_cpleft():
+    cc = mu.CodonCounter("c1", skbio.DNA("ACTGACACCCAAACCAAACCTAC"))
+    assert str(cc) == "CodonCounter(c1, 23 bp, 0 CDSs)"
+    cc.add_cds("cds1", 5, 7, "-")
+
+    # cds2 hasn't been added to this CodonCounter yet
+    with pytest.raises(WeirdError) as ei:
+        cc.add_count("cds2", 5, "AGT")
+    assert (
+        str(ei.value)
+        == "No CDS named cds2 has been added to this CodonCounter."
+    )
+
+    # although position 6 is present in cds1, it isn't the leftmost position
+    # of a CP in this CDS
+    with pytest.raises(WeirdError) as ei:
+        cc.add_count("cds1", 6, "AGT")
+    assert (
+        str(ei.value)
+        == "6 is not a leftmost position in any codon in CDS cds1."
+    )
+
+    # check that both things going wrong at once doesn't "cancel out" lol
+    with pytest.raises(WeirdError) as ei:
+        cc.add_count("cds2", 6, "AGT")
+    assert (
+        str(ei.value)
+        == "No CDS named cds2 has been added to this CodonCounter."
+    )
+
+
+def test_codon_counter_get_ref_codon_and_aa_good():
+    cc = mu.CodonCounter("c1", skbio.DNA("ACTGACACCCAAACCAAACCTAC"))
+    assert str(cc) == "CodonCounter(c1, 23 bp, 0 CDSs)"
+    cc.add_cds("cds1", 5, 7, "-")
+    # TGT codes for Cysteine (C)
+    assert cc.get_ref_codon_and_aa("cds1", 5) == ("TGT", "C")
+
+    cc.add_cds("cds1_but_+", 5, 7, "+")
+    # ACA codes for Threonine (T)
+    assert cc.get_ref_codon_and_aa("cds1_but_+", 5) == ("ACA", "T")
+
+
+def test_codon_counter_get_ref_codon_and_aa_bad():
+    # same error-handler as with add_count(), so we just test one case
+    cc = mu.CodonCounter("c1", skbio.DNA("ACTGACACCCAAACCAAACCTAC"))
+    assert str(cc) == "CodonCounter(c1, 23 bp, 0 CDSs)"
+    cc.add_cds("cds1", 5, 7, "-")
+    with pytest.raises(WeirdError) as ei:
+        cc.get_ref_codon_and_aa("cds3", 5)
+    assert (
+        str(ei.value)
+        == "No CDS named cds3 has been added to this CodonCounter."
+    )

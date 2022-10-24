@@ -114,6 +114,18 @@ class CodonCounter(object):
 
         self.cds2strand[cds_id] = strand
 
+    def _check_codon_info(self, cds_id, cp_left):
+        """Checks that a CDS ID and leftmost codon position are valid."""
+        if cds_id not in self.cds2strand:
+            raise WeirdError(
+                f"No CDS named {cds_id} has been added to this CodonCounter."
+            )
+        if cp_left not in self.cds2left2counter[cds_id]:
+            raise WeirdError(
+                f"{cp_left:,} is not a leftmost position in any codon in CDS "
+                f"{cds_id}."
+            )
+
     def add_count(self, cds_id, cp_left, raw_aligned_codon):
         """Counts a given 3-mer aligned to a codon in a CDS.
 
@@ -140,11 +152,10 @@ class CodonCounter(object):
 
         Raises
         ------
-        KeyError
-            Implicitly raised if we have not added a CDS with an ID of "cds_id"
-            to this CodonCounter, or if this CDS does not have a CP with a
-            leftmost position of "cp_left".
+        WeirdError
+            Raised by _check_codon_info() if cds_id or cp_left are invalid.
         """
+        self._check_codon_info(cds_id, cp_left)
         # We'll have to reverse-complement the codons aligned to "-" strand
         # genes eventually, so we might as well do it here.
         if self.cds2strand[cds_id] == "-":
@@ -175,7 +186,13 @@ class CodonCounter(object):
             aa describes the amino acid (or stop codon) encoded by "codon",
             after taking reverse complementing into account (if this CDS is on
             the "-" strand).
+
+        Raises
+        ------
+        WeirdError
+            Raised by _check_codon_info() if cds_id or cp_left are invalid.
         """
+        self._check_codon_info(cds_id, cp_left)
         # self.contig_seq is 0-indexed and cpleft is 1-indexed, so we've
         # gotta convert here
         ref_codon = self.contig_seq[cp_left - 1 : cp_left + 2]
