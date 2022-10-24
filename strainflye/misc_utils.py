@@ -44,9 +44,38 @@ def write_obj_to_pickle(obj, output_dir, contig_name, obj_name):
 
 
 def write_obj_to_json(obj, output_dir, contig_name, obj_name):
-    fp = os.path.join(output_dir, f"{contig_name}_{obj_name}.pickle")
+    """Writes out an object to a JSON file.
+
+    This file will be named [contig_name]_[obj_name].json, and will be
+    located in the directory [output_dir].
+
+    (So, same schtick as write_obj_to_pickle().)
+
+    Note that, in JSON, keys are strings (see
+    https://docs.python.org/3/library/json.html) -- so if you have e.g. int
+    keys then these will be represented as strings in the JSON.
+
+    Parameters
+    ----------
+    obj: object
+        Something to write out to a JSON file.
+
+    output_dir: str
+        Directory to which we'll write this JSON file. Should already exist.
+
+    contig_name: str
+        Used as the first part of the filename.
+
+    obj_name: str
+        Used as the second part of the filename.
+
+    Returns
+    -------
+    None
+    """
+    fp = os.path.join(output_dir, f"{contig_name}_{obj_name}.json")
     with open(fp, "w") as dumpster:
-        dumpster.write(json.dumps(obj))
+        json.dump(obj, dumpster)
 
 
 def load_from_pickle(fp):

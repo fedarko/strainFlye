@@ -1,4 +1,5 @@
 import os
+import json
 import stat
 import shutil
 import tempfile
@@ -325,3 +326,11 @@ def test_check_executable_actually_executable_file(tmp_path):
     )
     os.chmod(exf, new_mode_bits)
     mu.check_executable(exf)
+
+
+def test_write_obj_to_json(tmp_path):
+    mu.write_obj_to_json({"abc": "def", 1: 2}, tmp_path, "c1", "thing")
+    with open(tmp_path / "c1_thing.json", "r") as f:
+        j = json.load(f)
+    # JSON round-tripping converts keys to strings
+    assert j == {"abc": "def", "1": 2}
