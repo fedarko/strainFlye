@@ -276,8 +276,15 @@ def test_codon_counter_good():
     assert str(cc) == "CodonCounter(c1, 23 bp, 0 CDSs)"
     cc.add_cds("cds1", 5, 7, "-")
     assert str(cc) == "CodonCounter(c1, 23 bp, 1 CDS)"
-    cc.add_cds("cds2", 6, 8, "+")
+    assert cc.cds2left2counter == {"cds1": {5: defaultdict(int)}}
+    assert cc.cds2strand == {"cds1": "-"}
+    cc.add_cds("cds2", 6, 11, "+")
     assert str(cc) == "CodonCounter(c1, 23 bp, 2 CDSs)"
+    assert cc.cds2left2counter == {
+        "cds1": {5: defaultdict(int)},
+        "cds2": {6: defaultdict(int), 9: defaultdict(int)},
+    }
+    assert cc.cds2strand == {"cds1": "-", "cds2": "+"}
 
 
 def test_codon_counter_add_cds_twice():
@@ -290,3 +297,27 @@ def test_codon_counter_add_cds_twice():
     assert str(ei.value) == (
         "CDS cds1 has already been added to this CodonCounter."
     )
+
+
+def test_codon_counter_add_count():
+    cc = mu.CodonCounter("c1", skbio.DNA("ACTGACACCCAAACCAAACCTAC"))
+    assert str(cc) == "CodonCounter(c1, 23 bp, 0 CDSs)"
+    cc.add_cds("cds1", 5, 7, "-")
+    assert str(cc) == "CodonCounter(c1, 23 bp, 1 CDS)"
+    assert cc.cds2left2counter == {"cds1": {5: defaultdict(int)}}
+    # reverse-complement of ACT is AGT
+    cc.add_count("cds1", 5, "ACT")
+    assert cc.cds2left2counter == {"cds1": {5: {"AGT": 1}}}
+    # ... and the RC of AGT is ACT
+    cc.add_count("cds1", 5, "AGT")
+    assert cc.cds2left2counter == {"cds1": {5: {"AGT": 1, "ACT": 1}}}
+    cc.add_count("cds1", 5, "AGT")
+    assert cc.cds2left2counter == {"cds1": {5: {"AGT": 1, "ACT": 2}}}
+    cc.add_count("cds1", 5, "AGT")
+    assert cc.cds2left2counter == {"cds1": {5: {"AGT": 1, "ACT": 3}}}
+    cc.add_count("cds1", 5, "TTA")
+    assert cc.cds2left2counter == {"cds1": {5: {"AGT": 1, "ACT": 3, "TAA": 1}}}
+
+
+def test_codon_counter_get_ref_codon_and_aa():
+    pass
