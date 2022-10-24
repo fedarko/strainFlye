@@ -374,6 +374,7 @@ def test_codon_counter_get_ref_codon_and_aa_bad():
         == "No CDS named cds3 has been added to this CodonCounter."
     )
 
+
 def test_get_objs():
     assert mu.get_objs("codon") == config.CODONS
     assert mu.get_objs("aa") == config.AAS
@@ -390,3 +391,17 @@ def test_get_obj_type_hr():
         with pytest.raises(WeirdError) as ei:
             mu.get_obj_type_hr(bt)
         assert str(ei.value) == f"Unrecognized obj_type: {bt}"
+
+
+def test_run_fill_no_counts(tmp_path):
+    cdir = tmp_path / "empty_counts_dir"
+    mdir = tmp_path / "matrix_dir"
+    os.makedirs(cdir)
+    with pytest.raises(FileNotFoundError) as ei:
+        mu.run_fill(cdir, 50, 2, None, "tsv", mdir, True, mock_log)
+    assert (
+        str(ei.value) == f"Didn't find any 3-mer count information in {cdir}."
+    )
+    # creation of the output directory should be deferred until just before we
+    # are ready to write out the first contig's matrix information
+    assert not os.path.exists(mdir)
