@@ -1712,9 +1712,9 @@ def count(contigs, bam, genes, output_dir, verbose):
     help=(
         "Directory to which matrix information will be written. Within this "
         "directory, we'll create one subdirectory for each contig represented "
-        "in --count-dir. Each subdirectory will contain codon mutation "
-        "counts, the derived amino acid mutation counts, and counts of codons "
-        "and amino acids in the contig."
+        "in --count-dir. Each subdirectory will contain a codon mutation "
+        "matrix, amino acid mutation matrix, and counts of codons and amino "
+        'acids in the "reference" contig sequence.'
     ),
 )
 @click.option(
@@ -1734,6 +1734,14 @@ def fill(count_dir, p, min_alt_pos, r, output_format, output_dir, verbose):
     aligned 3-mer (or, in the case of a tie, any of the most common aligned
     3-mers) at this codon is not exactly the same as the "reference" codon's
     3-mer.
+
+    It's worth noting that the amino acid mutation matrix is derived directly
+    from the codon mutation matrix: that is, as soon as we identify a mutation
+    from one codon (C1) into another codon (C2), we also record a mutation in
+    the amino acid matrix from translate(C1) into translate(C2). We could
+    arguably do this in a different way (count the translations of each 3-mer
+    aligned to a codon, then call amino acid mutations separately), but for now
+    we just do things the one way.
     """
     fancylog = cli_utils.fancystart(
         "matrix fill",

@@ -527,8 +527,8 @@ def run_count(contigs, bam, genes, output_dir, verbose, fancylog):
 
     Raises
     ------
-    Various errors are raised by misc_utils.load_triplet() if the input files
-    are problematic.
+    Various errors may be raised by misc_utils.load_fasta_and_bam() or
+    get_contig_cds_info() if the input files are problematic.
     """
     verboselog = cli_utils.get_verboselog(fancylog, verbose)
 
@@ -592,6 +592,7 @@ def run_count(contigs, bam, genes, output_dir, verbose, fancylog):
 
 
 def init_matrix_structs():
+    """Returns template matrix / count structures."""
     # 64x63 dict: each key is a codon string, and each value is
     # another dict with all the other codons
     codon2codon2ct = {c: defaultdict(int) for c in config.CODONS}
@@ -615,6 +616,40 @@ def init_matrix_structs():
 
 
 def ct2matrix(cc, p, min_alt_pos, r):
+    """Returns mutation matrices and codon/amino acid counts for a contig.
+
+    Parameters
+    ----------
+    cc: CodonCounter
+        Tracks the aligned 3-mers to codons within a contig.
+
+    p: int >= 1 or None
+        If specified, is a value of p used for calling p-mutations.
+
+    min_alt_pos: int
+        During p-mutation calling, the second-most-common aligned nucleotide's
+        frequency must be at least this to call a p-mutation at a position. Not
+        used when calling r-mutations.
+
+    r: int >= 1 or None
+        If specified, is a value of r used for calling r-mutations.
+
+    Returns
+    -------
+    (c2c2ct, c2ct, a2a2ct, a2ct): (dict, defaultdict, dict, defaultdict)
+        Filled-in data structures.
+
+        c2c2ct describes the number of times we saw a mutation from codon
+        C1 (outer key) into codon C2 (inner key); a2a2ct is defined analogously
+        for amino acids / stop codons.
+
+        c2ct gives the number of codons in the "reference" contig sequence that
+        spell out a given contig. If you want to create a matrix of
+        frequencies, you can think of these counts as your denominator (e.g. if
+        c2ct["TGA"] == 3 for some contig, then there are only three TGAs in
+        this contig -- so the sum of all the values of c2c2ct["TGA"] must be 0,
+        1, 2, or 3). a2ct is defined analogously for amino acids / stop codons.
+    """
     c2c2ct, c2ct, a2a2ct, a2ct = init_matrix_structs()
     for cds in cc.cds2left2counter:
         for cpleft in cc.cds2left2counter[cds]:
@@ -679,22 +714,28 @@ def ct2matrix(cc, p, min_alt_pos, r):
     return c2c2ct, c2ct, a2a2ct, a2ct
 
 
+def raise_bad_obj_err(obj_type):
+    raise WeirdError(f"Unrecognized obj_type: {obj_type}")
+
+
 def get_objs(obj_type):
+    """Returns a list of codons or amino acids, depending on obj_type."""
     if obj_type == "codon":
         return config.CODONS
     elif obj_type == "aa":
         return config.AAS
     else:
-        raise WeirdError(f"Unrecognized obj_type: {obj_type}")
+        raise_bad_obj_err(obj_type)
 
 
 def get_obj_type_hr(obj_type):
+    """Returns a human-readable name for a codon/AA for use in a TSV header."""
     if obj_type == "codon":
         return "Codon"
     elif obj_type == "aa":
         return "AminoAcid"
     else:
-        raise WeirdError(f"Unrecognized obj_type: {obj_type}")
+        raise_bad_obj_err(obj_type)
 
 
 def write_matrix_to_tsv(obj2obj2ct, output_dir, contig_name, obj_type):
@@ -766,7 +807,12 @@ def run_fill(
 
     Raises
     ------
-    TBD
+    ParameterError
+        If either both p and r are not None, or both are None.
+
+    FileNotFoundError
+        If ct_dir does not contain any count information, at least in files
+        named as we would expect.
     """
     call_utils.check_p_r(p, r)
     verboselog = cli_utils.get_verboselog(fancylog, verbose)

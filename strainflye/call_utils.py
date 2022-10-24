@@ -199,9 +199,35 @@ def get_min_sufficient_coverages_r(r_vals, min_cov_factor):
 
 
 def check_p_r(p, r):
-    # Sanity-check whether we're using p or r. Since (currently) p-mutation and
-    # r-mutation calling are separate commands, we should never see these
-    # errors in practice, but you never know.
+    """Checks that exactly one of p or r is in use for calling mutations.
+
+    Note that we just check that p and r are None, or are not None -- we don't
+    actually validate that they are integers, or they are >= 1, or whatever.
+    That sorta validation should be done elsewhere (in general, we let Click
+    handle it with IntRanges/etc.).
+
+    Parameters
+    ----------
+    p: int or None
+        None indicates that p-mutation calling was not requested; an int
+        indicates otherwise.
+
+    r: int or None
+        None indicates that r-mutation calling was not requested; an int
+        indicates otherwise.
+
+    Returns
+    -------
+    using_p: bool
+        If this function returns without raising an error, it means that
+        exactly one of (p, r) was not None. This return value, using_p, will be
+        True if just p was not None; it will be False if just r was not None.
+
+    Raises
+    ------
+    ParameterError
+        If either both p and r are True, or neither is True.
+    """
     using_p = p is not None
     using_r = r is not None
     if using_p and using_r:
