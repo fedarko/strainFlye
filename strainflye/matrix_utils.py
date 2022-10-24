@@ -51,12 +51,54 @@ class CodonCounter(object):
         self.cds2strand = {}
 
     def __str__(self):
+        """Returns a human-readable representation of this object.
+
+        Mostly just for testing / debugging.
+
+        Returns
+        -------
+        str
+        """
         num_cds = len(self.cds2left2counter)
         clen = len(self.contig_seq)
         noun = "CDSs" if num_cds != 1 else "CDS"
         return f"CodonCounter({self.contig}, {clen:,} bp, {num_cds:,} {noun})"
 
     def add_cds(self, cds_id, cds_left, cds_right, strand):
+        """Adds a CDS to keep track of.
+
+        This performs some basic sanity checking on the CDS -- making sure that
+        it isn't hasn't already been added to this CodonCounter, etc.
+
+        Parameters
+        ----------
+        cds_id: str
+            ID of the CDS.
+
+        cds_left: int
+            Left position of the CDS (one-indexed and inclusive).
+
+        cds_right: int
+            Right position of the CDS (one-indexed and inclusive).
+
+        strand: str
+            Should be either "+" or "-".
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        ParameterError
+            Raised by gff_utils.check_cds_attrs() if the strand or length of
+            the CDS are invalid.
+
+        WeirdError
+            If we have already added this CDS (or another one with the same ID)
+            to this CodonCounter. (This isn't a ParameterError because this
+            shouldn't happen in practice, even for malformed input files.)
+        """
         gff_utils.check_cds_attrs(
             cds_id, self.contig, cds_right - cds_left + 1, strand
         )
@@ -71,9 +113,38 @@ class CodonCounter(object):
         self.cds2strand[cds_id] = strand
 
     def add_count(self, cds_id, cp_left, raw_aligned_codon):
-        # (raw_aligned_codon should be a str)
-        # We'll have to reverse-complement the codons aligned to - strand genes
-        # eventually, so we might as well do it here.
+        """Counts a given 3-mer aligned to a codon in a CDS.
+
+        Parameters
+        ----------
+        cds_id: str
+            ID of the CDS.
+
+        cp_left: int
+            Left position (one-indexed and inclusive) of the codon at which we
+            have seen raw_aligned_codon in the alignment.
+
+        raw_aligned_codon: str
+            The 3-mer that was aligned to this codon. This should be given as
+            we see it in the alignment, ignoring the CDS strand (which we'll
+            take into account in this function). We'll "count" the presence of
+            this 3-mer at this codon in the alignment; after counting is
+            finished for all reads for all codons, we can then call mutations
+            based on these counts.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        KeyError
+            Implicitly raised if we have not added a CDS with an ID of "cds_id"
+            to this CodonCounter, or if this CDS does not have a CP with a
+            leftmost position of "cp_left".
+        """
+        # We'll have to reverse-complement the codons aligned to "-" strand
+        # genes eventually, so we might as well do it here.
         if self.cds2strand[cds_id] == "-":
             true_aligned_codon = config.CODON2RC[raw_aligned_codon]
         else:
@@ -82,6 +153,27 @@ class CodonCounter(object):
         self.cds2left2counter[cds_id][cp_left][true_aligned_codon] += 1
 
     def get_ref_codon_and_aa(self, cds_id, cp_left):
+        """Returns the "reference" codon and amino acid for a codon in a CDS.
+
+        Parameters
+        ----------
+        cds_id: str
+            ID of the CDS.
+
+        cp_left: int
+            Left position (one-indexed and inclusive) of a codon in the CDS.
+
+        Returns
+        -------
+        (codon, aa): (str, str)
+            codon describes the DNA codon. If this CDS is on the "-" strand,
+            then this will be reverse complemented from how this codon looks
+            on the "reference" contig sequence.
+
+            aa describes the amino acid (or stop codon) encoded by "codon",
+            after taking reverse complementing into account (if this CDS is on
+            the "-" strand).
+        """
         # self.contig_seq is 0-indexed and cpleft is 1-indexed, so we've
         # gotta convert here
         ref_codon = self.contig_seq[cp_left - 1 : cp_left + 2]
