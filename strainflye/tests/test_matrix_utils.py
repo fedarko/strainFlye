@@ -197,23 +197,8 @@ def check_c1_codoncounts(c1cc):
     assert str(c1cc.contig_seq) == str(C1)
 
 
-def test_run_count_good(capsys, tmp_path):
-    cdir = tmp_path / "cdir"
-    mu.run_count(FASTA, BAM, GFF, cdir, True, mock_log)
-    assert sorted(os.listdir(cdir)) == ["c1_3mers.pickle", "c2_3mers.pickle"]
-
-    with open(tmp_path / "cdir" / "c1_3mers.pickle", "rb") as f:
-        c1cc = pickle.load(f)
-        check_c1_codoncounts(c1cc)
-
-    with open(tmp_path / "cdir" / "c2_3mers.pickle", "rb") as f:
-        c2cc = pickle.load(f)
-        assert c2cc.cds2left2counter == {"c2g1": {6: {"AGG": 11}}}
-        assert c2cc.cds2strand == {"c2g1": "+"}
-        assert c2cc.contig == "c2"
-        assert str(c2cc.contig_seq) == str(C2)
-
-    assert capsys.readouterr().out == (
+def check_run_count_logs(logs):
+    assert logs == (
         "PREFIX\nMockLog: Loading and checking FASTA and BAM files...\n"
         "MockLog: The FASTA file describes 3 contig(s).\n"
         "MockLog: All of these are included in the BAM file (which has 3 "
@@ -235,6 +220,25 @@ def test_run_count_good(capsys, tmp_path):
         "contig c3. Ignoring this contig.\n"
         "MockLog: Done.\n"
     )
+
+
+def test_run_count_good(capsys, tmp_path):
+    cdir = tmp_path / "cdir"
+    mu.run_count(FASTA, BAM, GFF, cdir, True, mock_log)
+    assert sorted(os.listdir(cdir)) == ["c1_3mers.pickle", "c2_3mers.pickle"]
+
+    with open(tmp_path / "cdir" / "c1_3mers.pickle", "rb") as f:
+        c1cc = pickle.load(f)
+        check_c1_codoncounts(c1cc)
+
+    with open(tmp_path / "cdir" / "c2_3mers.pickle", "rb") as f:
+        c2cc = pickle.load(f)
+        assert c2cc.cds2left2counter == {"c2g1": {6: {"AGG": 11}}}
+        assert c2cc.cds2strand == {"c2g1": "+"}
+        assert c2cc.contig == "c2"
+        assert str(c2cc.contig_seq) == str(C2)
+
+    check_run_count_logs(capsys.readouterr().out)
 
 
 def test_run_count_contigs_in_gff_but_not_fasta(capsys, tmp_path):
@@ -411,6 +415,7 @@ def test_run_fill_no_counts(tmp_path):
 def test_matrix_integration(capsys, tmp_path):
     cdir = tmp_path / "cdir"
     mu.run_count(FASTA, BAM, GFF, cdir, True, mock_log)
+    check_run_count_logs(capsys.readouterr().out)
 
     mdir = tmp_path / "mdir"
     # call matrix r-mutations for r = 1 (simplifies figuring out expected
@@ -580,3 +585,14 @@ def test_matrix_integration(capsys, tmp_path):
         columns=config.AAS,
     )
     pd.testing.assert_frame_equal(c2am, exp_matrix)
+
+    assert capsys.readouterr().out == (
+        "PREFIX\nMockLog: Performing codon r-mutation calling (r = 1).\n"
+        "PREFIX\nMockLog: Going through aligned 3-mer counts and creating "
+        "matrices...\n"
+        "MockLog: Creating matrices for contig c1...\n"
+        "MockLog: Created an output directory for contig c1.\n"
+        "MockLog: Creating matrices for contig c2...\n"
+        "MockLog: Created an output directory for contig c2.\n"
+        "MockLog: Done.\n"
+    )
