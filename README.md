@@ -158,7 +158,7 @@ https://codedragontech.com/createwithcodedragon/how-to-style-html-details-and-su
   - Creates smoothed and virtual reads for each contig. These correspond to the original reads, but modified to remove all differences from the assembled contigs (aside from the mutations in the BCF file).
 
 - `strainFlye smooth assemble` (smoothed and virtual reads) → assemblies
-  - Uses [LJA](https://github.com/AntonBankevich/LJA) to assemble smoothed and virtual reads, creating "smoothed haplotypes".
+  - Uses [LJA](https://github.com/AntonBankevich/LJA) to assemble smoothed and virtual reads, creating "smoothed haplotypes."
   - See notes above about installing the `simple_ec` branch of LJA, which we rely on here.
 
 - `strainFlye link nt` (contigs, BAM, BCF) → nucleotide (co-)occurrence information
