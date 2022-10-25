@@ -110,6 +110,7 @@ Commands:
 
 ### Quick descriptions of each strainFlye command
 
+Click on the headers below (e.g. "**Alignment**") to show details about the corresponding command(s).
 Input files / folders are listed in parentheses next to each command; optional
 inputs are given in [square brackets]. Parameters are omitted for the sake of brevity.
 For more details, try running these commands from the terminal (e.g. `strainFlye align --help`).
