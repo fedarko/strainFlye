@@ -73,7 +73,9 @@ def test_log_bin_ct_info(capsys):
 
 
 def test_contig_covskew_c1_binlen10():
-    nbcovs, cbskews, lp, cp = du.contig_covskew("c1", FASTA, BAM, 10, 0.7, 1.3)
+    nbcovs, cbskews, lp, cp = du.contig_covskew(
+        "c1", FASTA, BAM, 10, 0.7, 1.3, mock_log
+    )
     assert lp == [1, 11, 21]
     assert cp == [(1 + 10) / 2, (11 + 20) / 2, (21 + 23) / 2]
 
@@ -92,7 +94,7 @@ def test_contig_covskew_c1_binlen10():
 
 def test_contig_covskew_c2_binlen2_lowclamp():
     nbcovs, cbskews, lp, cp = du.contig_covskew(
-        "c2", FASTA, BAM, 2, 0.95, 1.05
+        "c2", FASTA, BAM, 2, 0.95, 1.05, mock_log
     )
     assert lp == [1, 3, 5, 7, 9, 11]
     check_lists_approx_equal(cp, [1.5, 3.5, 5.5, 7.5, 9.5, 11.5])
@@ -115,7 +117,9 @@ def test_contig_covskew_c2_binlen2_lowclamp():
 
 
 def test_contig_covskew_c3_binlen1_upperclamp():
-    nbcovs, cbskews, lp, cp = du.contig_covskew("c3", FASTA, BAM, 1, 0.7, 0.8)
+    nbcovs, cbskews, lp, cp = du.contig_covskew(
+        "c3", FASTA, BAM, 1, 0.7, 0.8, mock_log
+    )
 
     just_1idxed_positions = list(range(1, 17))
     assert lp == just_1idxed_positions
@@ -142,7 +146,7 @@ def test_contig_covskew_c3_binlen1_upperclamp():
 
 def test_contig_covskew_uncovered():
     nbcovs, cbskews, lp, cp = du.contig_covskew(
-        "c1", FASTA, NO_C1_BAM, 10, 0.7, 1.3
+        "c1", FASTA, NO_C1_BAM, 10, 0.7, 1.3, mock_log
     )
 
     # We still use c1 with a bin size of 10, so we can reuse results from
@@ -269,6 +273,15 @@ def test_run_covskew_good_verbose_binlen1000(capsys, tmp_path):
         ),
     )
 
+    # note that we don't explicitly apply decimal formatting to the binned
+    # coverages in the output -- the reason that some of these have .0s and
+    # some don't is due to how statistics.median() works. If the number of
+    # values is odd, then there is a "middle" value; if the number of values is
+    # even, then the median is interpolated between the two middle values. The
+    # result is that, if the bin length >= the contig length (which is the case
+    # here), then bins' median coverages will end in .0 for contigs with an
+    # even number of positions (c2, c3) and not so for contigs with an odd
+    # number of positions (c1). Tricky!
     assert capsys.readouterr().out == (
         "PREFIX\nMockLog: Loading and checking FASTA and BAM files...\n"
         "MockLog: The FASTA file describes 3 contig(s).\n"
@@ -278,9 +291,21 @@ def test_run_covskew_good_verbose_binlen1000(capsys, tmp_path):
         "information...\n"
         "MockLog: On contig c1 (23 bp) (1 / 3 contigs = 33.33%).\n"
         "MockLog: Creating 1 smaller bin of length 23 bp for contig c1...\n"
+        "MockLog: For contig c1's bins' covs, pre-norm.: min = 12x; max = "
+        "12x; median (M) = 12x.\n"
+        "MockLog: For contig c1's cumulative bin skews: min = -0.8182; max = "
+        "-0.8182.\n"
         "MockLog: On contig c2 (12 bp) (2 / 3 contigs = 66.67%).\n"
         "MockLog: Creating 1 smaller bin of length 12 bp for contig c2...\n"
+        "MockLog: For contig c2's bins' covs, pre-norm.: min = 11.0x; max = "
+        "11.0x; median (M) = 11.0x.\n"
+        "MockLog: For contig c2's cumulative bin skews: min = 1.0000; max = "
+        "1.0000.\n"
         "MockLog: On contig c3 (16 bp) (3 / 3 contigs = 100.00%).\n"
         "MockLog: Creating 1 smaller bin of length 16 bp for contig c3...\n"
+        "MockLog: For contig c3's bins' covs, pre-norm.: min = 13.0x; max = "
+        "13.0x; median (M) = 13.0x.\n"
+        "MockLog: For contig c3's cumulative bin skews: min = 0.0000; max = "
+        "0.0000.\n"
         "MockLog: Done.\n"
     )

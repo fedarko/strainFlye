@@ -58,7 +58,7 @@ def update_cumulative_binned_skews(cumulative_binned_skews, bin_skew):
         cumulative_binned_skews.append(cumulative_binned_skews[-1] + bin_skew)
 
 
-def contig_covskew(contig, contigs, bam_obj, bin_len, nclb, ncub):
+def contig_covskew(contig, contigs, bam_obj, bin_len, nclb, ncub, verboselog):
     """Computes normalized binned coverages, binned skews, and bin centers.
 
     Parameters
@@ -82,6 +82,9 @@ def contig_covskew(contig, contigs, bam_obj, bin_len, nclb, ncub):
 
     ncub: float
         Upper bound to which we'll clamp normalized coverages.
+
+    verboselog: function
+        Logging function.
 
     Returns
     -------
@@ -188,8 +191,27 @@ def contig_covskew(contig, contigs, bam_obj, bin_len, nclb, ncub):
         bin_skew = skew(contig_seq[left_pos - 1 :])
         update_cumulative_binned_skews(cumulative_binned_skews, bin_skew)
 
-    # We've got binned coverages -- do normalization now.
+    # We've got binned coverages -- we can do coverage normalization now.
     agg_total_cov = median(binned_coverages)
+    # (but first let's do some logging if --verbose was set to True)
+    verboselog(
+        (
+            f"For contig {contig}'s bins' covs, pre-norm.: min = "
+            f"{min(binned_coverages):,}x; max = "
+            f"{max(binned_coverages):,}x; median (M) = "
+            f"{agg_total_cov:,}x."
+        ),
+        prefix="",
+    )
+    min_cbs = min(cumulative_binned_skews)
+    max_cbs = max(cumulative_binned_skews)
+    verboselog(
+        (
+            f"For contig {contig}'s cumulative bin skews: min = "
+            f"{min_cbs:.4f}; max = {max_cbs:.4f}."
+        ),
+        prefix="",
+    )
 
     if agg_total_cov == 0:
         # If the median of medians is zero, then we can't do normalization.
@@ -294,6 +316,9 @@ def run_covskew(
         clen = contig_name2len[contig]
         cli_utils.proglog(contig, ci, num_contigs, verboselog, contig_len=clen)
 
+        # log_bin_ct_info() will do some extra computational work to figure out
+        # the information it will log, so if verbose is False then we shouldn't
+        # even bother calling this function
         if verbose:
             log_bin_ct_info(contig, clen, bin_len, verboselog)
 
@@ -302,7 +327,9 @@ def run_covskew(
             b_skews,
             left_positions,
             center_positions,
-        ) = contig_covskew(contig, contigs, bam_obj, bin_len, ncl, ncu)
+        ) = contig_covskew(
+            contig, contigs, bam_obj, bin_len, ncl, ncu, verboselog
+        )
         with open(os.path.join(output_dir, f"{contig}_covskew.tsv"), "w") as f:
             f.write(
                 "LeftPos_1IndexedInclusive\t"
