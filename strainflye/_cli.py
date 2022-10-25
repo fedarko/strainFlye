@@ -1639,7 +1639,7 @@ def count(contigs, bam, genes, output_dir, verbose):
         (
             ("contig file", contigs),
             ("BAM file", bam),
-            ("Genes file", genes),
+            ("GFF3 file", genes),
         ),
         (("directory", output_dir),),
         extra_info=(f"Verbose?: {cli_utils.b2y(verbose)}",),
