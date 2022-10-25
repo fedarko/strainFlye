@@ -1458,7 +1458,7 @@ def nt(contigs, bam, bcf, output_dir, verbose):
 @click.option(
     "--min-penwidth-clamp",
     required=False,
-    default=0.01,
+    default=0.1,
     show_default=True,
     type=click.FloatRange(min=0),
     help=(

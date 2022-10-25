@@ -55,6 +55,14 @@ I2N = "ACGT"
 POS_FILE_LBL = "pos2nt2ct"
 POSPAIR_FILE_LBL = "pospair2ntpair2ct"
 
+# Extra attributes inserted at the top of each DOT file. Should end with \n,
+# just to simplify embedding it in DOT files.
+LG_DOT_HEADER_ATTRS = (
+    '  overlap="prism50";\n'
+    '  outputorder="edgesfirst";\n'
+    '  node [style="filled", fillcolor="#ffffff"];\n'
+)
+
 # When going through contigs' gene predictions to compute mutation matrices,
 # we'll focus on predicted genes that have this as their type in the GFF3 file:
 # https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md
