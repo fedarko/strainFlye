@@ -80,7 +80,8 @@ We provide a tutorial using the SheepGut dataset **[in this Jupyter Notebook](ht
 If you installed strainFlye using the steps shown above (creating a conda
 environment and installing strainFlye and its dependencies into this
 environment), then you will need to activate this environment in order to use
-strainFlye (e.g. `conda activate strainflye`).
+strainFlye (e.g. `conda activate strainflye`). You can then use strainFlye like
+any other command-line tool:
 
 <!-- STARTDOCS -->
 ```
@@ -107,6 +108,97 @@ Commands:
   utils   [+] Miscellaneous utility commands provided with strainFlye.
 ```
 
+### Quick descriptions of each strainFlye command
+
+Input files / folders are listed in parentheses next to each command; optional
+inputs are given in [square brackets]. Parameters are omitted for the sake of brevity.
+For more details, try running these commands from the terminal (e.g. `strainFlye align --help`).
+
+<!-- for some reason, <strong> was the only way i found to make summary text bold here successfully:
+https://codedragontech.com/createwithcodedragon/how-to-style-html-details-and-summary-tags/ -->
+<details>
+  <summary><strong>Alignment</strong></summary>
+
+- `strainFlye align` (contigs, reads, [GFA]) → BAM
+  
+  - Aligns reads to contigs using [minimap2](https://github.com/lh3/minimap2).
+  - Filters this alignment to remove certain types of problematic alignments.
+</details>
+
+<details>
+  <summary><strong>Naïve mutation identification, FDR estimation, and FDR fixing</strong></summary>
+
+- `strainFlye call p-mutation` and `strainFlye call r-mutation` (contigs, BAM) → (BCF, diversity indices)
+  - Naïvely calls either _p_-mutations (frequency-based) or _r_-mutations (read-count-based).
+  - Computes diversity indices.
+
+- `strainFlye fdr estimate` (contigs, BAM, BCF, [diversity indices]) → (FDR estimates, # mutations / Mb)
+  - Estimates the FDRs of naïve mutation calls from `strainFlye call` using the target-decoy approach.
+  - Computes FDR estimates, and the number of naïvely called mutations per megabase, for each "target" (non-decoy) contig. These values can be used to plot FDR curves showing how the FDR estimate for a target contig varies as _p_ or _r_ varies.
+
+- `strainFlye fdr fix` (BCF, FDR estimates) → BCF
+  - Given a fixed FDR (e.g. _f = 1%_), returns a filtered BCF file with all target contigs' mutations filtered to use a threshold of _p_ or _r_ yielding an FDR estimate ≤ _f_.
+</details>
+  
+<details>
+  <summary><strong>Hotspot and coldspot identification</strong></summary>
+
+- `strainFlye spot hot-features` (BCF, [GFF3](https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md)) → hotspot TSV
+  - Identifies "hotspot" features from the GFF3 file, based on simple configurable thresholds (e.g. to be a "hotspot," a feature must have at least _N_ mutations).
+
+- `strainFlye spot cold-gaps` (BCF) → coldspot TSV
+  - Identifies "coldspot" gaps between mutations, considering a gap to be a coldspot if it is at least a certain length.
+  - Assigns a _p_-value to the longest coldspot gap seen in each contig. (Note that the computation of this _p_-value makes a few simplifying assumptions; see the supplemental material of our paper for details.)
+</details>
+  
+<details>
+  <summary><strong>Phasing</strong></summary>
+
+- `strainFlye smooth create` (contigs, BAM, BCF, [diversity indices]) → smoothed and virtual reads
+  - Creates smoothed and virtual reads for each contig. These correspond to the original reads, but modified to remove all differences from the assembled contigs (aside from the mutations in the BCF file).
+
+- `strainFlye smooth assemble` (smoothed and virtual reads) → assemblies
+  - Uses [LJA](https://github.com/AntonBankevich/LJA) to assemble smoothed and virtual reads, creating "smoothed haplotypes".
+  - See notes above about installing the `simple_ec` branch of LJA, which we rely on here.
+
+- `strainFlye link nt` (contigs, BAM, BCF) → nucleotide (co-)occurrence information
+  - Computes nucleotide (co-)occurrence information for each contig.
+  - This information is stored in binary [pickle](https://docs.python.org/3/library/pickle.html) files.
+
+- `strainFlye link graph` (nucleotide (co-)occurrence information) → link graphs
+  - Converts the output of `strainFlye link nt` into link graphs (one per contig), representing which alleles of a contig tend to co-occur.
+</details>
+  
+<details>
+  <summary><strong>Mutation matrices</strong></summary>
+
+- `strainFlye matrix count` (contigs, BAM, [GFF3](https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md)) → 3-mer count information
+  - Counts 3-mers aligned to the codons in the coding sequences (`CDS` or `SO:0000316` features in the GFF3 file) in each contig.
+  - This information is stored in binary [pickle](https://docs.python.org/3/library/pickle.html) files.
+
+- `strainFlye matrix fill` (3-mer count information) → mutation matrices
+  - Converts the output of `strainFlye matrix count` into codon and amino acid mutation matrices (one set of matrices per contig).
+
+</details>
+  
+<details>
+  <summary><strong>Growth dynamics</strong></summary>
+
+- `strainFlye dynam covskew` (contigs, BAM) → coverage and skew TSVs
+  
+  - Computes information about binned coverages and GC skews in each contig.
+
+</details>
+
+<details>
+  <summary><strong>Miscellaneous utilities</strong></summary>
+
+- `strainFlye utils gfa-to-fasta` (GFA) → FASTA
+  
+  - Converts a GFA 1 file to a FASTA file (and performs some sanity checking on it).
+
+</details>
+    
 ### Development documentation
 
 If you're interested in making changes to strainFlye's code, please see
