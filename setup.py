@@ -39,10 +39,6 @@ setup(
     install_requires=[
         "scikit-bio",
         "networkx",
-        # This isn't a hard version requirement -- I'm not sure what the
-        # absolute minimum version is (maybe lower, probably not higher).
-        # This should be good enough.
-        "matplotlib >= 3.0",
         # Also not a hard requirement.
         "pandas >= 1.0",
         # We use the min_open and max_open parameters of click.IntRange and
@@ -67,6 +63,10 @@ setup(
             "pytest-cov >= 2.0",
             "flake8",
             "black",
+            # This isn't a hard version requirement -- I'm not sure what the
+            # absolute minimum version is (maybe lower, probably not higher).
+            # This should be good enough. (Needed for tutorial notebooks.)
+            "matplotlib >= 3.0",
         ]
     },
     classifiers=classifiers,
