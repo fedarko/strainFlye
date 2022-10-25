@@ -1667,7 +1667,7 @@ def count(contigs, bam, genes, output_dir, verbose):
     type=click.IntRange(min=0, max=5000, min_open=True),
     help=(
         "If specified, we'll call codon p-mutations at this p threshold. "
-        "This is scaled up by 100 (i.e. the default of 50 corresponds to 50 "
+        'This is scaled up by 100 (i.e. "-p 50" corresponds to 50 '
         "/ 100 = 0.5%) in order to bypass floating-point precision issues. "
         "Mutually exclusive with -r."
     ),
