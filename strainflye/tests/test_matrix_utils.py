@@ -1,4 +1,5 @@
 import os
+import json
 import pickle
 import skbio
 import pytest
@@ -582,7 +583,6 @@ def test_matrix_integration(capsys, tmp_path):
     cdir = tmp_path / "cdir"
     mu.run_count(FASTA, BAM, GFF, cdir, True, mock_log)
     check_run_count_logs(capsys.readouterr().out)
-
     mdir = tmp_path / "mdir"
     # call matrix r-mutations for r = 1 (simplifies figuring out expected
     # output)
@@ -645,3 +645,70 @@ def test_matrix_integration_bad_output_format(tmp_path):
     with pytest.raises(WeirdError) as ei:
         mu.run_fill(cdir, 2500, 2, None, "TSV", mdir, True, mock_log)
     assert str(ei.value) == 'Unrecognized output format: "TSV"'
+
+
+def test_matrix_integration_json(tmp_path):
+    cdir = tmp_path / "cdir"
+    mu.run_count(FASTA, BAM, GFF, cdir, True, mock_log)
+    mdir = tmp_path / "mdir"
+    # call matrix r-mutations for r = 1
+    mu.run_fill(cdir, None, 2, 1, "json", mdir, True, mock_log)
+
+    # check that the output looks good -- but now it's json, not tsv, files
+    assert os.path.exists(mdir)
+    # no c3 because no CDSs in it
+    contigs = ["c1", "c2"]
+    assert sorted(os.listdir(mdir)) == contigs
+    for contig in contigs:
+        assert sorted(os.listdir(mdir / contig)) == [
+            f"{contig}_aa_matrix.json",
+            f"{contig}_aa_refcounts.json",
+            f"{contig}_codon_matrix.json",
+            f"{contig}_codon_refcounts.json",
+        ]
+
+    # c1 tests
+
+    with open(mdir / "c1" / "c1_codon_refcounts.json", "r") as f:
+        obs_rc = json.load(f)
+    exp_rc = defaultdict(int)
+    for c in ["TGA", "CAC", "CCA", "AAC", "AGG", "TTT"]:
+        exp_rc[c] = 1
+    assert obs_rc == exp_rc
+
+    with open(mdir / "c1" / "c1_aa_refcounts.json", "r") as f:
+        obs_rc = json.load(f)
+    exp_rc = defaultdict(int)
+    for c in ["*", "H", "P", "N", "R", "F"]:
+        exp_rc[c] = 1
+    assert obs_rc == exp_rc
+
+    with open(mdir / "c1" / "c1_codon_matrix.json", "r") as f:
+        obs = json.load(f)
+    exp = {c: defaultdict(int) for c in config.CODONS}
+    exp["TGA"]["TTA"] = 1
+    assert obs == exp
+
+    with open(mdir / "c1" / "c1_aa_matrix.json", "r") as f:
+        obs = json.load(f)
+    exp = {c: defaultdict(int) for c in config.AAS}
+    exp["*"]["L"] = 1
+    assert obs == exp
+
+    # c2 tests
+
+    with open(mdir / "c2" / "c2_codon_refcounts.json", "r") as f:
+        obs_rc = json.load(f)
+    assert obs_rc == {"AGG": 1}
+
+    with open(mdir / "c2" / "c2_aa_refcounts.json", "r") as f:
+        obs_rc = json.load(f)
+    assert obs_rc == {"R": 1}
+
+    with open(mdir / "c2" / "c2_codon_matrix.json", "r") as f:
+        obs = json.load(f)
+    assert obs == {c: defaultdict(int) for c in config.CODONS}
+
+    with open(mdir / "c2" / "c2_aa_matrix.json", "r") as f:
+        obs = json.load(f)
+    assert obs == {c: defaultdict(int) for c in config.AAS}

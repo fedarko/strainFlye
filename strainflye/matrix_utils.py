@@ -867,10 +867,10 @@ def run_fill(
                     a2a2ct, contig_dir, contig, "aa_matrix"
                 )
                 misc_utils.write_obj_to_json(
-                    c2ct, contig_dir, contig, "ref_codon_cts"
+                    c2ct, contig_dir, contig, "codon_refcounts"
                 )
                 misc_utils.write_obj_to_json(
-                    a2ct, contig_dir, contig, "ref_aa_cts"
+                    a2ct, contig_dir, contig, "aa_refcounts"
                 )
             else:
                 raise WeirdError(
