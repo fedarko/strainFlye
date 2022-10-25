@@ -163,10 +163,11 @@ https://codedragontech.com/createwithcodedragon/how-to-style-html-details-and-su
 
 - `strainFlye link nt` (contigs, BAM, BCF) → nucleotide (co-)occurrence information
   - Computes nucleotide (co-)occurrence information for each contig.
-  - This information is stored in binary [pickle](https://docs.python.org/3/library/pickle.html) files.
+  - This information is stored in [pickle](https://docs.python.org/3/library/pickle.html) files.
 
 - `strainFlye link graph` (nucleotide (co-)occurrence information) → link graphs
   - Converts the output of `strainFlye link nt` into link graphs (one per contig), representing which alleles of a contig tend to co-occur.
+  - Depending on the `-f`/`--output-format` parameter, link graphs are saved to either [DOT](https://en.wikipedia.org/wiki/DOT_(graph_description_language)) files or to [pickle](https://docs.python.org/3/library/pickle.html) files (each pickle file corresponds to a serialized [NetworkX](https://networkx.org) representation of a link graph).
 </details>
   
 <details>
@@ -174,11 +175,12 @@ https://codedragontech.com/createwithcodedragon/how-to-style-html-details-and-su
 
 - `strainFlye matrix count` (contigs, BAM, [GFF3](https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md)) → 3-mer count information
   - Counts 3-mers aligned to the codons in the coding sequences (`CDS` or `SO:0000316` features in the GFF3 file) in each contig.
-  - This information is stored in binary [pickle](https://docs.python.org/3/library/pickle.html) files.
+  - This information is stored in [pickle](https://docs.python.org/3/library/pickle.html) files.
 
 - `strainFlye matrix fill` (3-mer count information) → mutation matrices
-  - Converts the output of `strainFlye matrix count` into codon and amino acid mutation matrices (one set of matrices per contig).
-
+  - Converts the output of `strainFlye matrix count` into codon and amino acid mutation matrices.
+  - Each contig is represented by its own directory, containing four files: a codon mutation matrix, an amino acid mutation matrix, codon reference counts (the number of times we saw a codon in all the coding sequences of a contig, ignoring mutations), and amino acid reference counts.
+  - Depending on the `-f`/`--output-format` parameter, these four files are saved as either TSV or JSON files.
 </details>
   
 <details>
