@@ -193,3 +193,135 @@ def test_filter_osa_reads_basic(capsys, tmp_path):
     for linearaln in bf.fetch("c4"):
         obs_read_names.append(linearaln.query_name)
     assert obs_read_names == []
+
+
+def test_filter_osa_reads_just_non_overlapping(capsys, tmp_path):
+    # Regression test -- there was a bug where overlap detection between
+    # alignments of a read was off by 1 or 2 nucleotides, so this verifies that
+    # in the bizarre case where two alns of a read are just adjacent (but not
+    # overlapping) then this does not cause this read to be filtered
+    sam_fp = os.path.join(tmp_path, "aln.sam")
+    with open(sam_fp, "w") as fh:
+        # Diagram on c1, for reference:
+        #
+        #                  11111111112222
+        #         12345678901234567890123
+        # contig: ACTGACACCCAAACCAAACCTAC
+        #    r01: ACTGACACCCAAACCAAACCTAC
+        #    r02: ACTGA
+        #    r02:      ACACCC
+        #    r04: ACT
+        #    r04:                   CCTAC
+        #    r12: TAAAAAGGGGGG
+        #
+        # Same as in test_filter_osa_reads_basic(), but now no OSA for r02
+        fh.write(
+            "@HD	VN:1.6	SO:coordinate\n"
+            "@SQ	SN:c1	LN:23\n"
+            "@SQ	SN:c2	LN:12\n"
+            "@SQ	SN:c4	LN:100\n"
+            "r01	0	c1	1	30	23M	*	0	0	ACTGACACCCAAACCAAACCTAC	*\n"
+            "r02	0	c1	1	30	5M5S	*	0	0	ACTGACACCC	*\n"
+            "r04	2048	c1	1	30	3M5S	*	0	0	ACTCCTAC	*\n"
+            "r12	0	c1	1	30	12M	*	0	0	TAAAAAGGGGGG	*\n"
+            "r02	2048	c1	6	30	1H4S6M	*	0	0	ACTGACACCC	*\n"
+            "r04	0	c1	19	30	3S5M	*	0	0	ACTCCTAC	*\n"
+            "r12	2048	c2	1	30	12M	*	0	0	TAAAAAGGGGGG	*\n"
+            "r13	0	c2	1	30	12M	*	0	0	TAAAAAGGGGGG	*\n"
+            "r14	0	c2	1	30	12M	*	0	0	TAAAAAGGGGGG	*\n"
+        )
+    in_bam_fp = os.path.join(tmp_path, "aln.bam")
+    subprocess.run(
+        ["samtools", "view", "-b", sam_fp, "-o", in_bam_fp], check=True
+    )
+    bu.index_bam(in_bam_fp, "test BAM", mock_log)
+    assert capsys.readouterr().out == (
+        "PREFIX\nMockLog: Indexing the test BAM...\n"
+        "MockLog: Done indexing the test BAM.\n"
+    )
+
+    out_bam_fp = os.path.join(tmp_path, "osa-filtered.bam")
+
+    # okay now run the OSA filter
+    au.filter_osa_reads(in_bam_fp, out_bam_fp, mock_log, True)
+
+    # verify the logged output looks good (we do this first, before inspecting
+    # the actual output BAM file, because the indexing functions also log
+    # output; it's simplest to just do stuff in this order).
+    assert capsys.readouterr().out == (
+        "PREFIX\nMockLog: Filtering reads with overlapping supplementary "
+        "alignments (OSAs)...\n"
+        "MockLog: "
+        "OSA filter pass 1/2: on contig c1 (1 / 3 contigs = 33.33%).\n"
+        "MockLog: There are 6 linear alignment(s) (from 4 unique read(s)) to "
+        "contig c1.\n"
+        "MockLog: 0 / 4 (0.00%) of these unique read(s) have OSAs.\n"
+        "MockLog: "
+        "OSA filter pass 1/2: on contig c2 (2 / 3 contigs = 66.67%).\n"
+        "MockLog: There are 3 linear alignment(s) (from 3 unique read(s)) to "
+        "contig c2.\n"
+        "MockLog: 0 / 3 (0.00%) of these unique read(s) have OSAs.\n"
+        "MockLog: "
+        "OSA filter pass 1/2: on contig c4 (3 / 3 contigs = 100.00%).\n"
+        "MockLog: Nothing is aligned to contig c4! Ignoring this contig.\n"
+        "MockLog: Done with pass 1 of the OSA filter; moving on to pass 2...\n"
+        "MockLog: "
+        "OSA filter pass 2/2: on contig c1 (1 / 3 contigs = 33.33%).\n"
+        "MockLog: 6 / 6 (100.00%) linear aln(s) retained in contig c1.\n"
+        "MockLog: "
+        "OSA filter pass 2/2: on contig c2 (2 / 3 contigs = 66.67%).\n"
+        "MockLog: 3 / 3 (100.00%) linear aln(s) retained in contig c2.\n"
+        "MockLog: Done filtering reads with overlapping supplementary "
+        "alignments.\n"
+    )
+    # Inspect the OSA-filtered BAM -- verify it's actually correct!
+
+    # (we have to index it to load it in pysam, tho)
+    bu.index_bam(out_bam_fp, "OSA-filtered test BAM", mock_log)
+    assert capsys.readouterr().out == (
+        "PREFIX\nMockLog: Indexing the OSA-filtered test BAM...\n"
+        "MockLog: Done indexing the OSA-filtered test BAM.\n"
+    )
+
+    bf = pysam.AlignmentFile(out_bam_fp, "rb")
+
+    # check c1 first
+    # I think the ordering goes from left --> right based on starting position
+    # in c1
+    exp_read_names = ["r01", "r02", "r04", "r12", "r02", "r04"]
+    exp_qaln_seqs = [
+        "ACTGACACCCAAACCAAACCTAC",
+        "ACTGA",
+        "ACT",
+        "TAAAAAGGGGGG",
+        "ACACCC",
+        "CCTAC",
+    ]
+    obs_read_names = []
+    obs_qaln_seqs = []
+
+    for linearaln in bf.fetch("c1"):
+        obs_read_names.append(linearaln.query_name)
+        # sanity check that pysam understands CIGAR strings!
+        obs_qaln_seqs.append(linearaln.query_alignment_sequence)
+
+    assert obs_read_names == exp_read_names
+    assert obs_qaln_seqs == exp_qaln_seqs
+
+    # check c2
+    exp_read_names = ["r12", "r13", "r14"]
+    exp_qaln_seqs = ["TAAAAAGGGGGG"] * 3
+    obs_read_names = []
+    obs_qaln_seqs = []
+    for linearaln in bf.fetch("c2"):
+        obs_read_names.append(linearaln.query_name)
+        obs_qaln_seqs.append(linearaln.query_alignment_sequence)
+
+    assert obs_read_names == exp_read_names
+    assert obs_qaln_seqs == exp_qaln_seqs
+
+    # check c4
+    obs_read_names = []
+    for linearaln in bf.fetch("c4"):
+        obs_read_names.append(linearaln.query_name)
+    assert obs_read_names == []
