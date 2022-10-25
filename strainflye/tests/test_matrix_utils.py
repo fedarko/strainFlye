@@ -636,3 +636,12 @@ def test_matrix_integration_extra_file_in_matrix_dir_pmuts(capsys, tmp_path):
         f"{cdir}. Ignoring it.\n"
         "MockLog: Done.\n"
     )
+
+
+def test_matrix_integration_bad_output_format(tmp_path):
+    cdir = tmp_path / "cdir"
+    mu.run_count(FASTA, BAM, GFF, cdir, True, mock_log)
+    mdir = tmp_path / "mdir"
+    with pytest.raises(WeirdError) as ei:
+        mu.run_fill(cdir, 2500, 2, None, "TSV", mdir, True, mock_log)
+    assert str(ei.value) == 'Unrecognized output format: "TSV"'
