@@ -7,7 +7,11 @@ import pytest
 import strainflye.link_utils as lu
 from collections import defaultdict
 from pytest import approx
-from strainflye.config import POS_FILE_LBL, POSPAIR_FILE_LBL
+from strainflye.config import (
+    POS_FILE_LBL,
+    POSPAIR_FILE_LBL,
+    LG_DOT_HEADER_ATTRS,
+)
 from strainflye.errors import ParameterError, WeirdError
 from strainflye.tests.utils_for_testing import mock_log
 
@@ -547,6 +551,7 @@ def test_write_linkgraph_to_dot_good(tmp_path):
     # Something like that. (But I'm not gonna do this until it's necessary.)
     assert dot_txt == (
         "graph {\n"
+        f"{LG_DOT_HEADER_ATTRS}"
         '  "(100, 1)" [label="100 (C)\\n5x (25.00%)"];\n'
         '  "(100, 2)" [label="100 (G)\\n15x (75.00%)"];\n'
         '  "(200, 0)" [label="200 (A)\\n20x (100.00%)"];\n'
@@ -567,6 +572,7 @@ def test_write_linkgraph_to_dot_one_node_big_nums(tmp_path):
         dot_txt = f.read()
     assert dot_txt == (
         "graph {\n"
+        f"{LG_DOT_HEADER_ATTRS}"
         '  "(12345, 3)" [label="12,345 (T)\\n56,789x (56.79%)"];\n'
         "}"
     )
@@ -584,6 +590,7 @@ def test_write_linkgraph_to_dot_penwidth_clamp(tmp_path):
     # Verify that the penwidth of the edge is clamped
     assert dot_txt == (
         "graph {\n"
+        f"{LG_DOT_HEADER_ATTRS}"
         '  "(12345, 3)" [label="12,345 (T)\\n56,789x (56.79%)"];\n'
         '  "(12346, 0)" [label="12,346 (A)\\n2x (100.00%)"];\n'
         '  "(12345, 3)" -- "(12346, 0)" [penwidth=0.01];\n'
@@ -659,7 +666,7 @@ def test_run_graph_empty_verbose_dot(capsys, tmp_path):
         dot = f.read()
 
     # make sure the graph is empty
-    assert dot == "graph {\n}"
+    assert dot == ("graph {\n" f"{LG_DOT_HEADER_ATTRS}" "}")
 
     # special logging message
     # (not a warning b/c this might happen a lot if the user wants to focus on
@@ -810,7 +817,7 @@ def test_link_graph_integration(tmp_path):
             '  "(8, 3)" [label="8 (T)\\n10x (76.92%)"];\n',
             "}",
         ]
-    )
+    ) | set([x + "\n" for x in LG_DOT_HEADER_ATTRS.splitlines()])
 
     assert exp_nonedge_lines.issubset(obs_dot_lines)
 
@@ -851,7 +858,7 @@ def test_link_graph_integration(tmp_path):
             '  "(13, 2)" [label="13 (G)\\n7x (58.33%)"];\n',
             "}",
         ]
-    )
+    ) | set([x + "\n" for x in LG_DOT_HEADER_ATTRS.splitlines()])
 
     assert exp_nonedge_lines.issubset(obs_dot_lines)
 

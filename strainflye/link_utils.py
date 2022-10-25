@@ -668,7 +668,7 @@ def write_linkgraph_to_dot(
         # enough of a headache already). So let's just omit a name for now.
         # (This is consistent with DOT files from LJA at the moment, at least
         # as far as I can tell)
-        df.write("graph {\n")
+        df.write("graph {\n" f"{config.LG_DOT_HEADER_ATTRS}")
 
         # We represent node names in the DOT file by just putting their "real"
         # name (from networkx) in double-quotes. Graphviz *can* support things
