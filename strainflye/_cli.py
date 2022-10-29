@@ -1826,8 +1826,9 @@ strainflye.add_command(dynam)
     type=click.Path(dir_okay=True, file_okay=False),
     help=(
         "Directory to which TSV files describing contigs' bins, coverages, "
-        "and skews will be written. We'll write one TSV file per contig; each "
-        "file will be named [contig]_covskew.tsv."
+        "and skews will be written. We'll write one TSV file per contig (and "
+        "each of this contig's bins will take up one row in this file). Each "
+        "contig's TSV file will be named [contig]_covskew.tsv."
     ),
 )
 @click.option(
