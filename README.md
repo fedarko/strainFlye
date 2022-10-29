@@ -50,10 +50,9 @@ the second, `strainFlye smooth assemble`, assembles these reads using
 [LJA](https://github.com/AntonBankevich/LJA). LJA is not installed using the
 conda installation instructions above, so—in order to run the
 `strainFlye smooth assemble` command—you will need to
-install the [LJA](https://github.com/AntonBankevich/LJA) software (in
-particular, the
+install the LJA software (in particular, the
 [`simple_ec` branch](https://github.com/AntonBankevich/LJA/tree/simple_ec) of
-LJA's code).
+LJA).
 
 Please see [LJA's manual](https://github.com/AntonBankevich/LJA/blob/main/docs/lja_manual.md)
 for the most up-to-date installation instructions. Assuming that you have all
@@ -159,8 +158,9 @@ https://codedragontech.com/createwithcodedragon/how-to-style-html-details-and-su
   - Creates smoothed and virtual reads for each contig. These correspond to the original reads, but modified to remove all differences from the assembled contigs (aside from the mutations in the BCF file).
 
 - `strainFlye smooth assemble` (smoothed and virtual reads) → assemblies
-  - Uses [LJA](https://github.com/AntonBankevich/LJA) to assemble smoothed and virtual reads, creating "smoothed haplotypes."
+  - Uses [LJA](https://github.com/AntonBankevich/LJA) to assemble smoothed and virtual reads.
   - See notes above about installing the `simple_ec` branch of LJA, which we rely on here.
+  - For information on LJA's outputs (assembled sequences, assembly graph, etc.) please see [its manual](https://github.com/AntonBankevich/LJA/blob/main/docs/lja_manual.md).
 
 - `strainFlye link nt` (contigs, BAM, BCF) → nucleotide (co-)occurrence information
   - Computes nucleotide (co-)occurrence information for each contig.
