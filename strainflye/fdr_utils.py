@@ -2893,7 +2893,7 @@ def run_fix(bcf, fdr_info, fdr, output_bcf, fancylog, verbose):
             "including both "
             "(1) indisputable mutations from all contigs and "
             "(2) non-indisputable mutations from the target contigs that "
-            f"result in a FDR \u2264 {fdr}%..."
+            f"result in a FDR \u2264 {fdr:.2f}%..."
         )
         # Filter mutations for each contig to those that pass these thresholds
         # (in addition to indisputable mutations that pass thresh_high).
