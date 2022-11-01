@@ -59,7 +59,7 @@ def update_cumulative_binned_skews(cumulative_binned_skews, bin_skew):
 
 
 def contig_covskew(contig, contigs, bam_obj, bin_len, nclb, ncub, verboselog):
-    """Computes normalized binned coverages, binned skews, and bin centers.
+    """Computes normalized binned coverages, binned skews, and bin coordinates.
 
     Parameters
     ----------
