@@ -333,7 +333,7 @@ def run_covskew(
         with open(os.path.join(output_dir, f"{contig}_covskew.tsv"), "w") as f:
             f.write(
                 "LeftPos_1IndexedInclusive\t"
-                "CenterPos\t"
+                "CenterPos_1Indexed\t"
                 "NormalizedCoverage\t"
                 "CumulativeSkew\n"
             )

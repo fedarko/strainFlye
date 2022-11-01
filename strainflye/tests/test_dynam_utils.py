@@ -180,7 +180,11 @@ def test_run_covskew_good_noverbose_binlen10(capsys, tmp_path):
         pd.DataFrame(
             {
                 "LeftPos_1IndexedInclusive": [1, 11, 21],
-                "CenterPos": [(1 + 10) / 2, (11 + 20) / 2, (21 + 23) / 2],
+                "CenterPos_1Indexed": [
+                    (1 + 10) / 2,
+                    (11 + 20) / 2,
+                    (21 + 23) / 2,
+                ],
                 "NormalizedCoverage": [1.0, 1.0, 1.0],
                 "CumulativeSkew": [-4 / 6, (-4 / 6) + (-1), (-4 / 6) + (-2)],
             }
@@ -193,7 +197,7 @@ def test_run_covskew_good_noverbose_binlen10(capsys, tmp_path):
         pd.DataFrame(
             {
                 "LeftPos_1IndexedInclusive": [1, 11],
-                "CenterPos": [(1 + 10) / 2, 11.5],
+                "CenterPos_1Indexed": [(1 + 10) / 2, 11.5],
                 "NormalizedCoverage": [1.0, 1.0],
                 # both bins only include Gs, so they both have skews of 1.
                 "CumulativeSkew": [1.0, 2.0],
@@ -207,7 +211,7 @@ def test_run_covskew_good_noverbose_binlen10(capsys, tmp_path):
         pd.DataFrame(
             {
                 "LeftPos_1IndexedInclusive": [1, 11],
-                "CenterPos": [(1 + 10) / 2, (11 + 16) / 2],
+                "CenterPos_1Indexed": [(1 + 10) / 2, (11 + 16) / 2],
                 "NormalizedCoverage": [1.0, 1.0],
                 "CumulativeSkew": [0, 0],
             }
@@ -240,7 +244,7 @@ def test_run_covskew_good_verbose_binlen1000(capsys, tmp_path):
         pd.DataFrame(
             {
                 "LeftPos_1IndexedInclusive": [1],
-                "CenterPos": [(1 + 23) / 2],
+                "CenterPos_1Indexed": [(1 + 23) / 2],
                 "NormalizedCoverage": [1.0],
                 "CumulativeSkew": [(1 - 10) / 11],
             }
@@ -253,7 +257,7 @@ def test_run_covskew_good_verbose_binlen1000(capsys, tmp_path):
         pd.DataFrame(
             {
                 "LeftPos_1IndexedInclusive": [1],
-                "CenterPos": [(1 + 12) / 2],
+                "CenterPos_1Indexed": [(1 + 12) / 2],
                 "NormalizedCoverage": [1.0],
                 "CumulativeSkew": [1.0],
             }
@@ -266,7 +270,7 @@ def test_run_covskew_good_verbose_binlen1000(capsys, tmp_path):
         pd.DataFrame(
             {
                 "LeftPos_1IndexedInclusive": [1],
-                "CenterPos": [(1 + 16) / 2],
+                "CenterPos_1Indexed": [(1 + 16) / 2],
                 "NormalizedCoverage": [1.0],
                 "CumulativeSkew": [0],
             }
