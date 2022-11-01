@@ -72,7 +72,7 @@ make
 
 ### Tutorial
 
-We provide a tutorial using the SheepGut dataset **[in this Jupyter Notebook](https://nbviewer.org/github/fedarko/strainFlye/blob/main/docs/SheepGutExample.ipynb)**.
+**[This Jupyter Notebook](https://nbviewer.org/github/fedarko/strainFlye/blob/main/docs/SheepGutExample.ipynb)** provides a tutorial demonstrating how to use strainFlye.
 
 ### Command-line usage
 
@@ -242,3 +242,6 @@ have any questions about this.
 was downloaded from the [gfalint](https://github.com/sjackman/gfalint)
 repository. The other GFA files in this folder beginning with `sample1` are
 also based on this GFA file.
+
+### Tutorial dataset
+The strainFlye tutorial (linked above) uses the "SheepGut" dataset shown in the strainFlye paper. This dataset was previously described in [Kolmogorov _et al._, 2020](https://www.nature.com/articles/s41592-020-00971-x) and [Bickhart & Kolmogorov _et al._, 2022](https://www.nature.com/articles/s41587-021-01130-z).
