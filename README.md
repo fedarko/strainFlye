@@ -237,11 +237,11 @@ have any questions about this.
 
 ## Acknowledgements
 
-### Test data
+### Test datasets
 `sample1.gfa` (located in `strainflye/tests/inputs/`)
 was downloaded from the [gfalint](https://github.com/sjackman/gfalint)
 repository. The other GFA files in this folder beginning with `sample1` are
 also based on this GFA file.
 
 ### Tutorial dataset
-The strainFlye tutorial (linked above) uses the "SheepGut" dataset shown in the strainFlye paper. This dataset was previously described in [Kolmogorov _et al._, 2020](https://www.nature.com/articles/s41592-020-00971-x) and [Bickhart & Kolmogorov _et al._, 2022](https://www.nature.com/articles/s41587-021-01130-z).
+The strainFlye tutorial (linked above, and located in `docs/`) uses the "SheepGut" dataset shown in the strainFlye paper. This dataset was previously described in [Kolmogorov _et al._, 2020](https://www.nature.com/articles/s41592-020-00971-x) and [Bickhart & Kolmogorov _et al._, 2022](https://www.nature.com/articles/s41587-021-01130-z).
