@@ -1826,9 +1826,9 @@ strainflye.add_command(dynam)
     type=click.Path(dir_okay=True, file_okay=False),
     help=(
         "Directory to which TSV files describing contigs' bins, coverages, "
-        "and skews will be written. We'll write one TSV file per contig (and "
-        "each of this contig's bins will take up one row in this file). Each "
-        "contig's TSV file will be named [contig]_covskew.tsv."
+        "and skews will be written. We'll write one TSV file per contig "
+        "(named [contig]_covskew.tsv); each bin within a contig will be "
+        "described in one row in its TSV file."
     ),
 )
 @click.option(
@@ -1846,22 +1846,24 @@ def covskew(
     \b
     Bins
     ----
-    We split each contig into bin(s) of a fixed number of positions:
-    starting at the leftmost end of the contig, we combine the next
-    --bin-length positions into a single bin, continuing until we run out of
-    positions. The rightmost bin will contain fewer positions than --bin-length
-    if the contig length is not divisible by --bin-length. (If the contig's
-    length is \u2264 --bin-length, we'll just create one bin for this contig.)
+    We split each contig into bin(s) of a fixed number of positions (determined
+    by the --bin-length parameter), starting from the leftmost end of the
+    contig (which we define as position 1). We continue creating bins until
+    we run out of positions: the rightmost bin will contain fewer positions
+    than --bin-length if the contig length is not divisible by --bin-length.
+    (And if the contig's length is \u2264 --bin-length, we'll just create one
+    bin for all positions in this contig.)
 
     \b
     Normalized coverages
     --------------------
     For each bin, we compute the median coverage of all positions in this bin.
-    We then compute M, the median of these medians (considering all bins in a
-    contig). We compute "normalized" coverages by dividing each bin's median
+    We then compute M, the median of these medians across all bins in a contig.
+    We finally compute "normalized" coverages by dividing each bin's median
     coverage by M, and then clamping these normalized coverages to the range
     [1 - \u03f5, 1 + \u03f5]. (If M = 0, then we cannot do this normalization:
-    in this case, we define each bin's normalized coverage as "NA".)
+    in this case, we define each bin's normalized coverage as "NA".) The
+    --norm-coverage-epsilon parameter can be used to adjust \u03f5.
 
     \b
     Cumulative GC skews
@@ -1870,8 +1872,9 @@ def covskew(
     of G nucleotides in this bin and C is the number of C nucleotides in this
     bin.  (If a bin has zero G or C nucleotides, then we define its skew as 0.)
     We make these skews cumulative by, starting from the second-from-the-left
-    bin, adding this bin's skew and the skew of the bin exactly to the left of
-    it. This approach is derived from (Grigoriev, 1998).
+    bin, defining this bin's cumulative skew as the sum of its skew and the
+    cumulative skew of the bin exactly to the left of it. This approach is
+    derived from (Grigoriev, 1998).
     """
     fancylog = cli_utils.fancystart(
         "dynam covskew",
