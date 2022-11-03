@@ -2,6 +2,7 @@
 
 <a href="https://github.com/fedarko/strainFlye/actions/workflows/main.yml"><img src="https://github.com/fedarko/strainFlye/actions/workflows/main.yml/badge.svg" alt="strainFlye CI" /></a>
 <a href="https://codecov.io/gh/fedarko/strainFlye"><img src="https://codecov.io/gh/fedarko/strainFlye/branch/main/graph/badge.svg" alt="Code Coverage" /></a>
+<a href="https://anaconda.org/bioconda/strainflye"><img src="https://img.shields.io/conda/vn/bioconda/strainflye.svg?color=43b02a" alt="bioconda" /></a>
 
 strainFlye is a pipeline for calling, analyzing, and phasing rare
 single-nucleotide mutations in metagenome-assembled genomes produced from
@@ -9,7 +10,8 @@ long and accurate reads—for example, PacBio HiFi reads.
 
 The main inputs to strainFlye are 1) reads and 2) contigs.
 However, most steps in the pipeline can be "jumped to" if you already have
-other files prepared (e.g. alignment, mutation calls).
+other files prepared (e.g. an alignment of reads to contigs, or
+existing single-nucleotide mutation calls within contigs).
 
 <img src="https://github.com/fedarko/strainFlye/raw/main/docs/strainflye-pipeline.png" alt="strainFlye pipeline diagram" />
 
@@ -17,30 +19,21 @@ other files prepared (e.g. alignment, mutation calls).
 
 Long story short, strainFlye is an ordinary Python package (currently
 supporting Python 3.6 and 3.7). strainFlye dependends on a few external
-non-Python tools (e.g. minimap2, Prodigal, SAMtools); most of these can be
-installed using [conda](https://conda.io).
+non-Python tools (e.g. minimap2, Prodigal, SAMtools), also.
 
-Assuming that you already have conda installed, the following installation
-instructions should work for most Linux or macOS systems. (However, please feel
-free to open an issue if you encounter any problems.)
+### Installation using conda (recommended)
+
+The simplest way to install strainFlye is by using
+[conda](https://conda.io/). strainFlye is available through the
+[bioconda](https://bioconda.github.io/) channel:
 
 ```bash
-# Download the YAML file describing the conda packages we'll install
-# (if you don't have wget, you could also just download this file manually)
-wget https://raw.githubusercontent.com/fedarko/strainFlye/main/environment.yml
-
-# Create a new conda environment based on this YAML file
-# (by default, it'll be named "strainflye")
-conda env create -f environment.yml
-
-# Activate this conda environment
-conda activate strainflye
-
-# Install the actual strainFlye package
-pip install git+https://github.com/fedarko/strainFlye.git
+conda install -c bioconda strainflye
 ```
 
-strainFlye should be set up as a conda package soon.
+### Installation from source
+
+Please see the development documentation ([`CONTRIBUTING.md`](https://github.com/fedarko/strainFlye/blob/main/CONTRIBUTING.md)) for instructions.
 
 ### Optional: install LJA in order to run `strainFlye smooth assemble`
 

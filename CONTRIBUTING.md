@@ -4,9 +4,9 @@ Thanks for your interest in improving strainFlye's code!
 
 ## Setting up a development environment
 
-These installation instructions are a bit different than those in the README --
-mainly, we'll use `pip install -e` to install the source code in "editable
-mode."
+Assuming that you already have conda installed, the following installation
+instructions should work for most Linux or macOS systems. (However, please feel
+free to open an issue if you encounter any problems.)
 
 First, you should [fork strainFlye](https://docs.github.com/en/get-started/quickstart/fork-a-repo);
 this will make contributing your changes back up to the main branch easier.
@@ -18,7 +18,8 @@ installed):
 # Clone your fork of strainFlye's source code
 git clone https://github.com/your-github-username-goes-here/strainFlye.git
 
-# Create and activate a conda environment, like in Scenario 1
+# Create and activate a conda environment based on the "environment.yml" file
+# (by default, it'll be named "strainflye")
 cd strainFlye
 conda env create -f environment.yml
 conda activate strainflye
