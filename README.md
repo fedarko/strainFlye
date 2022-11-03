@@ -5,7 +5,7 @@
 
 strainFlye is a pipeline for calling, analyzing, and phasing rare
 single-nucleotide mutations in metagenome-assembled genomes produced from
-long and accurate reads (e.g. HiFi sequencing data).
+long and accurate reads—for example, PacBio HiFi reads.
 
 The main inputs to strainFlye are 1) reads and 2) contigs.
 However, most steps in the pipeline can be "jumped to" if you already have
