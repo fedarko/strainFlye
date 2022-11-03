@@ -17,7 +17,8 @@ classifier_str = """
 classifiers = [s.strip() for s in classifier_str.split("\n") if s]
 
 description = (
-    "Pipeline for analyzing rare mutations in metagenome-assembled genomes"
+    "Pipeline for analyzing rare mutations in metagenomes assembled using "
+    "long and accurate reads"
 )
 
 with open("README.md", "r") as f:
