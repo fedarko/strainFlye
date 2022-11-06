@@ -73,11 +73,9 @@ make
 
 ### Command-line usage
 
-If you installed strainFlye using the steps shown above (creating a conda
-environment and installing strainFlye and its dependencies into this
-environment), then you will need to activate this environment in order to use
-strainFlye (e.g. `conda activate strainflye`). You can then use strainFlye like
-any other command-line tool:
+First, make sure you've activated the conda environment into which you
+installed strainFlye. From there, you can use strainFlye like any other
+command-line tool:
 
 <!-- STARTDOCS -->
 ```
