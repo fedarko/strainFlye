@@ -18,8 +18,8 @@ existing single-nucleotide mutation calls within contigs).
 ## Installation
 
 Long story short, strainFlye is an ordinary Python package (currently
-supporting Python 3.6 and 3.7). strainFlye dependends on a few external
-non-Python tools (e.g. minimap2, Prodigal, SAMtools), also.
+supporting Python 3.6 and 3.7). strainFlye depends on a few non-Python tools
+(e.g. minimap2, Prodigal, SAMtools), also.
 
 ### Installation using conda (recommended)
 
@@ -30,6 +30,10 @@ The simplest way to install strainFlye is by using
 ```bash
 conda install -c bioconda strainflye
 ```
+
+(If you run into dependency conflicts when installing strainFlye into an
+existing conda environment, you may want to just create a new conda environment
+and install strainFlye into that.)
 
 ### Installation from source
 
