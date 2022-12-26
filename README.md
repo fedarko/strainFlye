@@ -203,6 +203,28 @@ If you're interested in making changes to strainFlye's code, please see
 [`CONTRIBUTING.md`](https://github.com/fedarko/strainFlye/blob/main/CONTRIBUTING.md)
 for some tips on getting started.
 
+## Publication and citation
+
+**An article describing strainFlye is available in _Genome Research_
+[at this link](https://genome.cshlp.org/content/32/11-12/2119).** If you use
+strainFlye in your work, please cite it! The BibTeX for this article is:
+
+```
+@article{fedarko2022,
+  author={Fedarko, Marcus W and Kolmogorov, Mikhail and Pevzner, Pavel A},
+  title={Analyzing rare mutations in metagenomes assembled using long and accurate reads},
+  journal={Genome Research},
+  publisher={Cold Spring Harbor Laboratory Press},
+  volume={32},
+  number={11-12},
+  pages={2119--2133},
+  year={2022},
+  doi={10.1101/gr.276917.122},
+  url={http://genome.cshlp.org/content/32/11-12/2119.abstract},
+  eprint={http://genome.cshlp.org/content/32/11-12/2119.full.pdf+html}
+}
+```
+
 ## Miscellaneous notes about minor details you probably don't need to care about
 
 ### Shell injection (only relevant if this is hosted on a web server)
