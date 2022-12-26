@@ -227,9 +227,10 @@ strainFlye in your work, please cite it! The BibTeX for this article is:
 
 ### Citing "wrapped tools" within strainFlye
 
-- If you use `strainFlye align`, please also cite minimap2 ([Li
-  2018](https://academic.oup.com/bioinformatics/article/34/18/3094/4994778)),
+- If you use `strainFlye align`, please also cite minimap2 ([Li 2018](https://academic.oup.com/bioinformatics/article/34/18/3094/4994778)),
   which is used by this strainFlye command to perform alignment.
+  (Depending on the version of minimap2 you use, you may also want to cite
+  [Li 2021](https://academic.oup.com/bioinformatics/article/37/23/4572/6384570).)
 
 - If you use `strainFlye smooth assemble`, please also cite LJA
   ([Bankevich _et al._, 2022](https://www.nature.com/articles/s41587-022-01220-6)),
