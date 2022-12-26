@@ -225,6 +225,16 @@ strainFlye in your work, please cite it! The BibTeX for this article is:
 }
 ```
 
+### Citing "wrapped tools" within strainFlye
+
+- If you use `strainFlye align`, please also cite minimap2 ([Li
+  2018](https://academic.oup.com/bioinformatics/article/34/18/3094/4994778)),
+  which is used by this strainFlye command to perform alignment.
+
+- If you use `strainFlye smooth assemble`, please also cite LJA
+  ([Bankevich _et al._, 2022](https://www.nature.com/articles/s41587-022-01220-6)),
+  which is used by this strainFlye command to perform assembly.
+
 ## Miscellaneous notes about minor details you probably don't need to care about
 
 ### Shell injection (only relevant if this is hosted on a web server)
