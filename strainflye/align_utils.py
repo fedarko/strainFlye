@@ -737,7 +737,7 @@ def run(
     fasta_name2len = fasta_utils.get_name2len(contigs, min_num_contigs=2)
     fancylog(
         (
-            "Looks good. The FASTA file describes {len(fasta_name2len):,} "
+            f"Looks good. The FASTA file describes {len(fasta_name2len):,} "
             "contigs."
         ),
         prefix="",
