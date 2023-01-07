@@ -273,3 +273,7 @@ also based on this GFA file.
 
 ### Tutorial dataset
 The strainFlye tutorial (linked above, and located in `docs/`) uses the "SheepGut" dataset shown in the strainFlye paper. This dataset was previously described in [Kolmogorov _et al._, 2020](https://www.nature.com/articles/s41592-020-00971-x) and [Bickhart & Kolmogorov _et al._, 2022](https://www.nature.com/articles/s41587-021-01130-z).
+
+## Contact
+
+If you have any questions, suggestions, comments, etc. about strainFlye, please feel free to [open an issue](https://github.com/fedarko/strainFlye/issues) in this repository!
