@@ -6,7 +6,14 @@ import subprocess
 import pysam
 from itertools import combinations
 from collections import defaultdict
-from . import graph_utils, fasta_utils, misc_utils, cli_utils, bam_utils
+from . import (
+    graph_utils,
+    fasta_utils,
+    misc_utils,
+    cli_utils,
+    bam_utils,
+    config,
+)
 from .errors import ParameterError, SequencingDataError, WeirdError
 
 
@@ -732,16 +739,19 @@ def run(
 
     fancylog("Loading and checking contig information...")
     # Note that get_name2len() does some sanity checking on the FASTA
-    # Also the < 2 contigs check is needed due to the target/decoy approach
-    # stuff requiring at least two contigs
-    fasta_name2len = fasta_utils.get_name2len(contigs, min_num_contigs=2)
+    fasta_name2len = fasta_utils.get_name2len(contigs)
+    num_contigs = len(fasta_name2len)
     fancylog(
-        (
-            f"Looks good. The FASTA file describes {len(fasta_name2len):,} "
-            "contigs."
-        ),
+        f"Looks good. The FASTA file describes {num_contigs:,} contigs.",
         prefix="",
     )
+    # previously, we threw an error if we saw a FASTA with just one contig; now
+    # we allow it, since you could imagine a case where someone wants to use
+    # strainFlye's alignment code without the mutation calling/TDA stuff. (It's
+    # me. I'm the schmuck who wants to do that now, in the year of our lord
+    # 2023.)
+    if num_contigs == 1:
+        fancylog(config.ONE_CONTIG_WARNING, prefix="")
 
     # Sanity-check that the GFA segments are identical to the FASTA contigs. If
     # not, we've got problems (in this case, it's probably easiest to just not
