@@ -23,7 +23,7 @@ flowchart LR
     classDef pgm fill:#88bbff,stroke:#3333aa
     classDef ext fill:#ffbb88,stroke:#755237
     0("Contigs\n(FASTA)") --> A:::pgm;
-    1("Reads\n((gzipped) FASTA/FASTQ)") ---> A
+    1("Reads\n((gzipped) FASTA or FASTQ)") ---> A
     2("Assembly graph\n(GFA 1)") -.->|"(Optional)"| A
     A[strainFlye align] --> 3("Alignment of\nreads to contigs\n(Indexed BAM)")
     3 --> C["strainFlye call p-mutation\n(Call mutations using frequencies)"]:::pgm
