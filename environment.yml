@@ -23,7 +23,7 @@ dependencies:
 
     - samtools >= 1.7
 
-    - bcftools < 1.17
+    - bcftools
 
     # Probably a later version will be installed; this is just the minimap2
     # version that added the asm20 preset. (If we want to use the more recently
@@ -34,7 +34,7 @@ dependencies:
     # also, we install pysam(stats) via conda, rather than pip, to simplify
     # installation (making it easier for pysam to "see" samtools) --
     # https://stackoverflow.com/a/60197930
-    - pysam < 0.16
+    - pysam > 0.15, < 0.16
 
     - pysamstats
 
