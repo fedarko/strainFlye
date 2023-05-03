@@ -23,7 +23,7 @@ dependencies:
 
     - samtools >= 1.7
 
-    - bcftools
+    - bcftools < 1.17
 
     # Probably a later version will be installed; this is just the minimap2
     # version that added the asm20 preset. (If we want to use the more recently
