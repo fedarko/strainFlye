@@ -13,6 +13,15 @@ DEFAULT_MM2_PARAMS = "-ax asm20 --secondary=no -I 8g --MD"
 # Default parameters for LJA for "strainFlye smooth assemble"
 DEFAULT_LJA_PARAMS = "--simpleec --Cov-threshold 10"
 
+# Output by align and call -- hopefully prevents the user from wasting time
+# if they for some reason want to do FDR estimation but only have 1 contig
+ONE_CONTIG_WARNING = (
+    'Warning: FASTA file only describes 1 contig. This means the "strainFlye '
+    'fdr estimate" command (an optional step later in the pipeline) will '
+    "not be usable with this FASTA file (it requires a FASTA file with at "
+    "least 2 contigs)."
+)
+
 # Rationale: this essentially the power set of (CP2, Tv, Nonsyn, Nonsense).
 # We ignore:
 #

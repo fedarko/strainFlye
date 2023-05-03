@@ -4,13 +4,13 @@
 import os
 import time
 import pysamstats
-from . import config
 from .errors import ParameterError, WeirdError
 from strainflye import (
     __version__,
     misc_utils,
     cli_utils,
     bcf_utils,
+    config,
 )
 
 
@@ -327,14 +327,13 @@ def run(
     """
     using_p = check_p_r(min_p, min_r)
 
-    # load_fasta_and_bam() will throw an error if there are < 2 contigs in the
-    # FASTA. The naive calling stuff requires the use of a decoy contig, so
-    # this is an ok restriction to enforce here -- I don't think this stuff
-    # would be super useful with just one contig (although if you really do
-    # only have one contig and want to use this script then let me know)
+    # We allow this to run with 1 contig; the FDR estimation is where we'll
+    # need to throw errors if there are < 2 contigs in the FASTA.
     contig_name2len, bf, num_fasta_contigs = misc_utils.load_fasta_and_bam(
-        contigs, bam, fancylog, min_num_contigs=2
+        contigs, bam, fancylog
     )
+    if len(contig_name2len) == 1:
+        fancylog(config.ONE_CONTIG_WARNING, prefix="")
 
     # Create the output directory (if it doesn't already exist) and determine
     # the output filepaths within this directory.
