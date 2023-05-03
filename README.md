@@ -13,7 +13,55 @@ However, most steps in the pipeline can be "jumped to" if you already have
 other files prepared (e.g. an alignment of reads to contigs, or
 existing single-nucleotide mutation calls within contigs).
 
-<img src="https://github.com/fedarko/strainFlye/raw/main/docs/strainflye-pipeline.png" alt="strainFlye pipeline diagram" />
+```mermaid
+flowchart LR
+    classDef pgm fill:#88bbff,stroke:#3333aa
+    classDef ext fill:#ffbb88,stroke:#755237
+    0(Contigs) --> A:::pgm;
+    1(Reads) ---> A
+    2("Assembly graph") -.->|"(Optional)"| A
+    A[strainFlye align] --> 3(Alignment of\nreads to contigs)
+    3 --> C["strainFlye call p-mutation\n(Call mutations using frequencies)"]:::pgm
+    0 --> C
+    3 --> D["strainFlye call r-mutation\n(Call mutations using read counts)"]:::pgm
+    0 --> D
+    C --> 4(BCF file:\ncalled mutations)
+    C --> 5(Diversity indices)
+    D --> 4
+    D --> 5
+    0 --> E[strainFlye fdr estimate]:::pgm
+    3 --> E
+    4 --> E
+    5 -..->|"(Optional)"| E
+    E --> 6(FDR estimates)
+    E --> 7(# mutations / Mb)
+    7 --> Z["Plotting FDR curves\n(see tutorial)"]:::ext
+    6 --> Z
+    6 --> F[strainFlye fdr fix]:::pgm
+    4 --> F --> 11("Filtered BCF file:\nmutations with fixed FDR")
+    11 --> G[strainFlye spot hot-features]:::pgm
+    8("GFF3 file:\ncontig #quot;features#quot;") --> G
+    G --> 9(Hotspot features)
+    11 --> H[strainFlye spot cold-gaps]:::pgm --> 10("Coldspot gaps")
+    4 -.->|If desired, you can skip FDR estimation and fixing and use the unfiltered BCF file for downstream analyses| 11
+    11 --> I[strainFlye smooth create]:::pgm --> 12("Smoothed and virtual reads")
+    0 --> I
+    3 --> I
+    5 -.->|"(Optional)"| I
+    12 --> J[strainFlye smooth assemble]:::pgm --> 13("LJA assemblies")
+    11 --> K
+    0 --> K[strainFlye link nt]:::pgm --> 14("Nucleotide (co-)occurrence\ninformation")
+    3 --> K
+    14 --> L[strainFlye link graph]:::pgm --> 15("Link graphs")
+    0 --> M[strainFlye matrix count]:::pgm
+    3 --> M
+    8 --> M
+    M --> 16("3-mer count information")
+    16 --> N[strainFlye matrix fill]:::pgm --> 17("Mutation matrices")
+    0 --> O[strainFlye dynam covskew]:::pgm --> 18("Coverage and skew statistics")
+    3 --> O
+    2 --> P[strainFlye utils gfa-to-fasta]:::pgm --> 0
+```
 
 ## Installation
 
