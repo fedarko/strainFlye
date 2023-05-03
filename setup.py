@@ -63,7 +63,10 @@ setup(
             "pytest >= 4.2",
             "pytest-cov >= 2.0",
             "flake8",
-            "black",
+            # black 22.10 stopped supporting python 3.6; ideally we'd adjust
+            # our CI to use later versions of black on the 3.7 build, but as a
+            # hacky solution pinning black is fine
+            "black < 22.10",
             # This isn't a hard version requirement -- I'm not sure what the
             # absolute minimum version is (maybe lower, probably not higher).
             # This should be good enough. (Needed for tutorial notebooks.)
