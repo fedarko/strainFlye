@@ -43,14 +43,14 @@ jobs:
       - name: Install strainFlye (and pip dependencies)
         run: conda run -n strainflye pip install -e .[dev]
 
-      - name: Lint and stylecheck
-        run: conda run -n strainflye make stylecheck
-
       - name: Run tests
         run: conda run -n strainflye make test
 
       - name: Check that the strainFlye CLI seems good
         run: conda run -n strainflye strainFlye
+
+      - name: Lint and stylecheck
+        run: conda run -n strainflye make stylecheck
 
       - name: Upload code coverage information to Codecov
         uses: codecov/codecov-action@v2
