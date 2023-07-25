@@ -6,7 +6,7 @@ from strainflye import __version__
 
 classifier_str = """
     Development Status :: 3 - Alpha
-    License :: OSI Approved :: MIT License
+    License :: OSI Approved :: BSD License
     Topic :: Scientific/Engineering
     Topic :: Scientific/Engineering :: Bio-Informatics
     Programming Language :: Python :: 3 :: Only
