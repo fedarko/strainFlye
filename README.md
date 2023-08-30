@@ -13,7 +13,7 @@ However, most steps in the pipeline can be "jumped to" if you already have
 other files prepared (e.g. an alignment of reads to contigs, or
 existing single-nucleotide mutation calls within contigs). See below for a
 flow chart of strainFlye's pipeline (created with
-[Mermaid](https://github.com/mermaid-js/mermaid)). If you have trouble viewing
+[Mermaid](https://github.com/mermaid-js/mermaid)); if you have trouble viewing
 this flow chart, [here are some other ways to view
 it](https://github.com/fedarko/strainFlye/issues/56#issuecomment-1532479959).
 
