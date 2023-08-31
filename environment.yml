@@ -41,3 +41,7 @@ dependencies:
     - pysamstats
 
     - prodigal
+
+    # Installing this with pip gives errors (at least as of Summer 2023), so we
+    # include it here to fix the build
+    - scikit-bio
