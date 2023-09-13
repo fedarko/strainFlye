@@ -1,6 +1,9 @@
 # Based roughly on the main.yml and standalone.yml workflows in
 # https://github.com/biocore/empress/blob/master/.github/workflows/,
-# and on https://docs.github.com/en/actions/quickstart
+# https://docs.github.com/en/actions/quickstart, and
+# https://github.com/fedarko/wotplot/blob/ce702b63bf790c41d02b0493e3a7eebda6fcec70/.github/workflows/main.yml
+# (which i based off of this file originally, so it's an ouroboros of me
+# copying code from myself because i can never remember how yaml works)
 name: strainFlye CI
 on: [push, pull_request]
 jobs:
@@ -22,35 +25,29 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v3
 
-      # https://github.com/conda-incubator/setup-miniconda#example-3-other-options
-      - name: Install conda dependencies
-        uses: conda-incubator/setup-miniconda@v2
+      # https://github.com/mamba-org/setup-micromamba
+      - name: Install conda dependencies with mamba
+        uses: mamba-org/setup-micromamba@v1
         with:
-          activate-environment: strainflye
           environment-file: environment.yml
-          python-version: ${{ matrix.python-version }}
+          create-args: python=${{ matrix.python-version }}
+          init-shell: bash
 
-      # We need to keep saying "run this command from within the 'strainflye'
-      # conda environment", and we can do this easily by prefixing commands
-      # with "conda run -n" (as done in EMPress' main.yml file, linked above).
-      # I don't know of a more elegant way to do this; I do know that
-      # installing everything into the "base" environment (as done in, e.g.,
-      # https://autobencoder.com/2020-08-24-conda-actions) would remove the
-      # need to keep re-activating the strainflye environment, but it'd have
-      # the effect of polluting the base environment (which is not ideal
-      # practice, according to
-      # https://github.com/marketplace/actions/setup-miniconda#environment-activation).
       - name: Install strainFlye (and pip dependencies)
-        run: conda run -n strainflye pip install -e .[dev]
-
-      - name: Run tests
-        run: conda run -n strainflye make test
-
-      - name: Check that the strainFlye CLI seems good
-        run: conda run -n strainflye strainFlye
+        run: pip install -e .[dev]
+        shell: bash -el {0}
 
       - name: Lint and stylecheck
-        run: conda run -n strainflye make stylecheck
+        run: make stylecheck
+        shell: bash -el {0}
+
+      - name: Run tests
+        run: make test
+        shell: bash -el {0}
+
+      - name: Check that the strainFlye CLI seems good
+        run: strainFlye
+        shell: bash -el {0}
 
       - name: Upload code coverage information to Codecov
         uses: codecov/codecov-action@v2
