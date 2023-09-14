@@ -82,27 +82,29 @@ strainFlye is available through the [bioconda](https://bioconda.github.io/)
 channel:
 
 <!-- using HTML table syntax to work nicely with code blocks; see
-https://gist.github.com/MarcoEidinger/c0f0583f19baca0a8f33bcded644be41 -->
+https://gist.github.com/MarcoEidinger/c0f0583f19baca0a8f33bcded644be41
+(also i wanted to indent the HTML tags but github markdown doesn't seem to like
+that, so that's why my HTML code here looks uglier than usual :() -->
 <table>
-  <tr>
-    <th>Using conda</th><th>Using mamba</th>
-  </tr>
-  <tr>
-    <td>
+<tr>
+<th>Using conda</th><th>Using mamba</th>
+</tr>
+<tr>
+<td>
 
 ```bash
 conda install -c bioconda strainflye
 ```
 
-    </td>
-    <td>
+</td>
+<td>
 
 ```bash
 mamba install -c bioconda strainflye
 ```
 
-    </td>
-  </tr>
+</td>
+</tr>
 </table>
 
 
