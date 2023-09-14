@@ -38,7 +38,7 @@ setup(
     url="https://github.com/fedarko/strainFlye",
     packages=find_packages(),
     install_requires=[
-        "scikit-bio >= 0.5.8",
+        "scikit-bio",
         "networkx",
         # Also not a hard requirement.
         "pandas >= 1.0",
