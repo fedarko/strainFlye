@@ -28,9 +28,19 @@ conda activate strainflye
 pip install -e .[dev]
 ```
 
+### Sidenote: using mamba instead of conda
+
+You may prefer to create the environment using
+[mamba](https://mamba.readthedocs.io) instead of conda, since mamba can be much
+faster. As of writing, probably the easiest way to do this is to create an
+empty environment and then
+[update it based on `environment.yml`](https://github.com/mamba-org/mamba/issues/633#issuecomment-812272143).
+
+### Sidenote: installing LJA in order to use `strainFlye smooth assemble`
+
 If you want to work on `strainFlye smooth assemble` then you may also want to
-install [LJA](https://github.com/AntonBankevich/LJA), as discussed in the
-strainFlye README. (That said, as of writing strainFlye's tests do not rely on
+install [LJA](https://github.com/AntonBankevich/LJA), as is discussed in the
+strainFlye README. (That said: as of writing strainFlye's tests do not rely on
 LJA being installed, so this step is optional.)
 
 ## Development commands

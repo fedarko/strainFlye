@@ -2,11 +2,11 @@ name: strainflye
 channels:
     - conda-forge
     - bioconda
-    - defaults
+    - nodefaults
 dependencies:
     # HACK to accommodate pysam / pysamstats for now -- see
     # https://github.com/fedarko/strainFlye/issues/8
-    - python >= 3.6, <= 3.7
+    - python >= 3.6, < 3.8
 
     # Based on what pysam and pysamstats use currently -- see
     # https://github.com/pysam-developers/pysam/blob/master/requirements.txt

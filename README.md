@@ -77,16 +77,26 @@ supporting Python 3.6 and 3.7). strainFlye depends on a few non-Python tools
 ### Installation using conda (recommended)
 
 The simplest way to install strainFlye is by using
-[conda](https://conda.io/). strainFlye is available through the
-[bioconda](https://bioconda.github.io/) channel:
+[conda](https://conda.io/) (or [mamba](https://mamba.readthedocs.io)).
+strainFlye is available through the [bioconda](https://bioconda.github.io/)
+channel:
 
 ```bash
 conda install -c bioconda strainflye
 ```
 
-(If you run into dependency conflicts when installing strainFlye into an
-existing conda environment, you may want to just create a new conda environment
-and install strainFlye into that.)
+#### Sidenote: troubleshooting installation problems
+
+- If you run into dependency conflicts when installing strainFlye into an
+  existing conda environment, you may want to just create a new conda environment
+  and install strainFlye into that. (See the "workaround solution" given in
+  [this issue](https://github.com/fedarko/strainFlye/issues/70) for an
+  example.)
+
+- If that still doesn't work, you can try installing from source -- see below.
+
+- And if _that_ doesn't work, no worries -- installing this stuff can be finicky.
+  Feel free to open an issue and I'll try to help out.
 
 ### Installation from source
 
