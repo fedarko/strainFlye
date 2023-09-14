@@ -85,7 +85,7 @@ channel:
 conda install -c bioconda strainflye
 ```
 
-#### Sidenote: troubleshooting installation
+#### Sidenote: troubleshooting installation problems
 
 - If you run into dependency conflicts when installing strainFlye into an
   existing conda environment, you may want to just create a new conda environment
