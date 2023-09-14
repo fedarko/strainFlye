@@ -36,7 +36,7 @@ faster. As of writing, probably the easiest way to do this is to create an
 empty environment and then
 [update it based on `environment.yml`](https://github.com/mamba-org/mamba/issues/633#issuecomment-812272143).
 
-### Sidenote: installing LJA for `strainFlye smooth assemble`
+### Sidenote: installing LJA in order to use `strainFlye smooth assemble`
 
 If you want to work on `strainFlye smooth assemble` then you may also want to
 install [LJA](https://github.com/AntonBankevich/LJA), as is discussed in the
