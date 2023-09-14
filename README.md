@@ -89,7 +89,9 @@ conda install -c bioconda strainflye
 
 - If you run into dependency conflicts when installing strainFlye into an
   existing conda environment, you may want to just create a new conda environment
-  and install strainFlye into that.
+  and install strainFlye into that. (See the "workaround solution" given in
+  [this issue](https://github.com/fedarko/strainFlye/issues/70) for an
+  example.)
 
 - If that still doesn't work, you can try installing from source -- see below.
 
