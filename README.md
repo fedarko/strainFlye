@@ -19,7 +19,7 @@ it](https://github.com/fedarko/strainFlye/issues/56#issuecomment-1532479959).
 
 ```mermaid
 flowchart LR
-    classDef art fill:#bbff88,stroke:#33aa33,color:black
+    classDef art fill:#3fc73f,stroke:#086408,color:black
     classDef pgm fill:#88bbff,stroke:#3333aa,color:black
     classDef ext fill:#ffbb88,stroke:#755237,color:black
     0(("Contigs\n(FASTA)")):::art --> A:::pgm;
