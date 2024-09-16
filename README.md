@@ -22,50 +22,51 @@ flowchart LR
     classDef art fill:#acfeb1,stroke:#086408,color:black
     classDef pgm fill:#88bbff,stroke:#3333aa,color:black
     classDef ext fill:#ffbb88,stroke:#755237,color:black
-    0(("Contigs\n(FASTA)")):::art --> A:::pgm;
-    1(("Reads\n((gzipped) FASTA\nor FASTQ)")):::art ---> A
-    2(("Assembly graph\n(GFA 1)")):::art -.->|"(Optional)"| A
-    A[strainFlye align] --> 3(("Alignment of\nreads to contigs\n(Indexed BAM)")):::art
-    3 --> C["strainFlye call p-mutation\n(Call mutations using frequencies)"]:::pgm
+    0(("Contigs<br/>(FASTA)")):::art --> A:::pgm;
+    1(("Reads<br/>((gzipped) FASTA<br/>or FASTQ)")):::art ---> A
+    2(("Assembly graph<br/>(GFA 1)")):::art -.->|"(Optional)"| A
+    A[strainFlye align] --> 3(("Alignment of<br/>reads to contigs<br/>(Indexed BAM)")):::art
+    3 --> C["strainFlye call p-mutation<br/>(Call mutations<br/>using frequencies)"]:::pgm
     0 --> C
-    3 --> D["strainFlye call r-mutation\n(Call mutations using read counts)"]:::pgm
+    3 --> D["strainFlye call r-mutation<br/>(Call mutations<br/>using read counts)"]:::pgm
     0 --> D
-    C --> 4(("Called mutations\n(Indexed BCF)")):::art
-    C --> 5(("Diversity indices\n(TSV)")):::art
+    C --> 4(("Called mutations<br/>(Indexed BCF)")):::art
+    C --> 5(("Diversity indices<br/>(TSV)")):::art
     D --> 4
     D --> 5
     0 --> E[strainFlye fdr estimate]:::pgm
     3 --> E
     4 --> E
     5 -..->|"(Optional)"| E
-    E --> 6(("FDR estimates\n(TSV)")):::art
-    E --> 7(("# mutations / Mb\n(TSV)")):::art
-    7 --> Z{"Plotting FDR curves\n(see tutorial)"}:::ext
+    E --> 6(("FDR estimates<br/>(TSV)")):::art
+    E --> 7(("Number of mutations / Mb<br/>(TSV)")):::art
+    7 --> Z{"Plotting FDR curves<br/>(see tutorial)"}:::ext
     6 --> Z
     6 --> F[strainFlye fdr fix]:::pgm
-    4 --> F --> 11(("Mutations with\nfixed FDR\n(Indexed BCF)")):::art
+    4 --> F --> 11(("Mutations with<br/>fixed FDR<br/>(Indexed BCF)")):::art
     11 --> G[strainFlye spot hot-features]:::pgm
-    8(("Contig #quot;features#quot;\n[probably genes]\n(GFF3)")):::art --> G
-    G --> 9(("Hotspot features\n(TSV)")):::art
-    11 --> H[strainFlye spot cold-gaps]:::pgm --> 10(("Coldspot gaps\n(TSV)")):::art
+    8(("Contig #quot;features#quot;<br/>[probably genes]<br/>(GFF3)")):::art --> G
+    G --> 9(("Hotspot features<br/>(TSV)")):::art
+    11 --> H[strainFlye spot cold-gaps]:::pgm --> 10(("Coldspot gaps<br/>(TSV)")):::art
     4 -.->|If desired, you can skip FDR estimation and fixing and use the unfiltered BCF file for downstream analyses| 11
-    11 --> I[strainFlye smooth create]:::pgm --> 12(("Smoothed and\nvirtual reads\n(gzipped FASTA)")):::art
+    11 --> I[strainFlye smooth create]:::pgm --> 12(("Smoothed and<br/>virtual reads<br/>(gzipped FASTA)")):::art
     0 --> I
     3 --> I
     5 -.->|"(Optional)"| I
     12 --> J[strainFlye smooth assemble]:::pgm --> 13(("LJA assemblies")):::art
     11 --> K
-    0 --> K[strainFlye link nt]:::pgm --> 14(("Nucleotide\n(co-)occurrence\ninformation\n(Pickle)")):::art
+    0 --> K[strainFlye link nt]:::pgm --> 14(("Nucleotide<br/>(co-)occurrence<br/>information<br/>(Pickle)")):::art
     3 --> K
-    14 --> L[strainFlye link graph]:::pgm --> 15(("Link graphs\n(DOT or Pickle)")):::art
+    14 --> L[strainFlye link graph]:::pgm --> 15(("Link graphs<br/>(DOT or Pickle)")):::art
     0 --> M[strainFlye matrix count]:::pgm
     3 --> M
     8 ---> M
-    M --> 16(("3-mer count\ninformation\n(Pickle)")):::art
-    16 --> N[strainFlye matrix fill]:::pgm --> 17(("Mutation matrices\n(TSV or JSON)")):::art
-    0 --> O[strainFlye dynam covskew]:::pgm --> 18(("Coverage and\nskew statistics\n(TSV)")):::art
+    M --> 16(("3-mer count<br/>information<br/>(Pickle)")):::art
+    16 --> N[strainFlye matrix fill]:::pgm --> 17(("Mutation matrices<br/>(TSV or JSON)")):::art
+    0 --> O[strainFlye dynam covskew]:::pgm --> 18(("Coverage and<br/>skew statistics<br/>(TSV)")):::art
     3 --> O
     2 --> P[strainFlye utils gfa-to-fasta]:::pgm --> 0
+
 ```
 
 ## Installation
