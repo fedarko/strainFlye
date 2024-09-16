@@ -39,7 +39,7 @@ flowchart LR
     4 --> E
     5 -..->|"(Optional)"| E
     E --> 6(("FDR estimates<br/>(TSV)")):::art
-    E --> 7(("Number of mutations / Mb<br/>(TSV)")):::art
+    E --> 7(("Number of<br/>mutations / Mb<br/>(TSV)")):::art
     7 --> Z{"Plotting FDR curves<br/>(see tutorial)"}:::ext
     6 --> Z
     6 --> F[strainFlye fdr fix]:::pgm
